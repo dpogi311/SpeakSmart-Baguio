@@ -34,7 +34,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="SPEAK SMART BAGUIO"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/cyan_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.08" />
@@ -44,7 +44,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="Word Details"
-                    android:textColor="@color/text_light"
+                    android:textColor="@color/text_primary"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -59,7 +59,7 @@
                 android:padding="12dp"
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_back"
-                app:tint="@color/accent_teal" />
+                app:tint="@color/cyan_primary" />
 
         </LinearLayout>
 
@@ -68,10 +68,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="24dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/primary_element"
+            app:strokeColor="@color/cyan_deep"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -84,7 +84,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="ILOKANO WORD"
-                    android:textColor="@color/hint_text"
+                    android:textColor="@color/text_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.12" />
@@ -103,12 +103,11 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:paddingEnd="8dp"
-                        android:textColor="@color/accent_teal"
+                        android:textColor="@color/cyan_primary"
                         android:textSize="30sp"
                         android:textStyle="bold"
                         android:breakStrategy="high_quality"
                         android:lineSpacingExtra="2dp" />
-
 
                     <ImageButton
                         android:id="@+id/btnSpeakWord"
@@ -124,8 +123,7 @@
                         android:focusable="true"
                         android:stateListAnimator="@null"
                         android:tooltipText="Listen to pronunciation"
-                        app:tint="@color/accent_teal" />
-
+                        app:tint="@color/cyan_primary" />
 
                 </LinearLayout>
 
@@ -133,7 +131,7 @@
                     android:layout_width="48dp"
                     android:layout_height="3dp"
                     android:layout_marginTop="18dp"
-                    android:background="@color/primary_teal" />
+                    android:background="@color/cyan_primary" />
 
                 <!-- PART OF SPEECH -->
                 <TextView
@@ -146,7 +144,7 @@
                     android:paddingEnd="12dp"
                     android:paddingTop="7dp"
                     android:paddingBottom="7dp"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/cyan_secondary"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
@@ -156,7 +154,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:textColor="@color/hint_text"
+                    android:textColor="@color/text_secondary"
                     android:textSize="14sp" />
 
             </LinearLayout>
@@ -169,7 +167,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
             android:text="Translations"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="21sp"
             android:textStyle="bold" />
 
@@ -178,7 +176,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
             android:text="Understand the word in both languages."
-            android:textColor="@color/hint_text"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp" />
 
         <!-- ENGLISH CARD -->
@@ -186,10 +184,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/primary_element"
+            app:strokeColor="@color/cyan_deep"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -207,14 +205,14 @@
                     <View
                         android:layout_width="4dp"
                         android:layout_height="20dp"
-                        android:background="@color/primary_teal" />
+                        android:background="@color/cyan_primary" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="10dp"
                         android:text="ENGLISH"
-                        android:textColor="@color/accent_teal"
+                        android:textColor="@color/cyan_secondary"
                         android:textSize="12sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.10" />
@@ -226,7 +224,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:textColor="@color/text_light"
+                    android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:lineSpacingExtra="3dp"
                     android:breakStrategy="high_quality" />
@@ -240,10 +238,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/primary_element"
+            app:strokeColor="@color/cyan_deep"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -261,14 +259,14 @@
                     <View
                         android:layout_width="4dp"
                         android:layout_height="20dp"
-                        android:background="@color/primary_teal" />
+                        android:background="@color/cyan_primary" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="10dp"
                         android:text="TAGALOG"
-                        android:textColor="@color/accent_teal"
+                        android:textColor="@color/cyan_secondary"
                         android:textSize="12sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.10" />
@@ -280,7 +278,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:textColor="@color/text_light"
+                    android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:lineSpacingExtra="3dp"
                     android:breakStrategy="high_quality" />
@@ -295,7 +293,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
             android:text="Meaning &amp; Definition"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="21sp"
             android:textStyle="bold" />
 
@@ -304,7 +302,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
             android:text="Learn more about the meaning of this word."
-            android:textColor="@color/hint_text"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp" />
 
         <!-- DEFINITION CARD -->
@@ -312,10 +310,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/primary_element"
+            app:strokeColor="@color/cyan_deep"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -328,7 +326,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="DEFINITION"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/cyan_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.10" />
@@ -338,7 +336,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:textColor="@color/text_light"
+                    android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:lineSpacingExtra="5dp"
                     android:breakStrategy="high_quality" />
@@ -347,12 +345,9 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- FOOTER -->
-
-        <!-- MATCHING HOME SCREEN FOOTER -->
+        <!-- APP FOOTER -->
         <include
             layout="@layout/view_app_footer" />
-
 
     </LinearLayout>
 

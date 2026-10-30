@@ -20,14 +20,12 @@
         android:paddingEnd="22dp"
         android:paddingBottom="24dp">
 
-        <!-- ==========================================
-             APP BRANDING
-             ========================================== -->
+        <!-- APP BRANDING -->
 
         <ImageView
             android:id="@+id/homeLogo"
-            android:layout_width="112dp"
-            android:layout_height="112dp"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="10dp"
             android:contentDescription="Speak Smart Baguio Logo"
@@ -40,8 +38,8 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:text="Speak Smart Baguio"
-            android:textColor="@color/text_light"
-            android:textSize="28sp"
+            android:textColor="@color/cyan_primary"
+            android:textSize="26sp"
             android:textStyle="bold"
             android:fontFamily="sans"
             android:letterSpacing="0.01" />
@@ -50,106 +48,79 @@
             android:id="@+id/homeSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="4dp"
             android:gravity="center"
             android:text="Your Ilokano Language Companion"
-            android:textColor="@color/light_gray"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp"
             android:lineSpacingExtra="2dp" />
 
-        <!-- ==========================================
-             WELCOME BANNER
-             ========================================== -->
-
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/homeWelcomeCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="26dp"
-            app:cardBackgroundColor="@color/primary_element"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:strokeColor="#6657CFC3"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="YOUR JOURNEY STARTS HERE"
-                    android:textColor="@color/accent_teal"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.12" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Discover the Ilokano language."
-                    android:textColor="@color/text_light"
-                    android:textSize="23sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
-                    android:text="Translate words, explore meanings, and learn everyday phrases to connect with the people and culture of Baguio."
-                    android:textColor="@color/light_gray"
-                    android:textSize="14sp"
-                    android:lineSpacingExtra="3dp" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- ==========================================
-             CONNECTION AND SYNC STATUS
-             Separate card below the welcome banner
-             ========================================== -->
+        <!-- CONNECTION AND SYNC STATUS -->
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/homeSyncStatusCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/accent_teal"
+            app:cardBackgroundColor="@color/app_surface"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/border_cyan"
             app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp">
+                android:padding="16dp">
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="CONNECTION &amp; SYNC"
-                    android:textColor="@color/text_light"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.08" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
 
-                <TextView
-                    android:id="@+id/tvConnectionStatus"
+                    <TextView
+                        android:id="@+id/tvConnectionStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Checking connection..."
+                        android:textColor="@color/cyan_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <!-- RETRY SYNC BUTTON -->
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRetrySync"
+                        style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:insetLeft="0dp"
+                        android:insetTop="0dp"
+                        android:insetRight="0dp"
+                        android:insetBottom="0dp"
+                        android:padding="0dp"
+                        android:contentDescription="Retry Sync"
+                        app:backgroundTint="@color/cyan_primary"
+                        app:cornerRadius="20dp"
+                        app:icon="@drawable/ic_sync"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconTint="@color/text_on_cyan" />
+
+                </LinearLayout>
+
+                <ProgressBar
+                    android:id="@+id/progressSync"
+                    style="?android:attr/progressBarStyleHorizontal"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Checking connection..."
-                    android:textColor="@color/accent_teal"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                    android:layout_height="4dp"
+                    android:layout_marginTop="8dp"
+                    android:indeterminate="true"
+                    android:progressTint="@color/cyan_primary"
+                    android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/tvSyncStatus"
@@ -157,55 +128,84 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="Preparing synchronization status..."
-                    android:textColor="@color/text_light"
-                    android:textSize="14sp"
-                    android:lineSpacingExtra="3dp" />
-
-                <ProgressBar
-                    android:id="@+id/progressSync"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="4dp"
-                    android:layout_marginTop="14dp"
-                    android:indeterminate="true"
-                    android:visibility="gone" />
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="2dp" />
 
                 <TextView
                     android:id="@+id/tvLastSync"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="4dp"
                     android:text="Last successful sync: Not yet synced"
-                    android:textColor="@color/hint_text"
-                    android:textSize="12sp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnRetrySync"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="Retry Sync"
-                    android:textAllCaps="false"
-                    android:textColor="@android:color/white"
-                    app:backgroundTint="@color/primary_teal"
-                    app:cornerRadius="12dp" />
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp" />
 
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- ==========================================
-             LEARNING TOOLS SECTION
-             ========================================== -->
+        <!-- WELCOME BANNER -->
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/homeWelcomeCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardBackgroundColor="@color/app_surface_elevated"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/cyan_deep"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="YOUR JOURNEY STARTS HERE"
+                    android:textColor="@color/cyan_primary"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.12" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Discover the Ilokano language."
+                    android:textColor="@color/text_primary"
+                    android:textSize="21sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Translate words, explore meanings, and learn everyday phrases to connect with the people and culture of Baguio."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="3dp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- LEARNING TOOLS SECTION -->
 
         <TextView
             android:id="@+id/homeSectionTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="30dp"
+            android:layout_marginTop="24dp"
             android:layout_marginBottom="2dp"
             android:text="EXPLORE YOUR TOOLS"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_primary"
             android:textSize="12sp"
             android:textStyle="bold"
             android:letterSpacing="0.12" />
@@ -215,25 +215,23 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="2dp"
             android:text="Choose how you want to learn today."
-            android:textColor="@color/hint_text"
+            android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
-        <!-- ==========================================
-             TRANSLATOR CARD
-             ========================================== -->
+        <!-- TRANSLATOR CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_translator"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="12dp"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?attr/selectableItemBackground"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
-            app:cardElevation="1dp"
-            app:strokeColor="#6657CFC3"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/border_cyan"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -241,21 +239,21 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:minHeight="100dp"
-                android:padding="18dp">
+                android:minHeight="90dp"
+                android:padding="16dp">
 
                 <ImageView
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
                     android:contentDescription="@null"
                     android:scaleType="fitCenter"
                     android:src="@drawable/ic_translator"
-                    app:tint="@color/primary_teal" />
+                    app:tint="@color/cyan_primary" />
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="15dp"
+                    android:layout_marginStart="14dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -263,49 +261,49 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Translator"
-                        android:textColor="@color/text_light"
-                        android:textSize="19sp"
+                        android:textColor="@color/text_primary"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_marginTop="2dp"
                         android:text="Translate between English, Tagalog, and Ilokano."
-                        android:textColor="@color/light_gray"
+                        android:textColor="@color/text_secondary"
                         android:textSize="13sp"
                         android:lineSpacingExtra="2dp" />
 
                 </LinearLayout>
 
+                <!-- CHEVRON ARROW -->
+
                 <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="20dp"
+                    android:layout_height="24dp"
                     android:layout_marginStart="6dp"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_arrow_forward"
-                    app:tint="@color/accent_teal" />
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="@color/cyan_secondary" />
 
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- ==========================================
-             DICTIONARY CARD
-             ========================================== -->
+        <!-- DICTIONARY CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_dictionary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?attr/selectableItemBackground"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
-            app:cardElevation="1dp"
-            app:strokeColor="#6657CFC3"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/border_cyan"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -313,21 +311,21 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:minHeight="100dp"
-                android:padding="18dp">
+                android:minHeight="90dp"
+                android:padding="16dp">
 
                 <ImageView
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
                     android:contentDescription="@null"
                     android:scaleType="fitCenter"
                     android:src="@drawable/ic_dictionary"
-                    app:tint="@color/primary_teal" />
+                    app:tint="@color/cyan_primary" />
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="15dp"
+                    android:layout_marginStart="14dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -335,49 +333,49 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Dictionary"
-                        android:textColor="@color/text_light"
-                        android:textSize="19sp"
+                        android:textColor="@color/text_primary"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_marginTop="2dp"
                         android:text="Discover Ilokano word meanings and translations."
-                        android:textColor="@color/light_gray"
+                        android:textColor="@color/text_secondary"
                         android:textSize="13sp"
                         android:lineSpacingExtra="2dp" />
 
                 </LinearLayout>
 
+                <!-- CHEVRON ARROW -->
+
                 <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="20dp"
+                    android:layout_height="24dp"
                     android:layout_marginStart="6dp"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_arrow_forward"
-                    app:tint="@color/accent_teal" />
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="@color/cyan_secondary" />
 
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- ==========================================
-             PHRASEBOOK CARD
-             ========================================== -->
+        <!-- PHRASEBOOK CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_phrasebook"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?attr/selectableItemBackground"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
-            app:cardElevation="1dp"
-            app:strokeColor="#6657CFC3"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/border_cyan"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -385,21 +383,21 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:minHeight="100dp"
-                android:padding="18dp">
+                android:minHeight="90dp"
+                android:padding="16dp">
 
                 <ImageView
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
                     android:contentDescription="@null"
                     android:scaleType="fitCenter"
                     android:src="@drawable/ic_phrasebook"
-                    app:tint="@color/primary_teal" />
+                    app:tint="@color/cyan_primary" />
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="15dp"
+                    android:layout_marginStart="14dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -407,53 +405,53 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Phrasebook"
-                        android:textColor="@color/text_light"
-                        android:textSize="19sp"
+                        android:textColor="@color/text_primary"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_marginTop="2dp"
                         android:text="Explore useful everyday Ilokano phrases."
-                        android:textColor="@color/light_gray"
+                        android:textColor="@color/text_secondary"
                         android:textSize="13sp"
                         android:lineSpacingExtra="2dp" />
 
                 </LinearLayout>
 
+                <!-- CHEVRON ARROW -->
+
                 <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="20dp"
+                    android:layout_height="24dp"
                     android:layout_marginStart="6dp"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_arrow_forward"
-                    app:tint="@color/accent_teal" />
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="@color/cyan_secondary" />
 
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- ==========================================
-             ILOKANO PHRASE OF THE DAY
-             ========================================== -->
+        <!-- ILOKANO PHRASE OF THE DAY -->
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/homeDailyPhraseCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="26dp"
-            app:cardBackgroundColor="@color/card_background"
+            android:layout_marginTop="22dp"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
-            app:cardElevation="0dp"
-            app:strokeColor="#6657CFC3"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/border_cyan"
             app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp">
+                android:padding="18dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -462,11 +460,11 @@
                     android:gravity="center_vertical">
 
                     <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_phrasebook"
-                        app:tint="@color/accent_teal" />
+                        app:tint="@color/cyan_secondary" />
 
                     <TextView
                         android:layout_width="0dp"
@@ -474,7 +472,7 @@
                         android:layout_marginStart="10dp"
                         android:layout_weight="1"
                         android:text="A LITTLE ILOKANO"
-                        android:textColor="@color/accent_teal"
+                        android:textColor="@color/cyan_primary"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.10" />
@@ -485,98 +483,119 @@
                     android:id="@+id/tvDailyPhrase"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="15dp"
+                    android:layout_marginTop="12dp"
                     android:text="Naimbag nga aldaw!"
-                    android:textColor="@color/text_light"
-                    android:textSize="23sp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="22sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tvDailyPhraseTranslation"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginTop="4dp"
                     android:text="Good day!"
-                    android:textColor="@color/light_gray"
-                    android:textSize="15sp" />
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp" />
 
                 <View
-                    android:layout_width="48dp"
+                    android:layout_width="40dp"
                     android:layout_height="2dp"
-                    android:layout_marginTop="15dp"
-                    android:background="@color/primary_teal" />
+                    android:layout_marginTop="12dp"
+                    android:background="@color/cyan_primary" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="10dp"
                     android:text="Keep learning a new word or phrase every day."
-                    android:textColor="@color/hint_text"
-                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
                     android:lineSpacingExtra="2dp" />
 
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- ==========================================
-             FOOTER
-             ========================================== -->
+        <!-- FOOTER -->
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:layout_marginTop="30dp"
-            android:layout_marginBottom="20dp"
-            android:background="#332A9D93" />
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="16dp"
+            android:background="@color/divider_color" />
+
+        <!-- FOOTER LOGO -->
+
+        <ImageView
+            android:id="@+id/footerLogo"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_gravity="center_horizontal"
+            android:contentDescription="Speak Smart Baguio Logo"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_logo" />
+
+        <!-- FOOTER APP NAME -->
 
         <TextView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="2dp"
             android:gravity="center"
             android:text="SPEAK SMART BAGUIO"
-            android:textColor="@color/text_light"
-            android:textSize="13sp"
+            android:textColor="@color/cyan_primary"
+            android:textSize="12sp"
             android:textStyle="bold"
-            android:letterSpacing="0.10" />
+            android:letterSpacing="0.08" />
+
+        <!-- APP DESCRIPTION -->
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
+            android:layout_marginTop="9dp"
             android:gravity="center"
-            android:text="A student-developed language learning application"
-            android:textColor="@color/light_gray"
+            android:text="Language learning application"
+            android:textColor="@color/text_secondary"
             android:textSize="12sp"
             android:lineSpacingExtra="2dp" />
 
+        <!-- INSTITUTION -->
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
+            android:layout_marginTop="4dp"
             android:gravity="center"
             android:text="Blue Phenix Skills Training Center Corp."
-            android:textColor="@color/hint_text"
-            android:textSize="12sp"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
             android:lineSpacingExtra="2dp" />
+
+        <!-- TAGLINE -->
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:gravity="center"
             android:text="LEARN  •  UNDERSTAND  •  CONNECT"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_secondary"
             android:textSize="10sp"
             android:letterSpacing="0.08" />
 
+        <!-- CLOSING MESSAGE -->
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:gravity="center"
             android:text="Made for learning, sharing, and preserving language."
-            android:textColor="@color/hint_text"
+            android:textColor="@color/text_secondary"
             android:textSize="11sp"
             android:lineSpacingExtra="2dp" />
 

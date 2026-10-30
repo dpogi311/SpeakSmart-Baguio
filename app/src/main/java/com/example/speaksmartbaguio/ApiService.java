@@ -22,24 +22,31 @@ import okhttp3.Response;
 public class ApiService {
 
     private static ApiService instance;
-    private OkHttpClient client;
+    private final OkHttpClient client;
     private String baseUrl;
     private String apiKey;
-    private Handler mainHandler;
+    private final Handler mainHandler;
 
     private ApiService() {
         client = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .build();
+
         baseUrl = BuildConfig.API_BASE_URL;
-        if (!baseUrl.endsWith("/")) baseUrl += "/";
+
+        if (!baseUrl.endsWith("/")) {
+            baseUrl += "/";
+        }
+
         apiKey = BuildConfig.API_SECRET_KEY;
         mainHandler = new Handler(Looper.getMainLooper());
     }
 
     public static synchronized ApiService getInstance() {
-        if (instance == null) instance = new ApiService();
+        if (instance == null) {
+            instance = new ApiService();
+        }
         return instance;
     }
 
@@ -53,22 +60,95 @@ public class ApiService {
         void onError(String error);
     }
 
-    /* ───────── Dictionary ───────── */
+    // =========================================================
+    // DICTIONARY
+    // =========================================================
 
-    public void getDictionary(int page, int limit, String query, ApiCallback<Word> callback) {
-        HttpUrl.Builder urlBuilder = HttpUrl.parse(baseUrl + "api/v1/dictionary").newBuilder();
-        urlBuilder.addQueryParameter("page", String.valueOf(page));
-        urlBuilder.addQueryParameter("limit", String.valueOf(limit));
-        addSearchParams(urlBuilder, query);
-
-        executeRequest(urlBuilder.build(), page, limit, callback, this::parseWordList);
-    }
-    public void searchDictionaryWord(String field, String value, ApiCallback<Word> callback) {
-
+    /**
+     * Normal dictionary loading and search.
+     * Search behavior remains unchanged.
+     */
+    public void getDictionary(
+            int page,
+            int limit,
+            String query,
+            ApiCallback<Word> callback
+    ) {
         HttpUrl.Builder urlBuilder =
                 HttpUrl.parse(baseUrl + "api/v1/dictionary").newBuilder();
 
-        urlBuilder.addQueryParameter(field, "*" + value.toLowerCase() + "*");
+        urlBuilder.addQueryParameter("page", String.valueOf(page));
+        urlBuilder.addQueryParameter("limit", String.valueOf(limit));
+
+        addSearchParams(urlBuilder, query);
+
+        executeRequest(
+                urlBuilder.build(),
+                page,
+                limit,
+                callback,
+                this::parseWordList
+        );
+    }
+
+    /**
+     * Loads dictionary words using a prefix-style query for a selected
+     * starting letter.
+     *
+     * IMPORTANT:
+     * This sends a prefix wildcard to the API. The backend must interpret
+     * a trailing wildcard as a starts-with query for this to be a true
+     * server-side prefix search.
+     *
+     * If your backend treats all wildcards as substring searches, the
+     * adapter must still check startsWith() on each returned word.
+     */
+    public void getDictionaryByStartingLetter(
+            int page,
+            int limit,
+            String letter,
+            ApiCallback<Word> callback
+    ) {
+        HttpUrl.Builder urlBuilder =
+                HttpUrl.parse(baseUrl + "api/v1/dictionary").newBuilder();
+
+        urlBuilder.addQueryParameter("page", String.valueOf(page));
+        urlBuilder.addQueryParameter("limit", String.valueOf(limit));
+
+        if (letter != null && !letter.trim().isEmpty()) {
+            String normalizedLetter = letter.trim().substring(0, 1)
+                    .toLowerCase(java.util.Locale.ROOT);
+
+            urlBuilder.addQueryParameter(
+                    "ilokanoWord",
+                    normalizedLetter + "*"
+            );
+        }
+
+        Log.d("DICTIONARY_PREFIX_URL", urlBuilder.build().toString());
+
+        executeRequest(
+                urlBuilder.build(),
+                page,
+                limit,
+                callback,
+                this::parseWordList
+        );
+    }
+
+    public void searchDictionaryWord(
+            String field,
+            String value,
+            ApiCallback<Word> callback
+    ) {
+        HttpUrl.Builder urlBuilder =
+                HttpUrl.parse(baseUrl + "api/v1/dictionary").newBuilder();
+
+        urlBuilder.addQueryParameter(
+                field,
+                "*" + value.toLowerCase(java.util.Locale.ROOT) + "*"
+        );
+
         urlBuilder.addQueryParameter("page", "1");
         urlBuilder.addQueryParameter("limit", "1");
 
@@ -82,35 +162,71 @@ public class ApiService {
                 this::parseWordList
         );
     }
-    /* ───────── Phrasebook ───────── */
 
-    public void getPhrasebook(int page, int limit, String query, ApiCallback<Phrase> callback) {
-        HttpUrl.Builder urlBuilder = HttpUrl.parse(baseUrl + "api/v1/phrasebook").newBuilder();
+    // =========================================================
+    // PHRASEBOOK
+    // =========================================================
+
+    public void getPhrasebook(
+            int page,
+            int limit,
+            String query,
+            ApiCallback<Phrase> callback
+    ) {
+        HttpUrl.Builder urlBuilder =
+                HttpUrl.parse(baseUrl + "api/v1/phrasebook").newBuilder();
+
         urlBuilder.addQueryParameter("page", String.valueOf(page));
         urlBuilder.addQueryParameter("limit", String.valueOf(limit));
+
         addSearchParams(urlBuilder, query);
 
-        executeRequest(urlBuilder.build(), page, limit, callback, this::parsePhraseList);
+        executeRequest(
+                urlBuilder.build(),
+                page,
+                limit,
+                callback,
+                this::parsePhraseList
+        );
     }
 
-    /* ───────── Translations ───────── */
+    // =========================================================
+    // TRANSLATIONS
+    // =========================================================
 
-    public void getTranslations(String field, String value, SingleResultCallback callback) {
-        HttpUrl.Builder urlBuilder = HttpUrl.parse(baseUrl + "api/v1/translations").newBuilder();
+    public void getTranslations(
+            String field,
+            String value,
+            SingleResultCallback callback
+    ) {
+        HttpUrl.Builder urlBuilder =
+                HttpUrl.parse(baseUrl + "api/v1/translations").newBuilder();
+
         urlBuilder.addQueryParameter(field, value);
         urlBuilder.addQueryParameter("limit", "1");
+
         Log.d("TRANSLATOR_API", urlBuilder.build().toString());
+
         executeSingleRequest(urlBuilder.build(), callback);
     }
 
-    /* ───────── Request execution ───────── */
+    // =========================================================
+    // REQUEST EXECUTION
+    // =========================================================
 
-    private <T> void executeRequest(HttpUrl url, int page, int limit, ApiCallback<T> callback, JsonParser<T> parser) {
+    private <T> void executeRequest(
+            HttpUrl url,
+            int page,
+            int limit,
+            ApiCallback<T> callback,
+            JsonParser<T> parser
+    ) {
         Request request = buildRequest(url);
 
         Log.d("FINAL_REQUEST", request.url().toString());
 
         client.newCall(request).enqueue(new Callback() {
+
             @Override
             public void onFailure(Call call, IOException e) {
                 postError("Network error: " + e.getMessage(), callback);
@@ -120,33 +236,53 @@ public class ApiService {
             public void onResponse(Call call, Response response) {
                 try {
                     if (!response.isSuccessful()) {
-                        postError("Internal server error", callback);
+                        postError(
+                                "Server returned HTTP " + response.code(),
+                                callback
+                        );
                         return;
                     }
 
-                    String json = response.body() != null ? response.body().string() : "{}";
+                    String json = response.body() != null
+                            ? response.body().string()
+                            : "{}";
+
                     Log.d("FINAL_RESPONSE", json);
-                    Log.d("DICT_RESPONSE", json);
+
                     JSONObject obj = new JSONObject(json);
                     JSONArray data = obj.optJSONArray("data");
 
                     List<T> items = parser.parse(data);
-                    boolean hasMore = obj.optBoolean("hasMore", items.size() >= limit);
 
-                    mainHandler.post(() -> callback.onSuccess(items, hasMore));
+                    boolean hasMore = obj.optBoolean(
+                            "hasMore",
+                            items.size() >= limit
+                    );
+
+                    mainHandler.post(
+                            () -> callback.onSuccess(items, hasMore)
+                    );
+
                 } catch (Exception e) {
                     postError("Parse error: " + e.getMessage(), callback);
+
                 } finally {
-                    if (response.body() != null) response.body().close();
+                    if (response.body() != null) {
+                        response.body().close();
+                    }
                 }
             }
         });
     }
 
-    private void executeSingleRequest(HttpUrl url, SingleResultCallback callback) {
+    private void executeSingleRequest(
+            HttpUrl url,
+            SingleResultCallback callback
+    ) {
         Request request = buildRequest(url);
 
         client.newCall(request).enqueue(new Callback() {
+
             @Override
             public void onFailure(Call call, IOException e) {
                 postError("Network error: " + e.getMessage(), callback);
@@ -156,32 +292,49 @@ public class ApiService {
             public void onResponse(Call call, Response response) {
                 try {
                     if (!response.isSuccessful()) {
-                        postError("Internal server error", callback);
+                        postError(
+                                "Server returned HTTP " + response.code(),
+                                callback
+                        );
                         return;
                     }
 
-                    String json = response.body() != null ? response.body().string() : "{}";
+                    String json = response.body() != null
+                            ? response.body().string()
+                            : "{}";
+
                     Log.d("TRANSLATOR_API", json);
+
                     JSONObject obj = new JSONObject(json);
                     JSONArray data = obj.optJSONArray("data");
-                    Log.d("TRANSLATOR_API", "Items = " + (data == null ? "null" : data.length()));
+
+                    Log.d(
+                            "TRANSLATOR_API",
+                            "Items = " + (data == null ? "null" : data.length())
+                    );
+
                     if (data != null && data.length() > 0) {
                         JSONObject item = data.getJSONObject(0);
                         mainHandler.post(() -> callback.onSuccess(item));
                     } else {
                         mainHandler.post(() -> callback.onSuccess(null));
                     }
+
                 } catch (Exception e) {
                     postError("Parse error: " + e.getMessage(), callback);
-                } finally {
-                    if (response.body() != null) response.body().close();
-                }
 
+                } finally {
+                    if (response.body() != null) {
+                        response.body().close();
+                    }
+                }
             }
         });
     }
 
-    /* ───────── Helpers ───────── */
+    // =========================================================
+    // HELPERS
+    // =========================================================
 
     private Request buildRequest(HttpUrl url) {
         return new Request.Builder()
@@ -190,20 +343,25 @@ public class ApiService {
                 .build();
     }
 
-    private String getString(JSONObject obj, String primary, String fallback) {
+    private String getString(
+            JSONObject obj,
+            String primary,
+            String fallback
+    ) {
         if (obj.has(primary)) {
-            String val = obj.optString(primary, "");
-            if (!val.isEmpty()) return val;
+            String value = obj.optString(primary, "");
+
+            if (!value.isEmpty()) {
+                return value;
+            }
         }
+
         return obj.optString(fallback, "");
     }
 
     private String getString(JSONObject obj, String... keys) {
-
         for (String key : keys) {
-
             if (obj.has(key) && !obj.isNull(key)) {
-
                 String value = obj.optString(key, "");
 
                 if (!value.isEmpty()) {
@@ -215,23 +373,38 @@ public class ApiService {
         return "";
     }
 
-    private void addSearchParams(HttpUrl.Builder builder, String query) {
-        if (query == null || query.trim().isEmpty()) return;
-        String q = query.trim().toLowerCase();
-        builder.addQueryParameter("ilokanoWord", "*" + q + "*");
+    private void addSearchParams(
+            HttpUrl.Builder builder,
+            String query
+    ) {
+        if (query == null || query.trim().isEmpty()) {
+            return;
+        }
+
+        String normalizedQuery = query.trim().toLowerCase(
+                java.util.Locale.ROOT
+        );
+
+        builder.addQueryParameter(
+                "ilokanoWord",
+                "*" + normalizedQuery + "*"
+        );
     }
 
     private void postError(String message, Object callback) {
         mainHandler.post(() -> {
             if (callback instanceof ApiCallback) {
                 ((ApiCallback<?>) callback).onError(message);
+
             } else if (callback instanceof SingleResultCallback) {
                 ((SingleResultCallback) callback).onError(message);
             }
         });
     }
 
-    /* ───────── JSON parsers ───────── */
+    // =========================================================
+    // JSON PARSERS
+    // =========================================================
 
     private interface JsonParser<T> {
         List<T> parse(JSONArray array) throws Exception;
@@ -239,56 +412,111 @@ public class ApiService {
 
     private List<Word> parseWordList(JSONArray array) throws Exception {
         List<Word> list = new ArrayList<>();
-        if (array == null) return list;
+
+        if (array == null) {
+            return list;
+        }
+
         for (int i = 0; i < array.length(); i++) {
             JSONObject item = array.getJSONObject(i);
-            Word w = new Word();
 
-            w.setId(getString(item, "id"));
-            w.setEnglishTranslation(getString(item,
-                    "english",
-                    "englishTranslation",
-                    "english_translation"));
+            Word word = new Word();
 
-            w.setIlokanoWord(getString(item,
-                    "ilokano",
-                    "ilokanoWord",
-                    "ilokano_word"));
+            word.setId(getString(item, "id"));
 
-            w.setTagalogTranslation(getString(item,
-                    "tagalog",
-                    "tagalogTranslation",
-                    "tagalog_translation"));
-            w.setPartOfSpeech(getString(item, "partOfSpeech", "part_of_speech"));
-            w.setTtsUrl(getString(item, "tts_url"));
-            w.setCategory(getString(item, "category"));
-            w.setDefinition(getString(item,
-                    "definition"));
-            w.setUpdatedAt(getString(item, "updated_at"));
-            list.add(w);
+            word.setEnglishTranslation(
+                    getString(
+                            item,
+                            "english",
+                            "englishTranslation",
+                            "english_translation"
+                    )
+            );
+
+            word.setIlokanoWord(
+                    getString(
+                            item,
+                            "ilokano",
+                            "ilokanoWord",
+                            "ilokano_word"
+                    )
+            );
+
+            word.setTagalogTranslation(
+                    getString(
+                            item,
+                            "tagalog",
+                            "tagalogTranslation",
+                            "tagalog_translation"
+                    )
+            );
+
+            word.setPartOfSpeech(
+                    getString(item, "partOfSpeech", "part_of_speech")
+            );
+
+            word.setTtsUrl(getString(item, "tts_url"));
+            word.setCategory(getString(item, "category"));
+            word.setDefinition(getString(item, "definition"));
+            word.setUpdatedAt(getString(item, "updated_at"));
+
+            list.add(word);
         }
+
         return list;
     }
 
     private List<Phrase> parsePhraseList(JSONArray array) throws Exception {
         List<Phrase> list = new ArrayList<>();
-        if (array == null) return list;
+
+        if (array == null) {
+            return list;
+        }
+
         for (int i = 0; i < array.length(); i++) {
             JSONObject item = array.getJSONObject(i);
-            Phrase p = new Phrase();
 
-            p.setId(getString(item, "id"));
-            p.setEnglishTranslation(getString(item, "englishTranslation", "english_translation"));
-            p.setIlokanoWord(getString(item, "ilokanoWord", "ilokano_word"));
-            p.setTagalogTranslation(getString(item, "tagalogTranslation", "tagalog_translation"));
-            p.setPartOfSpeech(getString(item, "partOfSpeech", "part_of_speech"));
-            p.setTtsUrl(getString(item, "tts_url"));
-            p.setCategory(getString(item, "category"));
-            p.setIlokanoSentence(getString(item, "ilokanoSentence"));
-            p.setEnglishSentence(getString(item, "englishSentence"));
-            p.setUpdatedAt(getString(item, "updated_at"));
-            list.add(p);
+            Phrase phrase = new Phrase();
+
+            phrase.setId(getString(item, "id"));
+
+            phrase.setEnglishTranslation(
+                    getString(
+                            item,
+                            "englishTranslation",
+                            "english_translation"
+                    )
+            );
+
+            phrase.setIlokanoWord(
+                    getString(
+                            item,
+                            "ilokanoWord",
+                            "ilokano_word"
+                    )
+            );
+
+            phrase.setTagalogTranslation(
+                    getString(
+                            item,
+                            "tagalogTranslation",
+                            "tagalog_translation"
+                    )
+            );
+
+            phrase.setPartOfSpeech(
+                    getString(item, "partOfSpeech", "part_of_speech")
+            );
+
+            phrase.setTtsUrl(getString(item, "tts_url"));
+            phrase.setCategory(getString(item, "category"));
+            phrase.setIlokanoSentence(getString(item, "ilokanoSentence"));
+            phrase.setEnglishSentence(getString(item, "englishSentence"));
+            phrase.setUpdatedAt(getString(item, "updated_at"));
+
+            list.add(phrase);
         }
+
         return list;
     }
 }

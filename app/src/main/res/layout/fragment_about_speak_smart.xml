@@ -31,7 +31,7 @@
             android:src="@drawable/ic_back"
             android:clickable="true"
             android:focusable="true"
-            app:tint="@color/accent_teal" />
+            app:tint="@color/cyan_primary" />
 
         <!-- PAGE TITLE -->
 
@@ -41,7 +41,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
             android:text="About Speak Smart Baguio"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_primary"
             android:textSize="30sp"
             android:textStyle="bold"
             android:lineSpacingExtra="3dp"
@@ -53,7 +53,7 @@
             android:layout_marginTop="12dp"
             android:layout_marginBottom="24dp"
             android:text="Translator · Dictionary · Phrasebook"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:lineSpacingExtra="4dp" />
 
@@ -63,7 +63,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="About the Application"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="23sp"
             android:textStyle="bold"
             android:accessibilityHeading="true" />
@@ -73,7 +73,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:text="Speak Smart Baguio is a language translation and learning application designed to help tourists, visitors, students, and other users explore English, Tagalog, and Ilokano. It brings useful language tools together in one accessible mobile application."
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="17sp"
             android:lineSpacingExtra="5dp" />
 
@@ -84,7 +84,7 @@
             android:layout_height="1dp"
             android:layout_marginTop="28dp"
             android:layout_marginBottom="24dp"
-            android:background="@color/primary_element"
+            android:background="@color/divider_color"
             android:importantForAccessibility="no" />
 
         <!-- MAIN FEATURES -->
@@ -93,7 +93,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Main Features"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="23sp"
             android:textStyle="bold"
             android:accessibilityHeading="true" />
@@ -105,7 +105,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="1. Translator"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_secondary"
             android:textSize="20sp"
             android:textStyle="bold"
             android:accessibilityHeading="true" />
@@ -115,7 +115,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:text="Explore translations between the supported languages to help understand words and everyday expressions."
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="17sp"
             android:lineSpacingExtra="4dp" />
 
@@ -126,7 +126,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="2. Dictionary"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_secondary"
             android:textSize="20sp"
             android:textStyle="bold"
             android:accessibilityHeading="true" />
@@ -136,7 +136,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:text="Look up available words and their meanings or translations to support language learning."
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="17sp"
             android:lineSpacingExtra="4dp" />
 
@@ -147,7 +147,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="3. Phrasebook"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_secondary"
             android:textSize="20sp"
             android:textStyle="bold"
             android:accessibilityHeading="true" />
@@ -157,7 +157,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:text="Browse useful phrases that can help with common conversations and everyday situations."
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="17sp"
             android:lineSpacingExtra="4dp" />
 
@@ -168,7 +168,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="4. Favorites"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_secondary"
             android:textSize="20sp"
             android:textStyle="bold"
             android:accessibilityHeading="true" />
@@ -178,7 +178,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:text="Return to words and phrases you have saved for convenient reference."
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="17sp"
             android:lineSpacingExtra="4dp" />
 
@@ -189,7 +189,7 @@
             android:layout_height="1dp"
             android:layout_marginTop="28dp"
             android:layout_marginBottom="24dp"
-            android:background="@color/primary_element"
+            android:background="@color/divider_color"
             android:importantForAccessibility="no" />
 
         <!-- ACCESSIBILITY INFORMATION -->
@@ -198,7 +198,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Designed for Readability"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="23sp"
             android:textStyle="bold"
             android:accessibilityHeading="true" />
@@ -208,7 +208,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:text="Speak Smart Baguio includes accessibility preferences for text size, high contrast, and a simplified layout. You can adjust these settings to make the application more comfortable to use."
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="17sp"
             android:lineSpacingExtra="5dp" />
 
@@ -220,7 +220,7 @@
             android:layout_marginTop="32dp"
             android:gravity="center"
             android:text="Speak Smart Baguio"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_primary"
             android:textSize="17sp"
             android:textStyle="bold" />
 
@@ -230,7 +230,7 @@
             android:layout_marginTop="6dp"
             android:gravity="center"
             android:text="App Information"
-            android:textColor="@color/hint_text"
+            android:textColor="@color/text_secondary"
             android:textSize="15sp" />
 
     </LinearLayout>

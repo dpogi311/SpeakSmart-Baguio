@@ -21,7 +21,6 @@
         android:paddingBottom="28dp">
 
         <!-- PAGE HEADER AND SETTINGS BUTTON -->
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="48dp"
@@ -34,7 +33,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="TRANSLATOR"
-                android:textColor="@color/accent_teal"
+                android:textColor="@color/cyan_primary"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.16" />
@@ -50,19 +49,18 @@
                 android:scaleType="centerInside"
                 android:clickable="true"
                 android:focusable="true"
-                android:importantForAccessibility="yes" />
-
+                android:importantForAccessibility="yes"
+                app:tint="@color/cyan_primary" />
         </LinearLayout>
 
         <!-- TRANSLATION TITLE -->
-
         <TextView
             android:id="@+id/titleText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="English → Ilokano"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="25sp"
             android:textStyle="bold"
             android:lineSpacingExtra="3dp" />
@@ -73,22 +71,23 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="Translate words and discover their meaning."
-            android:textColor="@color/light_gray"
+            android:textColor="@color/text_secondary"
             android:textSize="15sp"
             android:lineSpacingExtra="3dp" />
 
         <!-- LANGUAGE SELECTION -->
-
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
             android:layout_marginBottom="10dp"
             android:text="TRANSLATION MODE"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_secondary"
             android:textSize="12sp"
             android:textStyle="bold"
             android:letterSpacing="0.12" />
+
+        <!-- DARK OUTLINED LANGUAGE DROPDOWN -->
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/languageDropdownLayout"
@@ -96,97 +95,89 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:boxBackgroundMode="filled"
-            app:boxBackgroundColor="@color/card_background"
-            app:boxStrokeColor="@color/primary_teal"
+            app:boxBackgroundColor="@color/app_surface"
+            app:boxStrokeColor="@color/dropdown_underline_color"
             app:boxStrokeWidth="1dp"
             app:boxStrokeWidthFocused="2dp"
-            app:boxCornerRadiusTopStart="16dp"
-            app:boxCornerRadiusTopEnd="16dp"
-            app:boxCornerRadiusBottomStart="16dp"
-            app:boxCornerRadiusBottomEnd="16dp"
-            app:hintEnabled="false"
             app:endIconMode="dropdown_menu"
-            app:endIconTint="@color/accent_teal">
+            app:endIconTint="@color/cyan_primary">
 
             <AutoCompleteTextView
                 android:id="@+id/languageDropdown"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="56dp"
                 android:background="@android:color/transparent"
-                android:paddingStart="16dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="12dp"
-                android:fontFamily="sans"
-                android:textColor="@color/text_light"
-                android:textColorHint="@color/hint_text"
-                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_secondary"
                 android:textStyle="bold"
-                android:focusable="false"
-                android:clickable="true"
-                android:inputType="none"
-                android:hint="Select Translation Mode"
-                android:importantForAccessibility="yes" />
+                android:inputType="none" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- INPUT SECTION -->
 
+
+        <!-- INPUT SECTION -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
             android:layout_marginBottom="10dp"
             android:text="ENTER TEXT"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_secondary"
             android:textSize="12sp"
             android:textStyle="bold"
             android:letterSpacing="0.12" />
 
-        <com.google.android.material.card.MaterialCardView
+        <!-- INPUT FIELD -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/inputTextLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="0dp"
-            app:strokeColor="#6657CFC3"
-            app:strokeWidth="1dp">
+            android:hint="Tap here and type a word"
+            app:boxBackgroundMode="filled"
+            app:boxBackgroundColor="@color/app_surface"
+            app:boxStrokeColor="@color/dropdown_underline_color"
+            app:boxStrokeWidth="1dp"
+            app:boxStrokeWidthFocused="2dp"
+            app:boxCornerRadiusTopStart="18dp"
+            app:boxCornerRadiusTopEnd="18dp"
+            app:boxCornerRadiusBottomStart="18dp"
+            app:boxCornerRadiusBottomEnd="18dp"
+            app:hintTextColor="@color/cyan_primary">
 
-            <EditText
+            <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/editTextInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:minHeight="120dp"
                 android:gravity="top|start"
                 android:background="@android:color/transparent"
-                android:padding="18dp"
-                android:hint="Tap here and type a word or sentence..."
+                android:textCursorDrawable="@drawable/cursor_cyan"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:paddingTop="30dp"
+                android:paddingBottom="18dp"
                 android:inputType="textCapSentences|textMultiLine"
                 android:imeOptions="flagNoExtractUi"
-                android:textColor="@color/text_light"
-                android:textColorHint="@color/hint_text"
+                android:textColor="@color/text_primary"
                 android:textSize="17sp"
                 android:lineSpacingExtra="4dp"
                 android:autofillHints="none" />
-
-        </com.google.android.material.card.MaterialCardView>
+        </com.google.android.material.textfield.TextInputLayout>
 
         <!-- VOICE ACTIONS HEADING -->
-
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:gravity="center"
             android:text="VOICE TOOLS"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_secondary"
             android:textSize="12sp"
             android:textStyle="bold"
             android:letterSpacing="0.12" />
 
         <!-- VOICE ACTION BUTTONS -->
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -195,7 +186,6 @@
             android:orientation="horizontal">
 
             <!-- MICROPHONE BUTTON -->
-
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -207,7 +197,7 @@
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="76dp"
                     android:layout_height="76dp"
-                    app:cardBackgroundColor="@color/accent_teal"
+                    app:cardBackgroundColor="@color/cyan_primary"
                     app:cardCornerRadius="38dp"
                     app:cardElevation="2dp"
                     app:strokeWidth="0dp">
@@ -221,8 +211,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:src="@drawable/ic_mic"
-                        app:tint="@color/text_dark" />
-
+                        app:tint="@color/text_on_cyan" />
                 </com.google.android.material.card.MaterialCardView>
 
                 <TextView
@@ -230,7 +219,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:text="Speak"
-                    android:textColor="@color/text_light"
+                    android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
@@ -240,13 +229,11 @@
                     android:layout_marginTop="3dp"
                     android:gravity="center"
                     android:text="Voice input"
-                    android:textColor="@color/hint_text"
+                    android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
-
             </LinearLayout>
 
             <!-- LISTEN BUTTON -->
-
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -258,7 +245,7 @@
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="76dp"
                     android:layout_height="76dp"
-                    app:cardBackgroundColor="@color/primary_teal"
+                    app:cardBackgroundColor="@color/cyan_secondary"
                     app:cardCornerRadius="38dp"
                     app:cardElevation="2dp"
                     app:strokeWidth="0dp">
@@ -272,8 +259,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:src="@drawable/ic_sound"
-                        app:tint="@color/text_dark" />
-
+                        app:tint="@color/text_on_cyan" />
                 </com.google.android.material.card.MaterialCardView>
 
                 <TextView
@@ -281,7 +267,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:text="Listen"
-                    android:textColor="@color/text_light"
+                    android:textColor="@color/text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
@@ -291,23 +277,20 @@
                     android:layout_marginTop="3dp"
                     android:gravity="center"
                     android:text="Hear translation"
-                    android:textColor="@color/hint_text"
+                    android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
-
             </LinearLayout>
-
         </LinearLayout>
 
         <!-- ORIGINAL TEXT CARD -->
-
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
-            app:strokeColor="#6657CFC3"
+            app:strokeColor="@color/cyan_primary"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -317,41 +300,44 @@
                 android:padding="18dp">
 
                 <TextView
+                    android:id="@+id/originalTextLabel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="ORIGINAL TEXT"
-                    android:textColor="@color/accent_teal"
-                    android:textSize="12sp"
+                    android:minHeight="20dp"
+                    android:gravity="start|center_vertical"
+                    android:text="Original Text"
+                    android:textColor="@color/cyan_primary"
                     android:textStyle="bold"
-                    android:letterSpacing="0.10" />
+                    android:textSize="14sp"
+                    android:accessibilityLiveRegion="polite" />
 
                 <TextView
                     android:id="@+id/originalText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="32dp"
+                    android:minHeight="48dp"
                     android:layout_marginTop="10dp"
-                    android:text="Your original text will appear here."
-                    android:textColor="#99E5F3F2"
+                    android:paddingTop="4dp"
+                    android:text=""
+                    android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:lineSpacingExtra="4dp"
                     android:textIsSelectable="true" />
 
             </LinearLayout>
-
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- TRANSLATED TEXT CARD -->
 
+        <!-- TRANSLATED TEXT CARD -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="8dp"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/primary_teal"
+            app:strokeColor="@color/cyan_primary"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -361,13 +347,16 @@
                 android:padding="18dp">
 
                 <TextView
+                    android:id="@+id/translatedTextLabel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="TRANSLATED TEXT"
-                    android:textColor="@color/accent_teal"
-                    android:textSize="12sp"
+                    android:minHeight="20dp"
+                    android:gravity="start|center_vertical"
+                    android:text="Translated Text"
+                    android:textColor="@color/cyan_primary"
                     android:textStyle="bold"
-                    android:letterSpacing="0.10" />
+                    android:textSize="14sp"
+                    android:accessibilityLiveRegion="polite" />
 
                 <TextView
                     android:id="@+id/translatedText"
@@ -375,21 +364,19 @@
                     android:layout_height="wrap_content"
                     android:minHeight="48dp"
                     android:layout_marginTop="10dp"
-                    android:text="Your translation will appear here."
-                    android:textColor="#99E5F3F2"
+                    android:paddingTop="4dp"
+                    android:text=""
+                    android:textColor="@color/text_primary"
                     android:textSize="16sp"
-                    android:lineSpacingExtra="5dp"
+                    android:lineSpacingExtra="4dp"
                     android:textIsSelectable="true" />
 
             </LinearLayout>
-
         </com.google.android.material.card.MaterialCardView>
 
         <!-- HOME SCREEN FOOTER -->
-
         <include
             layout="@layout/view_app_footer" />
 
     </LinearLayout>
-
 </ScrollView>

@@ -17,7 +17,7 @@
         android:paddingTop="28dp"
         android:paddingBottom="32dp">
 
-        <!-- BACK BUTTON — MATCHES WORD DETAILS -->
+        <!-- BACK BUTTON -->
 
         <ImageButton
             android:id="@+id/buttonAccessibilityBack"
@@ -31,8 +31,7 @@
             android:src="@drawable/ic_back"
             android:clickable="true"
             android:focusable="true"
-            app:tint="@color/accent_teal" />
-
+            app:tint="@color/cyan_primary" />
 
         <!-- PAGE TITLE -->
 
@@ -41,7 +40,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Accessibility Settings"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_primary"
             android:textSize="30sp"
             android:textStyle="bold"
             android:accessibilityHeading="true" />
@@ -52,7 +51,7 @@
             android:layout_marginTop="10dp"
             android:layout_marginBottom="28dp"
             android:text="Make Speak Smart Baguio easier to read and use."
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="17sp"
             android:lineSpacingExtra="4dp" />
 
@@ -62,7 +61,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Text Size"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="22sp"
             android:textStyle="bold"
             android:accessibilityHeading="true" />
@@ -73,7 +72,7 @@
             android:layout_marginTop="6dp"
             android:layout_marginBottom="12dp"
             android:text="Choose the size that is most comfortable for you."
-            android:textColor="@color/hint_text"
+            android:textColor="@color/text_secondary"
             android:textSize="15sp" />
 
         <RadioGroup
@@ -90,9 +89,9 @@
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp"
                 android:text="Standard"
-                android:textColor="@color/text_light"
+                android:textColor="@color/text_primary"
                 android:textSize="18sp"
-                android:buttonTint="@color/accent_teal" />
+                android:buttonTint="@color/cyan_primary" />
 
             <RadioButton
                 android:id="@+id/fontSizeLarge"
@@ -102,9 +101,9 @@
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp"
                 android:text="Large"
-                android:textColor="@color/text_light"
+                android:textColor="@color/text_primary"
                 android:textSize="20sp"
-                android:buttonTint="@color/accent_teal" />
+                android:buttonTint="@color/cyan_primary" />
 
             <RadioButton
                 android:id="@+id/fontSizeExtraLarge"
@@ -114,27 +113,29 @@
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp"
                 android:text="Extra Large"
-                android:textColor="@color/text_light"
+                android:textColor="@color/text_primary"
                 android:textSize="22sp"
-                android:buttonTint="@color/accent_teal" />
+                android:buttonTint="@color/cyan_primary" />
 
         </RadioGroup>
 
-        <!-- HIGH CONTRAST -->
+        <!-- HIGH CONTRAST DIVIDER -->
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="24dp"
-            android:background="@color/primary_element"
+            android:background="@color/divider_color"
             android:importantForAccessibility="no" />
+
+        <!-- HIGH CONTRAST -->
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="High Contrast"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="22sp"
             android:textStyle="bold"
             android:accessibilityHeading="true" />
@@ -144,7 +145,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:text="Use clearer text and stronger visual contrast."
-            android:textColor="@color/hint_text"
+            android:textColor="@color/text_secondary"
             android:textSize="15sp"
             android:lineSpacingExtra="3dp" />
 
@@ -155,26 +156,28 @@
             android:layout_marginTop="12dp"
             android:minHeight="56dp"
             android:text="Enable high contrast"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="18sp"
-            app:thumbTint="@color/accent_teal"
-            app:trackTint="@color/primary_element" />
+            app:thumbTint="@color/cyan_primary"
+            app:trackTint="@color/cyan_deep" />
 
-        <!-- SIMPLIFIED LAYOUT -->
+        <!-- SIMPLIFIED LAYOUT DIVIDER -->
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="24dp"
-            android:background="@color/primary_element"
+            android:background="@color/divider_color"
             android:importantForAccessibility="no" />
+
+        <!-- SIMPLIFIED LAYOUT -->
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Simplified Layout"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="22sp"
             android:textStyle="bold"
             android:accessibilityHeading="true" />
@@ -184,7 +187,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:text="Reduce decorative elements to make important information easier to focus on."
-            android:textColor="@color/hint_text"
+            android:textColor="@color/text_secondary"
             android:textSize="15sp"
             android:lineSpacingExtra="3dp" />
 
@@ -195,12 +198,12 @@
             android:layout_marginTop="12dp"
             android:minHeight="56dp"
             android:text="Enable simplified layout"
-            android:textColor="@color/text_light"
+            android:textColor="@color/text_primary"
             android:textSize="18sp"
-            app:thumbTint="@color/accent_teal"
-            app:trackTint="@color/primary_element" />
+            app:thumbTint="@color/cyan_primary"
+            app:trackTint="@color/cyan_deep" />
 
-        <!-- RESET -->
+        <!-- RESET BUTTON -->
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/buttonResetAccessibility"
@@ -211,11 +214,11 @@
             android:textAllCaps="false"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:textColor="@color/text_light"
-            android:backgroundTint="@color/card_background"
+            android:textColor="@color/text_primary"
+            android:backgroundTint="@color/app_surface"
             android:contentDescription="Reset all accessibility settings to their default values"
             app:cornerRadius="12dp"
-            app:strokeColor="@color/primary_element"
+            app:strokeColor="@color/cyan_deep"
             app:strokeWidth="1dp" />
 
     </LinearLayout>

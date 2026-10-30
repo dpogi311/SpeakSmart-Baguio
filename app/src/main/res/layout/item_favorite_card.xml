@@ -5,12 +5,12 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="14dp"
-    app:cardBackgroundColor="@color/card_background"
+    app:cardBackgroundColor="@color/app_surface"
     app:cardCornerRadius="20dp"
     app:cardElevation="0dp"
-    app:strokeColor="@color/primary_element"
+    app:strokeColor="@color/cyan_deep"
     app:strokeWidth="1dp"
-    app:rippleColor="#3357CFC3">
+    app:rippleColor="#3300E5FF">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -42,7 +42,7 @@
                 android:paddingBottom="4dp"
                 android:background="@drawable/bg_favorite_type"
                 android:text="DICTIONARY"
-                android:textColor="@color/accent_teal"
+                android:textColor="@color/cyan_secondary"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.06" />
@@ -54,7 +54,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:textColor="@color/accent_teal"
+                android:textColor="@color/cyan_primary"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:lineSpacingExtra="3dp"
@@ -68,7 +68,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:textColor="@color/text_light"
+                android:textColor="@color/text_primary"
                 android:textSize="15sp"
                 android:lineSpacingExtra="3dp" />
 
@@ -79,7 +79,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:textColor="@color/hint_text"
+                android:textColor="@color/text_secondary"
                 android:textSize="14sp"
                 android:lineSpacingExtra="3dp" />
 
@@ -95,7 +95,7 @@
             android:gravity="center"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:text="♥"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_primary"
             android:textSize="26sp"
             android:clickable="true"
             android:focusable="true"

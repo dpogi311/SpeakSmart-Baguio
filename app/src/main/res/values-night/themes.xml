@@ -3,36 +3,72 @@
 
     <!-- =====================================================
          SPEAK SMART BAGUIO — NIGHT THEME
+         Consistent dark surfaces and cyan focus styling
          ===================================================== -->
 
     <style
         name="Base.Theme.IlokanoTranslator"
-        parent="Theme.Material3.DayNight.NoActionBar">
+        parent="Theme.MaterialComponents.DayNight.NoActionBar">
 
-        <item name="colorPrimary">@color/primary_teal</item>
-        <item name="colorOnPrimary">@color/text_dark</item>
+        <!-- Brand colors -->
+        <item name="colorPrimary">@color/cyan_primary</item>
+        <item name="colorPrimaryVariant">@color/cyan_deep</item>
+        <item name="colorOnPrimary">@color/text_on_cyan</item>
 
-        <item name="colorSecondary">@color/accent_teal</item>
-        <item name="colorOnSecondary">@color/text_dark</item>
+        <item name="colorSecondary">@color/cyan_secondary</item>
+        <item name="colorSecondaryVariant">@color/cyan_deep</item>
+        <item name="colorOnSecondary">@color/text_on_cyan</item>
 
-        <item name="colorTertiary">@color/accent_yellow</item>
-        <item name="colorOnTertiary">@color/text_dark</item>
-
-        <item name="colorSurface">@color/card_background</item>
-        <item name="colorOnSurface">@color/text_light</item>
-
+        <!-- Dark backgrounds and surfaces -->
         <item name="android:colorBackground">@color/app_background</item>
+        <item name="colorSurface">@color/app_surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
         <item name="android:windowBackground">@color/app_background</item>
 
-        <item name="android:statusBarColor">@color/app_background</item>
+        <!-- Focus, cursor, and widget accents -->
+        <item name="colorAccent">@color/cyan_primary</item>
+        <item name="android:colorAccent">@color/cyan_primary</item>
+        <item name="colorControlActivated">@color/cyan_primary</item>
+        <item name="colorControlNormal">@color/text_secondary</item>
+        <item name="colorControlHighlight">@color/cyan_secondary</item>
+
+        <!-- Text field defaults -->
+        <item name="textInputStyle">@style/Widget.SpeakSmartBaguio.TextInputLayout</item>
+        <item name="autoCompleteTextViewStyle">@style/Widget.SpeakSmartBaguio.AutoCompleteTextView</item>
+
+        <!-- Dialog and popup surfaces -->
+        <item name="android:colorBackgroundFloating">@color/app_surface_elevated</item>
+
+        <!-- System bars -->
+        <item name="android:statusBarColor">@color/status_bar_color</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/navigation_bar_color</item>
+        <item name="android:windowLightNavigationBar">false</item>
 
-        <item name="android:navigationBarColor">@color/app_background</item>
+    </style>
 
+    <!-- Default Material text-field appearance -->
+    <style
+        name="Widget.SpeakSmartBaguio.TextInputLayout"
+        parent="Widget.MaterialComponents.TextInputLayout.FilledBox">
 
-        <item name="colorControlActivated">@color/primary_teal</item>
-        <item name="colorControlNormal">@color/light_gray</item>
-        <item name="colorControlHighlight">#3357CFC3</item>
+        <item name="boxStrokeColor">@color/input_stroke_focused</item>
+        <item name="boxBackgroundColor">@color/app_surface</item>
+        <item name="hintTextColor">@color/cyan_primary</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeWidthFocused">2dp</item>
+
+    </style>
+
+    <!-- Default dropdown text appearance -->
+    <style
+        name="Widget.SpeakSmartBaguio.AutoCompleteTextView"
+        parent="Widget.AppCompat.AutoCompleteTextView">
+
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/text_secondary</item>
+        <item name="android:colorAccent">@color/cyan_primary</item>
+        <item name="android:popupBackground">@color/app_surface_elevated</item>
 
     </style>
 

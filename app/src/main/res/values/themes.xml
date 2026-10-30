@@ -2,52 +2,60 @@
 <resources>
 
     <!-- =====================================================
-         SPEAK SMART BAGUIO — BAGUIO FROST THEME
-         Main app theme
+         SPEAK SMART BAGUIO — MAIN APPLICATION THEME
          ===================================================== -->
 
-    <style
-        name="Base.Theme.IlokanoTranslator"
-        parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.SpeakSmartBaguio"
+        parent="Theme.MaterialComponents.DayNight.NoActionBar">
 
-        <!-- Primary colors -->
-        <item name="colorPrimary">@color/primary_teal</item>
-        <item name="colorOnPrimary">@color/text_dark</item>
+        <!-- Brand palette -->
+        <item name="colorPrimary">@color/cyan_primary</item>
+        <item name="colorPrimaryVariant">@color/cyan_deep</item>
+        <item name="colorOnPrimary">@color/text_on_cyan</item>
 
-        <!-- Secondary colors -->
-        <item name="colorSecondary">@color/accent_teal</item>
-        <item name="colorOnSecondary">@color/text_dark</item>
+        <item name="colorSecondary">@color/cyan_secondary</item>
+        <item name="colorSecondaryVariant">@color/cyan_deep</item>
+        <item name="colorOnSecondary">@color/text_on_cyan</item>
 
-        <!-- Amber highlights -->
-        <item name="colorTertiary">@color/accent_yellow</item>
-        <item name="colorOnTertiary">@color/text_dark</item>
-
-        <!-- Surface and text colors -->
-        <item name="colorSurface">@color/card_background</item>
-        <item name="colorOnSurface">@color/text_light</item>
-
-        <!-- App background -->
+        <!-- Background and surfaces -->
         <item name="android:colorBackground">@color/app_background</item>
+        <item name="colorSurface">@color/app_surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+
+        <!-- Legacy widget accent compatibility -->
+        <item name="colorAccent">@color/cyan_primary</item>
+        <item name="android:colorAccent">@color/cyan_primary</item>
+        <item name="colorControlActivated">@color/cyan_primary</item>
+        <item name="colorControlHighlight">@color/cyan_secondary</item>
+        <item name="colorControlNormal">@color/text_secondary</item>
+
+        <!-- Window and system bars -->
+        <item name="android:statusBarColor">@color/status_bar_color</item>
+        <item name="android:navigationBarColor">@color/navigation_bar_color</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
         <item name="android:windowBackground">@color/app_background</item>
 
-        <!-- System status bar -->
-        <item name="android:statusBarColor">@color/app_background</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <!-- Text appearance -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorHint">@color/text_disabled</item>
 
-        <!-- System navigation bar -->
-        <item name="android:navigationBarColor">@color/app_background</item>
-        <item name="android:windowLightNavigationBar">false</item>
+        <!-- Dialog and popup styling -->
+        <item name="android:colorBackgroundFloating">@color/app_surface_elevated</item>
+        <item name="android:windowActionModeOverlay">true</item>
 
-        <!-- Control colors -->
-        <item name="colorControlActivated">@color/primary_teal</item>
-        <item name="colorControlNormal">@color/light_gray</item>
-        <item name="colorControlHighlight">#3357CFC3</item>
+        <!-- Progress indicators -->
+        <item name="android:progressBarStyle">@style/Widget.SpeakSmartBaguio.ProgressBar</item>
 
     </style>
 
-    <!-- Preserve the exact theme name used by AndroidManifest.xml -->
-    <style
-        name="Theme.IlokanoTranslator"
-        parent="Base.Theme.IlokanoTranslator" />
+    <!-- Cyan progress indicator -->
+    <style name="Widget.SpeakSmartBaguio.ProgressBar"
+        parent="Widget.AppCompat.ProgressBar.Horizontal">
+        <item name="android:indeterminateTint">@color/cyan_primary</item>
+        <item name="android:progressTint">@color/cyan_primary</item>
+        <item name="android:progressBackgroundTint">@color/divider_color</item>
+    </style>
 
 </resources>

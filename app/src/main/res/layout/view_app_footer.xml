@@ -6,37 +6,50 @@
     android:orientation="vertical"
     android:gravity="center"
     android:paddingTop="30dp"
-    android:paddingBottom="20dp">
+    android:paddingBottom="20dp"
+    android:background="@color/app_background">
 
-    <!-- SUBTLE TEAL DIVIDER -->
+    <!-- SUBTLE DIVIDER -->
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginBottom="20dp"
-        android:background="#332A9D93" />
+        android:background="@color/divider_color" />
+
+    <!-- APP LOGO -->
+
+    <ImageView
+        android:id="@+id/footerLogo"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_gravity="center_horizontal"
+        android:contentDescription="Speak Smart Baguio Logo"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_logo" />
 
     <!-- APP NAME -->
 
     <TextView
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
         android:gravity="center"
         android:text="SPEAK SMART BAGUIO"
-        android:textColor="@color/text_light"
-        android:textSize="13sp"
+        android:textColor="@color/cyan_primary"
+        android:textSize="12sp"
         android:textStyle="bold"
-        android:letterSpacing="0.10" />
+        android:letterSpacing="0.08" />
 
     <!-- APP DESCRIPTION -->
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="7dp"
+        android:layout_marginTop="9dp"
         android:gravity="center"
-        android:text="A student-developed language learning application"
-        android:textColor="@color/light_gray"
+        android:text="Language learning application"
+        android:textColor="@color/text_secondary"
         android:textSize="12sp"
         android:lineSpacingExtra="2dp" />
 
@@ -48,7 +61,7 @@
         android:layout_marginTop="5dp"
         android:gravity="center"
         android:text="Blue Phenix Skills Training Center Corp."
-        android:textColor="@color/hint_text"
+        android:textColor="@color/text_secondary"
         android:textSize="12sp"
         android:lineSpacingExtra="2dp" />
 
@@ -60,7 +73,7 @@
         android:layout_marginTop="12dp"
         android:gravity="center"
         android:text="LEARN  •  UNDERSTAND  •  CONNECT"
-        android:textColor="@color/accent_teal"
+        android:textColor="@color/cyan_secondary"
         android:textSize="10sp"
         android:letterSpacing="0.08" />
 
@@ -72,7 +85,7 @@
         android:layout_marginTop="12dp"
         android:gravity="center"
         android:text="Made for learning, sharing, and preserving language."
-        android:textColor="@color/hint_text"
+        android:textColor="@color/text_secondary"
         android:textSize="11sp"
         android:lineSpacingExtra="2dp" />
 

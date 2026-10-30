@@ -5,12 +5,12 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="12dp"
-    app:cardBackgroundColor="@color/card_background"
+    app:cardBackgroundColor="@color/app_surface"
     app:cardCornerRadius="18dp"
     app:cardElevation="0dp"
-    app:strokeColor="@color/primary_element"
+    app:strokeColor="@color/cyan_deep"
     app:strokeWidth="1dp"
-    app:rippleColor="@color/primary_element">
+    app:rippleColor="#3300E5FF">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -18,7 +18,7 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingStart="16dp"
-        android:paddingEnd="8dp"
+        android:paddingEnd="16dp"
         android:paddingTop="16dp"
         android:paddingBottom="16dp">
 
@@ -35,7 +35,7 @@
                 android:id="@+id/textViewIlokano"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/accent_teal"
+                android:textColor="@color/cyan_primary"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:maxLines="2"
@@ -46,7 +46,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:textColor="@color/hint_text"
+                android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 android:textStyle="italic"
                 android:visibility="gone" />
@@ -61,7 +61,7 @@
                 android:paddingTop="4dp"
                 android:paddingBottom="4dp"
                 android:background="@drawable/dropdown_glass_background"
-                android:textColor="@color/accent_teal"
+                android:textColor="@color/cyan_secondary"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
@@ -71,11 +71,22 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:textColor="@color/text_light"
+                android:textColor="@color/text_primary"
                 android:textSize="15sp"
                 android:lineSpacingExtra="3dp"
                 android:maxLines="3"
                 android:ellipsize="end" />
+
+            <!-- TAP TO VIEW WORD DETAILS -->
+
+            <TextView
+                android:id="@+id/textViewWordDetailsHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Tap to view word details"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
 
         </LinearLayout>
 
@@ -91,7 +102,7 @@
             android:clickable="true"
             android:focusable="true"
             android:text="♡"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_primary"
             android:textSize="30sp"
             android:contentDescription="Add to Favorites"
             android:importantForAccessibility="yes" />
@@ -100,15 +111,17 @@
 
         <ImageButton
             android:id="@+id/buttonPlayAudio"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginStart="2dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
             android:padding="10dp"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
             android:contentDescription="Play word pronunciation"
             android:src="@drawable/ic_sound"
             android:scaleType="centerInside"
-            app:tint="@color/accent_teal" />
+            app:tint="@color/cyan_primary" />
 
     </LinearLayout>
 

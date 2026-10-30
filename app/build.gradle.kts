@@ -72,6 +72,15 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
     implementation("com.google.firebase:firebase-firestore")
 
+    implementation("com.google.firebase:firebase-functions")
+
+// Firebase App Check: production verification
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
+
+// Firebase App Check: development testing
+    debugImplementation("com.google.firebase:firebase-appcheck-debug")
+
+
     implementation("com.google.mlkit:translate:17.0.2")
     implementation("com.github.ybq:Android-SpinKit:1.4.0")
 

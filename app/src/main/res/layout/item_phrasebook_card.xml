@@ -5,14 +5,14 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="14dp"
-    app:cardBackgroundColor="@color/card_background"
+    android:clickable="true"
+    android:focusable="true"
+    app:cardBackgroundColor="@color/app_surface"
     app:cardCornerRadius="20dp"
     app:cardElevation="0dp"
-    app:strokeColor="@color/primary_element"
+    app:strokeColor="@color/border_cyan"
     app:strokeWidth="1dp"
-    app:rippleColor="#3357CFC3"
-    android:clickable="true"
-    android:focusable="true">
+    app:rippleColor="#3300E5FF">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -20,7 +20,7 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingStart="18dp"
-        android:paddingEnd="8dp"
+        android:paddingEnd="16dp"
         android:paddingTop="18dp"
         android:paddingBottom="18dp">
 
@@ -36,7 +36,7 @@
                 android:id="@+id/textViewIlokano"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/accent_teal"
+                android:textColor="@color/cyan_primary"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:lineSpacingExtra="3dp"
@@ -48,7 +48,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="7dp"
-                android:textColor="@color/hint_text"
+                android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 android:textStyle="italic"
                 android:visibility="gone" />
@@ -58,7 +58,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:textColor="@color/text_light"
+                android:textColor="@color/text_primary"
                 android:textSize="16sp"
                 android:lineSpacingExtra="4dp"
                 android:maxLines="4"
@@ -69,7 +69,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:text="Tap to view phrase details"
-                android:textColor="@color/hint_text"
+                android:textColor="@color/text_secondary"
                 android:textSize="11sp" />
 
         </LinearLayout>
@@ -86,27 +86,27 @@
             android:clickable="true"
             android:focusable="true"
             android:text="♡"
-            android:textColor="@color/accent_teal"
+            android:textColor="@color/cyan_primary"
             android:textSize="30sp"
             android:contentDescription="Add phrase to Favorites"
             android:importantForAccessibility="yes" />
 
-        <!-- PRONUNCIATION BUTTON -->
+        <!-- SPEAKER ICON: NO CIRCLE BACKGROUND -->
 
         <ImageButton
             android:id="@+id/buttonPlayAudio"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:layout_marginStart="2dp"
+            android:layout_marginStart="8dp"
             android:padding="12dp"
-            android:background="@drawable/bg_speaker_button"
+            android:background="@android:color/transparent"
             android:contentDescription="Play phrase pronunciation"
             android:src="@drawable/ic_sound"
             android:scaleType="fitCenter"
             android:clickable="true"
             android:focusable="true"
             android:stateListAnimator="@null"
-            app:tint="@color/accent_teal" />
+            app:tint="@color/cyan_primary" />
 
     </LinearLayout>
 

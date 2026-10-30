@@ -1,9 +1,11 @@
+
 package com.example.speaksmartbaguio;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.RadioGroup;
 
 import androidx.annotation.NonNull;
@@ -53,6 +55,9 @@ public class AccessibilitySettingsFragment extends Fragment {
     ) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Animate the page when it opens.
+        animatePageEntrance(view);
+
         // Set up the Back button.
         setupBackButton();
 
@@ -65,6 +70,29 @@ public class AccessibilitySettingsFragment extends Fragment {
         setupResetButton();
 
         applySettingsToCurrentScreen();
+    }
+
+    // ---------------------------------------------------------
+    // PAGE ENTRANCE ANIMATION
+    // ---------------------------------------------------------
+
+    private void animatePageEntrance(@NonNull View view) {
+
+        // Start slightly lower and transparent.
+        view.setAlpha(0f);
+
+        float startTranslation =
+                24f * getResources().getDisplayMetrics().density;
+
+        view.setTranslationY(startTranslation);
+
+        // Smooth fade-in and upward movement.
+        view.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(450)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
     }
 
     @Override
@@ -86,6 +114,7 @@ public class AccessibilitySettingsFragment extends Fragment {
     // ---------------------------------------------------------
 
     private void setupBackButton() {
+
         binding.buttonAccessibilityBack.setOnClickListener(v -> {
 
             if (!isAdded()) {
@@ -97,8 +126,7 @@ public class AccessibilitySettingsFragment extends Fragment {
 
             /*
              * Return to the previous navigation destination.
-             * If navigation cannot go back, use the activity's
-             * normal Android Back behavior.
+             * If navigation cannot go back, use normal Android Back.
              */
             if (!navController.navigateUp()) {
                 requireActivity()
@@ -113,6 +141,7 @@ public class AccessibilitySettingsFragment extends Fragment {
     // ---------------------------------------------------------
 
     private void loadSavedSettings() {
+
         if (binding == null) {
             return;
         }
@@ -125,15 +154,15 @@ public class AccessibilitySettingsFragment extends Fragment {
         updatingControls = true;
 
         try {
-            if (fontScale
-                    == AccessibilityPreferences.FONT_SCALE_LARGE) {
+
+            if (fontScale ==
+                    AccessibilityPreferences.FONT_SCALE_LARGE) {
 
                 binding.fontSizeLarge.setChecked(true);
 
             } else if (
-                    fontScale
-                            == AccessibilityPreferences
-                            .FONT_SCALE_EXTRA_LARGE
+                    fontScale ==
+                            AccessibilityPreferences.FONT_SCALE_EXTRA_LARGE
             ) {
 
                 binding.fontSizeExtraLarge.setChecked(true);
@@ -165,6 +194,7 @@ public class AccessibilitySettingsFragment extends Fragment {
     // ---------------------------------------------------------
 
     private void setupFontSizeOptions() {
+
         binding.fontSizeRadioGroup.setOnCheckedChangeListener(
                 (RadioGroup group, int checkedId) -> {
 
@@ -184,8 +214,7 @@ public class AccessibilitySettingsFragment extends Fragment {
                     ) {
 
                         selectedScale =
-                                AccessibilityPreferences
-                                        .FONT_SCALE_EXTRA_LARGE;
+                                AccessibilityPreferences.FONT_SCALE_EXTRA_LARGE;
 
                     } else {
 
@@ -210,6 +239,7 @@ public class AccessibilitySettingsFragment extends Fragment {
     // ---------------------------------------------------------
 
     private void setupHighContrastSwitch() {
+
         binding.switchHighContrast.setOnCheckedChangeListener(
                 (buttonView, isChecked) -> {
 
@@ -238,6 +268,7 @@ public class AccessibilitySettingsFragment extends Fragment {
     // ---------------------------------------------------------
 
     private void setupSimplifiedLayoutSwitch() {
+
         binding.switchSimplifiedLayout.setOnCheckedChangeListener(
                 (buttonView, isChecked) -> {
 
@@ -266,6 +297,7 @@ public class AccessibilitySettingsFragment extends Fragment {
     // ---------------------------------------------------------
 
     private void setupResetButton() {
+
         binding.buttonResetAccessibility.setOnClickListener(v -> {
 
             if (binding == null) {
@@ -282,6 +314,7 @@ public class AccessibilitySettingsFragment extends Fragment {
             updatingControls = true;
 
             try {
+
                 binding.fontSizeStandard.setChecked(true);
                 binding.switchHighContrast.setChecked(false);
                 binding.switchSimplifiedLayout.setChecked(false);
@@ -301,6 +334,7 @@ public class AccessibilitySettingsFragment extends Fragment {
     // ---------------------------------------------------------
 
     private void applySettingsToCurrentScreen() {
+
         if (binding == null || !isAdded()) {
             return;
         }
@@ -316,6 +350,7 @@ public class AccessibilitySettingsFragment extends Fragment {
     // ---------------------------------------------------------
 
     private void showMessage(@NonNull String message) {
+
         if (binding == null || !isAdded()) {
             return;
         }
@@ -333,6 +368,12 @@ public class AccessibilitySettingsFragment extends Fragment {
 
     @Override
     public void onDestroyView() {
+
+        if (binding != null) {
+            // Cancel any running entrance animation.
+            binding.getRoot().animate().cancel();
+        }
+
         super.onDestroyView();
 
         binding = null;

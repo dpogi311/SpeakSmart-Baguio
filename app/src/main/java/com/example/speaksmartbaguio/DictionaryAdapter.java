@@ -6,7 +6,6 @@ import android.graphics.Color;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.BackgroundColorSpan;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,7 +21,11 @@ import com.example.speaksmartbaguio.entity.FavoriteEntity;
 import com.example.speaksmartbaguio.repository.FavoriteRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 
+import java.text.Collator;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 public class DictionaryAdapter
         extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -33,17 +36,23 @@ public class DictionaryAdapter
     private static final String HEART_EMPTY = "♡";
     private static final String HEART_FILLED = "♥";
 
-    private List<Word> wordList;
-    private OnPlayClickListener playClickListener;
+    public static final String SORT_A_TO_Z = "A–Z";
+    public static final String SORT_Z_TO_A = "Z–A";
+
+    private final List<Word> allWords = new ArrayList<>();
+    private final List<Word> wordList = new ArrayList<>();
+
+    private final OnPlayClickListener playClickListener;
 
     private String searchQuery = "";
     private String selectedLanguage = "English";
+    private String sortOrder = SORT_A_TO_Z;
+    private String selectedLetter = "";
 
     private boolean isLoading = false;
     private boolean hasMore = true;
 
     private Runnable loadMoreListener;
-
     private FavoriteRepository favoriteRepository;
 
     public interface OnPlayClickListener {
@@ -51,61 +60,167 @@ public class DictionaryAdapter
     }
 
     public DictionaryAdapter(
-            List<Word> wordList,
+            List<Word> words,
             OnPlayClickListener listener,
-            String selectedLanguage
+            String language
     ) {
-        this.wordList = wordList;
-        this.playClickListener = listener;
-        this.selectedLanguage = selectedLanguage;
-    }
+        playClickListener = listener;
+        selectedLanguage = language == null ? "English" : language;
 
-    private FavoriteRepository getFavoriteRepository(View view) {
-        if (favoriteRepository == null) {
-            favoriteRepository = new FavoriteRepository(
-                    view.getContext().getApplicationContext()
-            );
+        if (words != null) {
+            allWords.addAll(words);
         }
 
-        return favoriteRepository;
+        applyFilters();
     }
 
-    public void setSearchQuery(String query) {
-        this.searchQuery = query != null
-                ? query.toLowerCase()
-                : "";
-    }
+    // =========================================================
+    // LANGUAGE
+    // =========================================================
 
     public void setSelectedLanguage(String language) {
-        this.selectedLanguage = language;
+        selectedLanguage = language == null ? "English" : language;
         notifyDataSetChanged();
     }
 
+    // =========================================================
+    // SEARCH HIGHLIGHTING
+    // =========================================================
+
+    public void setSearchQuery(String query) {
+        searchQuery = query == null
+                ? ""
+                : query.trim().toLowerCase(Locale.ROOT);
+
+        notifyDataSetChanged();
+    }
+
+    // =========================================================
+    // SORTING
+    // =========================================================
+
+    public void setSortOrder(String order) {
+        sortOrder = SORT_Z_TO_A.equals(order)
+                ? SORT_Z_TO_A
+                : SORT_A_TO_Z;
+
+        applyFilters();
+    }
+
+    public String getSortOrder() {
+        return sortOrder;
+    }
+
+    // =========================================================
+    // LETTER FILTER
+    // =========================================================
+
+    public void setSelectedLetter(String letter) {
+        if (letter == null || letter.trim().isEmpty()) {
+            selectedLetter = "";
+        } else {
+            selectedLetter = letter.trim()
+                    .substring(0, 1)
+                    .toUpperCase(Locale.ROOT);
+        }
+
+        applyFilters();
+    }
+
+    public String getSelectedLetter() {
+        return selectedLetter;
+    }
+
+    public void clearLetterFilter() {
+        selectedLetter = "";
+        applyFilters();
+    }
+
+    // =========================================================
+    // FILTER AND SORT
+    // =========================================================
+
+    private void applyFilters() {
+        wordList.clear();
+
+        for (Word word : allWords) {
+            if (word == null) {
+                continue;
+            }
+
+            String ilokano = safeText(word.getIlokanoWord()).trim();
+
+            if (!selectedLetter.isEmpty()) {
+                if (ilokano.isEmpty()
+                        || !ilokano.regionMatches(
+                        true,
+                        0,
+                        selectedLetter,
+                        0,
+                        selectedLetter.length()
+                )) {
+                    continue;
+                }
+            }
+
+            wordList.add(word);
+        }
+
+        sortWords();
+        notifyDataSetChanged();
+    }
+
+    private void sortWords() {
+        Collator collator = Collator.getInstance(new Locale("ilo"));
+        collator.setStrength(Collator.PRIMARY);
+
+        Collections.sort(wordList, (first, second) -> {
+            String firstWord =
+                    safeText(first.getIlokanoWord()).trim();
+            String secondWord =
+                    safeText(second.getIlokanoWord()).trim();
+
+            int result = collator.compare(firstWord, secondWord);
+
+            if (result == 0) {
+                result = firstWord.compareToIgnoreCase(secondWord);
+            }
+
+            if (SORT_Z_TO_A.equals(sortOrder)) {
+                return -Integer.signum(result);
+            }
+
+            return result;
+        });
+    }
+
+    // =========================================================
+    // PAGINATION
+    // =========================================================
+
     public void setPaginationState(
-            boolean isLoading,
-            boolean hasMore
+            boolean loading,
+            boolean moreAvailable
     ) {
-        this.isLoading = isLoading;
-        this.hasMore = hasMore;
+        isLoading = loading;
+        hasMore = moreAvailable;
 
-        int footerPosition = getItemCount() - 1;
+        int footerPosition = wordList.size();
 
-        if (footerPosition >= 0) {
+        if (footerPosition < getItemCount()) {
             notifyItemChanged(footerPosition);
         }
     }
 
     public void setOnLoadMoreListener(Runnable listener) {
-        this.loadMoreListener = listener;
+        loadMoreListener = listener;
     }
 
     @Override
     public int getItemViewType(int position) {
-        if (wordList != null && position == wordList.size()) {
-            return TYPE_FOOTER;
-        }
-
-        return TYPE_ITEM;
+        return position == wordList.size()
+                ? TYPE_FOOTER
+                : TYPE_ITEM;
     }
 
     @NonNull
@@ -142,138 +257,125 @@ public class DictionaryAdapter
     ) {
         if (holder instanceof WordViewHolder) {
             bindWord((WordViewHolder) holder, position);
-
         } else if (holder instanceof FooterViewHolder) {
             bindFooter((FooterViewHolder) holder);
         }
     }
 
+    // =========================================================
+    // WORD CARD
+    // =========================================================
+
     private void bindWord(
             WordViewHolder holder,
             int position
     ) {
-        if (wordList == null || position >= wordList.size()) {
+        if (position < 0 || position >= wordList.size()) {
             return;
         }
 
-        Word currentWord = wordList.get(position);
+        Word word = wordList.get(position);
 
-        String id = currentWord.getId() != null
-                ? currentWord.getId()
-                : "";
+        if (word == null) {
+            return;
+        }
 
-        Log.d("DICTIONARY DEBUG", "DICTIONARY ID: " + id);
+        String id = safeText(word.getId());
+        String ilokano = safeText(word.getIlokanoWord());
+        String english = safeText(word.getEnglishTranslation());
+        String tagalog = safeText(word.getTagalogTranslation());
+        String partOfSpeech = safeText(word.getPartOfSpeech());
+        String category = safeText(word.getCategory());
 
-        String ilokano = safeText(currentWord.getIlokanoWord());
-        String english = safeText(currentWord.getEnglishTranslation());
-        String tagalog = safeText(currentWord.getTagalogTranslation());
-        String pos = safeText(currentWord.getPartOfSpeech());
-        String category = safeText(currentWord.getCategory());
-
+        holder.boundId = id;
         holder.boundIlokano = ilokano;
         holder.boundEnglish = english;
         holder.boundTagalog = tagalog;
 
-        // Ilokano word and highlighted search matches.
         holder.ilokanoWordText.setText(
                 getHighlightedText(ilokano, searchQuery)
         );
 
-        // Part of speech.
-        if (!pos.isEmpty()) {
-            holder.partOfSpeechText.setVisibility(View.VISIBLE);
-            holder.partOfSpeechText.setText(
-                    getHighlightedText(pos, searchQuery)
-            );
-        } else {
-            holder.partOfSpeechText.setVisibility(View.GONE);
-        }
-
-        // Category.
-        if (!category.isEmpty()) {
-            holder.categoryText.setVisibility(View.VISIBLE);
-            holder.categoryText.setText(
-                    getHighlightedText(category, searchQuery)
-            );
-        } else {
-            holder.categoryText.setVisibility(View.GONE);
-        }
-
-        // Translation selected by the user.
-        String selectedTranslation =
-                "Tagalog".equals(selectedLanguage)
-                        ? tagalog
-                        : english;
-
-        holder.selectedTranslationText.setText(
-                getHighlightedText(
-                        selectedTranslation,
-                        searchQuery
-                )
+        holder.partOfSpeechText.setText(partOfSpeech);
+        holder.partOfSpeechText.setVisibility(
+                partOfSpeech.isEmpty() ? View.GONE : View.VISIBLE
         );
 
-        // Pronunciation button.
+        holder.categoryText.setText(category);
+        holder.categoryText.setVisibility(
+                category.isEmpty() ? View.GONE : View.VISIBLE
+        );
+
+        String translation = "Tagalog".equals(selectedLanguage)
+                ? tagalog
+                : english;
+
+        holder.selectedTranslationText.setText(
+                getHighlightedText(translation, searchQuery)
+        );
+
         holder.playAudioButton.setOnClickListener(v -> {
             if (playClickListener != null) {
-                playClickListener.onPlayClick(currentWord);
+                playClickListener.onPlayClick(word);
             }
         });
 
-        // Favorites button.
-        holder.favoriteButton.setText(HEART_EMPTY);
-        holder.favoriteButton.setContentDescription(
-                "Add " + ilokano + " to Favorites"
-        );
+        setHeartState(holder, false);
 
         holder.favoriteButton.setOnClickListener(v ->
-                toggleFavorite(holder, currentWord)
+                toggleFavorite(holder, word)
         );
 
-        // Load the saved favorite state from the local Room database.
         getFavoriteRepository(holder.itemView).isFavorite(
                 FavoriteRepository.TYPE_DICTIONARY,
                 ilokano,
                 english,
                 tagalog,
-                isSaved -> {
-                    if (!isSameBoundWord(
-                            holder,
-                            ilokano,
-                            english,
-                            tagalog
-                    )) {
+                isFavorite -> {
+                    if (!isSameBoundWord(holder, word)) {
                         return;
                     }
 
-                    setHeartState(holder, isSaved, ilokano);
+                    setHeartState(holder, isFavorite);
                 }
         );
 
-        // Tap the card to open the word details screen.
         holder.itemView.setOnClickListener(v -> {
             Intent intent = new Intent(
                     v.getContext(),
                     WordDetailActivity.class
             );
 
-            intent.putExtra("id", currentWord.getId());
-            intent.putExtra("ilokano", currentWord.getIlokanoWord());
-            intent.putExtra("english", currentWord.getEnglishTranslation());
-            intent.putExtra("tagalog", currentWord.getTagalogTranslation());
-            intent.putExtra("pos", currentWord.getPartOfSpeech());
-            intent.putExtra("category", currentWord.getCategory());
-            intent.putExtra("definition", currentWord.getDefinition());
-            intent.putExtra("ttsUrl", currentWord.getTtsUrl());
+            intent.putExtra("id", id);
+            intent.putExtra("ilokano", ilokano);
+            intent.putExtra("english", english);
+            intent.putExtra("tagalog", tagalog);
+            intent.putExtra("pos", partOfSpeech);
+            intent.putExtra("category", category);
+            intent.putExtra("definition", safeText(word.getDefinition()));
+            intent.putExtra("ttsUrl", safeText(word.getTtsUrl()));
 
             v.getContext().startActivity(intent);
         });
 
-        // Apply saved accessibility settings to this card.
-        // This also covers newly loaded and filtered dictionary entries.
         AccessibilityPreferences.applyToViewTree(
                 holder.itemView.getContext(),
                 holder.itemView
         );
+    }
+
+    // =========================================================
+    // FAVORITES
+    // =========================================================
+
+    private FavoriteRepository getFavoriteRepository(View view) {
+        if (favoriteRepository == null) {
+            favoriteRepository = new FavoriteRepository(
+                    view.getContext().getApplicationContext()
+            );
+        }
+
+        return favoriteRepository;
     }
 
     private void toggleFavorite(
@@ -293,12 +395,7 @@ public class DictionaryAdapter
                 english,
                 tagalog,
                 isSaved -> {
-                    if (!isSameBoundWord(
-                            holder,
-                            ilokano,
-                            english,
-                            tagalog
-                    )) {
+                    if (!isSameBoundWord(holder, word)) {
                         return;
                     }
 
@@ -317,26 +414,23 @@ public class DictionaryAdapter
                                 english,
                                 tagalog,
                                 (success, message) -> {
-                                    if (!isSameBoundWord(
-                                            holder,
-                                            ilokano,
-                                            english,
-                                            tagalog
-                                    )) {
+                                    if (!isSameBoundWord(holder, word)) {
                                         return;
                                     }
 
-                                    if (success) {
-                                        setHeartState(
-                                                holder,
-                                                true,
-                                                ilokano
-                                        );
-                                    }
+                                    setHeartState(holder, success);
+
+                                    String toastMessage =
+                                            message != null
+                                                    && !message.trim().isEmpty()
+                                                    ? message
+                                                    : (success
+                                                       ? "Added to favorites"
+                                                       : "Could not save favorite");
 
                                     Toast.makeText(
                                             holder.itemView.getContext(),
-                                            message,
+                                            toastMessage,
                                             Toast.LENGTH_SHORT
                                     ).show();
                                 }
@@ -345,6 +439,7 @@ public class DictionaryAdapter
                 }
         );
     }
+
 
     private void removeDictionaryFavorite(
             WordViewHolder holder,
@@ -356,52 +451,45 @@ public class DictionaryAdapter
         repository.getFavoritesByType(
                 FavoriteRepository.TYPE_DICTIONARY,
                 favorites -> {
-                    if (!isSameBoundWord(
-                            holder,
-                            ilokano,
-                            english,
-                            tagalog
-                    )) {
-                        return;
-                    }
-
-                    if (favorites == null) {
-                        Toast.makeText(
-                                holder.itemView.getContext(),
-                                "Could not load Favorites.",
-                                Toast.LENGTH_SHORT
-                        ).show();
-
-                        return;
-                    }
-
                     FavoriteEntity match = null;
 
-                    for (FavoriteEntity favorite : favorites) {
-                        if (ilokano.equals(favorite.getIlokanoText())
-                                && english.equals(favorite.getEnglishText())
-                                && tagalog.equals(favorite.getTagalogText())) {
-                            match = favorite;
-                            break;
+                    if (favorites != null) {
+                        for (FavoriteEntity favorite : favorites) {
+                            if (favorite == null) {
+                                continue;
+                            }
+
+                            if (safeText(favorite.getIlokanoText())
+                                    .equalsIgnoreCase(ilokano)
+                                    && safeText(favorite.getEnglishText())
+                                    .equalsIgnoreCase(english)
+                                    && safeText(favorite.getTagalogText())
+                                    .equalsIgnoreCase(tagalog)) {
+                                match = favorite;
+                                break;
+                            }
                         }
                     }
 
                     if (match == null) {
-                        setHeartState(holder, false, ilokano);
-
-                        Toast.makeText(
-                                holder.itemView.getContext(),
-                                "Favorite was not found.",
-                                Toast.LENGTH_SHORT
-                        ).show();
+                        if (isSameBoundWordByValues(
+                                holder,
+                                ilokano,
+                                english,
+                                tagalog
+                        )) {
+                            setHeartState(holder, false);
+                        }
 
                         return;
                     }
 
+                    int favoriteId = match.getId();
+
                     repository.removeFavorite(
-                            match.getId(),
+                            favoriteId,
                             (success, message) -> {
-                                if (!isSameBoundWord(
+                                if (!isSameBoundWordByValues(
                                         holder,
                                         ilokano,
                                         english,
@@ -410,17 +498,19 @@ public class DictionaryAdapter
                                     return;
                                 }
 
-                                if (success) {
-                                    setHeartState(
-                                            holder,
-                                            false,
-                                            ilokano
-                                    );
-                                }
+                                setHeartState(holder, !success);
+
+                                String toastMessage =
+                                        message != null
+                                                && !message.trim().isEmpty()
+                                                ? message
+                                                : (success
+                                                   ? "Removed from favorites"
+                                                   : "Could not remove favorite");
 
                                 Toast.makeText(
                                         holder.itemView.getContext(),
-                                        message,
+                                        toastMessage,
                                         Toast.LENGTH_SHORT
                                 ).show();
                             }
@@ -429,50 +519,68 @@ public class DictionaryAdapter
         );
     }
 
+
     private void setHeartState(
             WordViewHolder holder,
-            boolean isSaved,
-            String ilokano
+            boolean isFavorite
     ) {
         holder.favoriteButton.setText(
-                isSaved ? HEART_FILLED : HEART_EMPTY
+                isFavorite ? HEART_FILLED : HEART_EMPTY
+        );
+
+        holder.favoriteButton.setTextColor(
+                isFavorite
+                        ? Color.parseColor("#06B8A8")
+                        : Color.LTGRAY
         );
 
         holder.favoriteButton.setContentDescription(
-                isSaved
-                        ? "Remove " + ilokano + " from Favorites"
-                        : "Add " + ilokano + " to Favorites"
+                isFavorite
+                        ? "Remove from favorites"
+                        : "Add to favorites"
         );
     }
 
     private boolean isSameBoundWord(
             WordViewHolder holder,
+            Word word
+    ) {
+        return isSameBoundWordByValues(
+                holder,
+                safeText(word.getIlokanoWord()),
+                safeText(word.getEnglishTranslation()),
+                safeText(word.getTagalogTranslation())
+        );
+    }
+
+    private boolean isSameBoundWordByValues(
+            WordViewHolder holder,
             String ilokano,
             String english,
             String tagalog
     ) {
-        return ilokano.equals(holder.boundIlokano)
-                && english.equals(holder.boundEnglish)
-                && tagalog.equals(holder.boundTagalog);
+        return holder.boundIlokano.equals(ilokano)
+                && holder.boundEnglish.equals(english)
+                && holder.boundTagalog.equals(tagalog);
     }
 
-    private String safeText(String value) {
-        return value == null ? "" : value.trim();
-    }
+    // =========================================================
+    // PAGINATION FOOTER
+    // =========================================================
 
     private void bindFooter(FooterViewHolder holder) {
         if (isLoading) {
-            holder.progressBar.setVisibility(View.VISIBLE);
-            holder.footerText.setVisibility(View.GONE);
+            holder.footerProgress.setVisibility(View.VISIBLE);
+            holder.footerText.setVisibility(View.VISIBLE);
+            holder.footerText.setText("Loading more words...");
+            holder.itemView.setVisibility(View.VISIBLE);
+            holder.itemView.setOnClickListener(null);
 
-        } else if (hasMore && wordList != null && !wordList.isEmpty()) {
-            holder.progressBar.setVisibility(View.GONE);
+        } else if (hasMore && !wordList.isEmpty()) {
+            holder.footerProgress.setVisibility(View.GONE);
             holder.footerText.setVisibility(View.VISIBLE);
             holder.footerText.setText("Load more");
-
-            holder.footerText.setCompoundDrawablesWithIntrinsicBounds(
-                    0, 0, 0, 0
-            );
+            holder.itemView.setVisibility(View.VISIBLE);
 
             holder.itemView.setOnClickListener(v -> {
                 if (loadMoreListener != null) {
@@ -481,12 +589,12 @@ public class DictionaryAdapter
             });
 
         } else {
-            holder.progressBar.setVisibility(View.GONE);
+            holder.footerProgress.setVisibility(View.GONE);
             holder.footerText.setVisibility(View.GONE);
+            holder.itemView.setVisibility(View.GONE);
             holder.itemView.setOnClickListener(null);
         }
 
-        // Apply saved accessibility settings to the pagination footer too.
         AccessibilityPreferences.applyToViewTree(
                 holder.itemView.getContext(),
                 holder.itemView
@@ -495,63 +603,141 @@ public class DictionaryAdapter
 
     @Override
     public int getItemCount() {
-        int count = wordList != null ? wordList.size() : 0;
-        return count + 1;
+        return wordList.size() + 1;
     }
 
-    public void filterList(List<Word> filteredList) {
-        wordList = filteredList;
-        notifyDataSetChanged();
-    }
+    // =========================================================
+    // UPDATE WORDS
+    // =========================================================
 
-    public void addItems(List<Word> newItems) {
-        if (wordList == null || newItems == null || newItems.isEmpty()) {
-            return;
+    /**
+     * Replaces the loaded data, usually after a new search or refresh.
+     */
+    public void filterList(List<Word> words) {
+        allWords.clear();
+
+        if (words != null) {
+            allWords.addAll(words);
         }
 
-        int start = wordList.size();
-        wordList.addAll(newItems);
-
-        notifyItemRangeInserted(start, newItems.size());
+        applyFilters();
     }
 
-    private Spannable getHighlightedText(
+    /**
+     * Adds another API page without losing earlier pages.
+     */
+    public void addItems(List<Word> words) {
+        if (words != null) {
+            for (Word incoming : words) {
+                if (incoming == null) {
+                    continue;
+                }
+
+                boolean alreadyExists = false;
+
+                String incomingId = safeText(incoming.getId());
+                String incomingIlokano =
+                        safeText(incoming.getIlokanoWord());
+
+                for (Word existing : allWords) {
+                    if (existing == null) {
+                        continue;
+                    }
+
+                    String existingId = safeText(existing.getId());
+
+                    if (!incomingId.isEmpty()
+                            && incomingId.equals(existingId)) {
+                        alreadyExists = true;
+                        break;
+                    }
+
+                    if (incomingId.isEmpty()
+                            && incomingIlokano.equalsIgnoreCase(
+                            safeText(existing.getIlokanoWord())
+                    )
+                            && safeText(incoming.getEnglishTranslation())
+                            .equalsIgnoreCase(
+                                    safeText(
+                                            existing.getEnglishTranslation()
+                                    )
+                            )) {
+                        alreadyExists = true;
+                        break;
+                    }
+                }
+
+                if (!alreadyExists) {
+                    allWords.add(incoming);
+                }
+            }
+        }
+
+        applyFilters();
+    }
+
+    // =========================================================
+    // SEARCH HIGHLIGHTING
+    // =========================================================
+
+    private CharSequence getHighlightedText(
             String text,
             String query
     ) {
-        Spannable spannable = new SpannableString(text);
+        if (text == null) {
+            text = "";
+        }
 
-        if (query != null && !query.isEmpty()) {
-            String lowerText = text.toLowerCase();
-            int start = lowerText.indexOf(query);
+        if (query == null || query.trim().isEmpty()) {
+            return text;
+        }
 
-            while (start >= 0) {
-                int end = start + query.length();
+        SpannableString spannable = new SpannableString(text);
+        String lowerText = text.toLowerCase(Locale.ROOT);
+        String lowerQuery = query.toLowerCase(Locale.ROOT);
 
-                spannable.setSpan(
-                        new BackgroundColorSpan(Color.YELLOW),
-                        start,
-                        end,
-                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                );
+        int start = 0;
 
-                start = lowerText.indexOf(query, end);
+        while (true) {
+            int index = lowerText.indexOf(lowerQuery, start);
+
+            if (index < 0) {
+                break;
             }
+
+            spannable.setSpan(
+                    new BackgroundColorSpan(Color.YELLOW),
+                    index,
+                    index + lowerQuery.length(),
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+
+            start = index + lowerQuery.length();
         }
 
         return spannable;
     }
 
+    private String safeText(String value) {
+        return value == null ? "" : value;
+    }
+
+    // =========================================================
+    // VIEW HOLDERS
+    // =========================================================
+
     public static class WordViewHolder
             extends RecyclerView.ViewHolder {
 
-        public TextView ilokanoWordText;
-        public TextView partOfSpeechText;
-        public TextView selectedTranslationText;
-        public TextView categoryText;
-        public TextView favoriteButton;
-        public ImageView playAudioButton;
+        TextView ilokanoWordText;
+        TextView partOfSpeechText;
+        TextView selectedTranslationText;
+        TextView categoryText;
+        TextView favoriteButton;
 
+        ImageView playAudioButton;
+
+        String boundId = "";
         String boundIlokano = "";
         String boundEnglish = "";
         String boundTagalog = "";
@@ -559,48 +745,42 @@ public class DictionaryAdapter
         public WordViewHolder(@NonNull View itemView) {
             super(itemView);
 
-            ilokanoWordText = itemView.findViewById(
-                    R.id.textViewIlokano
-            );
+            ilokanoWordText =
+                    itemView.findViewById(R.id.textViewIlokano);
 
-            partOfSpeechText = itemView.findViewById(
-                    R.id.textViewPartOfSpeech
-            );
+            partOfSpeechText =
+                    itemView.findViewById(R.id.textViewPartOfSpeech);
 
-            categoryText = itemView.findViewById(
-                    R.id.textViewCategory
-            );
+            categoryText =
+                    itemView.findViewById(R.id.textViewCategory);
 
-            selectedTranslationText = itemView.findViewById(
-                    R.id.textViewSelectedTranslation
-            );
+            selectedTranslationText =
+                    itemView.findViewById(
+                            R.id.textViewSelectedTranslation
+                    );
 
-            favoriteButton = itemView.findViewById(
-                    R.id.buttonFavorite
-            );
+            favoriteButton =
+                    itemView.findViewById(R.id.buttonFavorite);
 
-            playAudioButton = itemView.findViewById(
-                    R.id.buttonPlayAudio
-            );
+            playAudioButton =
+                    itemView.findViewById(R.id.buttonPlayAudio);
         }
     }
 
-    static class FooterViewHolder
+    public static class FooterViewHolder
             extends RecyclerView.ViewHolder {
 
-        ProgressBar progressBar;
+        ProgressBar footerProgress;
         TextView footerText;
 
-        FooterViewHolder(@NonNull View itemView) {
+        public FooterViewHolder(@NonNull View itemView) {
             super(itemView);
 
-            progressBar = itemView.findViewById(
-                    R.id.footerProgress
-            );
+            footerProgress =
+                    itemView.findViewById(R.id.footerProgress);
 
-            footerText = itemView.findViewById(
-                    R.id.footerText
-            );
+            footerText =
+                    itemView.findViewById(R.id.footerText);
         }
     }
 }

@@ -19,9 +19,7 @@
         android:paddingTop="16dp"
         android:paddingBottom="32dp">
 
-        <!-- ============================================= -->
         <!-- TOP BAR -->
-        <!-- ============================================= -->
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -39,7 +37,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="SPEAK SMART BAGUIO"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/cyan_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.10" />
@@ -49,7 +47,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="Phrase Details"
-                    android:textColor="@color/light_text"
+                    android:textColor="@color/text_primary"
                     android:textSize="20sp"
                     android:textStyle="bold" />
 
@@ -59,27 +57,25 @@
                 android:id="@+id/btnBack"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:background="@drawable/bg_speaker_button"
+                android:background="@android:color/transparent"
                 android:contentDescription="Go back"
-                android:padding="13dp"
+                android:padding="12dp"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ic_back"
-                app:tint="@color/accent_teal" />
+                app:tint="@color/cyan_primary" />
 
         </LinearLayout>
 
-        <!-- ============================================= -->
         <!-- MAIN ILOKANO PHRASE CARD -->
-        <!-- ============================================= -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="24dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/primary_teal"
+            app:strokeColor="@color/cyan_primary"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -92,7 +88,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="ILOKANO PHRASE"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/cyan_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.12" />
@@ -102,7 +98,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/cyan_primary"
                     android:textSize="30sp"
                     android:textStyle="bold"
                     android:lineSpacingExtra="5dp"
@@ -114,7 +110,7 @@
                     android:layout_width="48dp"
                     android:layout_height="3dp"
                     android:layout_marginTop="18dp"
-                    android:background="@color/primary_teal" />
+                    android:background="@color/cyan_secondary" />
 
                 <TextView
                     android:id="@+id/tvPartOfSpeech"
@@ -126,7 +122,7 @@
                     android:paddingEnd="12dp"
                     android:paddingTop="7dp"
                     android:paddingBottom="7dp"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/cyan_secondary"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
@@ -140,7 +136,7 @@
                     android:paddingEnd="12dp"
                     android:paddingTop="7dp"
                     android:paddingBottom="7dp"
-                    android:textColor="@color/light_text"
+                    android:textColor="@color/text_primary"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
@@ -148,16 +144,14 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- ============================================= -->
         <!-- TRANSLATIONS HEADING -->
-        <!-- ============================================= -->
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="30dp"
             android:text="Translations"
-            android:textColor="@color/light_text"
+            android:textColor="@color/text_primary"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -166,22 +160,20 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
             android:text="Understand the phrase in your preferred language."
-            android:textColor="@color/hint_text"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp"
             android:lineSpacingExtra="3dp" />
 
-        <!-- ============================================= -->
         <!-- ENGLISH TRANSLATION CARD -->
-        <!-- ============================================= -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/primary_element"
+            app:strokeColor="@color/cyan_deep"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -194,7 +186,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="ENGLISH"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/cyan_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.12" />
@@ -204,7 +196,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:textColor="@color/light_text"
+                    android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:lineSpacingExtra="5dp"
                     android:textIsSelectable="true" />
@@ -213,18 +205,16 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- ============================================= -->
         <!-- TAGALOG TRANSLATION CARD -->
-        <!-- ============================================= -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/primary_element"
+            app:strokeColor="@color/cyan_deep"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -237,7 +227,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="TAGALOG"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/cyan_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.12" />
@@ -247,7 +237,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:textColor="@color/light_text"
+                    android:textColor="@color/text_primary"
                     android:textSize="18sp"
                     android:lineSpacingExtra="5dp"
                     android:textIsSelectable="true" />
@@ -256,16 +246,14 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- ============================================= -->
         <!-- EXAMPLE SENTENCES HEADING -->
-        <!-- ============================================= -->
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="30dp"
             android:text="Example Sentences"
-            android:textColor="@color/light_text"
+            android:textColor="@color/text_primary"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -274,22 +262,20 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
             android:text="See how the phrase can be used in conversation."
-            android:textColor="@color/hint_text"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp"
             android:lineSpacingExtra="3dp" />
 
-        <!-- ============================================= -->
         <!-- ILOKANO EXAMPLE SENTENCE -->
-        <!-- ============================================= -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/primary_element"
+            app:strokeColor="@color/cyan_deep"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -302,7 +288,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="ILOKANO"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/cyan_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.12" />
@@ -312,7 +298,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:textColor="@color/light_text"
+                    android:textColor="@color/text_primary"
                     android:textSize="17sp"
                     android:lineSpacingExtra="6dp"
                     android:textIsSelectable="true" />
@@ -321,18 +307,16 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- ============================================= -->
         <!-- ENGLISH EXAMPLE TRANSLATION -->
-        <!-- ============================================= -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            app:cardBackgroundColor="@color/card_background"
+            app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/primary_element"
+            app:strokeColor="@color/cyan_deep"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -345,7 +329,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="ENGLISH TRANSLATION"
-                    android:textColor="@color/accent_teal"
+                    android:textColor="@color/cyan_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.08" />
@@ -355,7 +339,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:textColor="@color/light_text"
+                    android:textColor="@color/text_primary"
                     android:textSize="17sp"
                     android:lineSpacingExtra="6dp"
                     android:textIsSelectable="true" />
@@ -364,15 +348,10 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- ============================================= -->
-        <!-- BOTTOM SPACING -->
-        <!-- ============================================= -->
+        <!-- APP FOOTER -->
 
-
-        <!-- MATCHING HOME SCREEN FOOTER -->
         <include
             layout="@layout/view_app_footer" />
-
 
     </LinearLayout>
 

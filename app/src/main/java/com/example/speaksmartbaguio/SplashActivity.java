@@ -14,16 +14,15 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
-import com.github.ybq.android.spinkit.SpinKitView;
-import com.github.ybq.android.spinkit.sprite.Sprite;
-import com.github.ybq.android.spinkit.style.ThreeBounce;
-
 public class SplashActivity extends AppCompatActivity {
 
-    private static final String GROUP_NAME = "Taraki ti BP";
+    // ==========================================
+    // TEAM IDENTITY
+    // ==========================================
 
-    // Total splash duration.
-    private static final long SPLASH_DELAY = 6500L;
+    private static final String GROUP_NAME = "BIFROST";
+
+    private static final long SPLASH_DELAY = 7500L;
 
     private final Handler handler =
             new Handler(Looper.getMainLooper());
@@ -31,6 +30,7 @@ public class SplashActivity extends AppCompatActivity {
     private boolean navigationStarted = false;
 
     private final Runnable openHome = () -> {
+
         if (isFinishing() || isDestroyed() || navigationStarted) {
             return;
         }
@@ -44,7 +44,6 @@ public class SplashActivity extends AppCompatActivity {
 
         startActivity(intent);
 
-        // Smoothly remove the splash screen.
         overridePendingTransition(
                 android.R.anim.fade_in,
                 android.R.anim.fade_out
@@ -60,7 +59,7 @@ public class SplashActivity extends AppCompatActivity {
         setContentView(R.layout.activity_splash);
 
         // ==========================================
-        // BAGUIO FROST SYSTEM BARS
+        // SYSTEM BAR COLORS
         // ==========================================
 
         getWindow().setStatusBarColor(
@@ -84,6 +83,9 @@ public class SplashActivity extends AppCompatActivity {
         ImageView splashLogo =
                 findViewById(R.id.splashLogo);
 
+        TextView textAppTitle =
+                findViewById(R.id.textAppTitle);
+
         TextView textDeveloperCredit =
                 findViewById(R.id.textDeveloperCredit);
 
@@ -93,8 +95,11 @@ public class SplashActivity extends AppCompatActivity {
         TextView textGroupSub =
                 findViewById(R.id.textGroupSub);
 
-        SpinKitView spinnerDots =
-                findViewById(R.id.spinnerDots);
+        TextView textBifrostSub =
+                findViewById(R.id.textBifrostSub);
+
+        BifrostLoaderView bifrostLoader =
+                findViewById(R.id.bifrostLoader);
 
         // ==========================================
         // TEAL GRADIENT COLORS
@@ -112,7 +117,6 @@ public class SplashActivity extends AppCompatActivity {
 
         // ==========================================
         // SCENE 1: LOGO REVEAL
-        // Fade in and gently scale up.
         // ==========================================
 
         splashLogo.animate()
@@ -123,8 +127,21 @@ public class SplashActivity extends AppCompatActivity {
                 .start();
 
         // ==========================================
-        // SCENE 2: DEVELOPER CREDIT
-        // Fade in with a slight upward movement.
+        // SCENE 2: APP TITLE REVEAL
+        // SPEAK SMART BAGUIO
+        // ==========================================
+
+        textAppTitle.setTranslationY(12f);
+
+        textAppTitle.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setStartDelay(450)
+                .setDuration(850)
+                .start();
+
+        // ==========================================
+        // SCENE 3: DEVELOPER CREDIT
         // ==========================================
 
         textDeveloperCredit.setTranslationY(12f);
@@ -132,13 +149,12 @@ public class SplashActivity extends AppCompatActivity {
         textDeveloperCredit.animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setStartDelay(750)
+                .setStartDelay(850)
                 .setDuration(800)
                 .start();
 
         // ==========================================
-        // SCENE 3: ANIMATED GROUP TITLE
-        // Preserve the original group name.
+        // SCENE 4: ANIMATED BIFROST TITLE
         // ==========================================
 
         for (char c : GROUP_NAME.toCharArray()) {
@@ -169,14 +185,15 @@ public class SplashActivity extends AppCompatActivity {
 
             letter.getPaint().setShader(shader);
 
-            // Give each letter a little breathing room.
-            letter.setPadding(1, 0, 1, 0);
+            letter.setPadding(2, 0, 2, 0);
 
             letterContainer.addView(letter);
         }
 
-        // Start the title after the logo and credit
-        // have had time to appear.
+        // ==========================================
+        // START TITLE ANIMATION
+        // ==========================================
+
         handler.postDelayed(() -> {
 
             if (isFinishing() || isDestroyed()) {
@@ -188,24 +205,15 @@ public class SplashActivity extends AppCompatActivity {
                     0,
                     () -> revealTagline(
                             textGroupSub,
-                            spinnerDots
+                            textBifrostSub,
+                            bifrostLoader
                     )
             );
 
         }, 1600);
 
         // ==========================================
-        // SPINNER STYLE
-        // ==========================================
-
-        Sprite threeBounce = new ThreeBounce();
-        threeBounce.setColor(tealStart);
-
-        spinnerDots.setIndeterminateDrawable(threeBounce);
-
-        // ==========================================
-        // FINAL TRANSITION
-        // Open HomeActivity after the introduction.
+        // SCENE 8: OPEN HOME
         // ==========================================
 
         handler.postDelayed(openHome, SPLASH_DELAY);
@@ -220,6 +228,10 @@ public class SplashActivity extends AppCompatActivity {
             int index,
             Runnable onComplete
     ) {
+
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
 
         if (index >= container.getChildCount()) {
             onComplete.run();
@@ -246,12 +258,14 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     // ==============================================
-    // SCENE 4: TAGLINE REVEAL
+    // SCENE 5: MAIN TAGLINE REVEAL
+    // LEARN • UNDERSTAND • CONNECT
     // ==============================================
 
     private void revealTagline(
             TextView tagline,
-            SpinKitView spinner
+            TextView secondaryTagline,
+            BifrostLoaderView loader
     ) {
 
         if (isFinishing() || isDestroyed()) {
@@ -264,23 +278,52 @@ public class SplashActivity extends AppCompatActivity {
                 .alpha(1f)
                 .translationY(0f)
                 .setDuration(750)
-                .withEndAction(() -> revealSpinner(spinner))
+                .withEndAction(() ->
+                        revealSecondaryTagline(
+                                secondaryTagline,
+                                loader
+                        )
+                )
                 .start();
     }
 
     // ==============================================
-    // SCENE 5: LOADING INDICATOR
+    // SCENE 6: SECONDARY TAGLINE REVEAL
+    // BRIDGING LANGUAGES & CONNECTING CULTURES
     // ==============================================
 
-    private void revealSpinner(SpinKitView spinner) {
+    private void revealSecondaryTagline(
+            TextView tagline,
+            BifrostLoaderView loader
+    ) {
 
         if (isFinishing() || isDestroyed()) {
             return;
         }
 
-        spinner.animate()
+        tagline.setTranslationY(6f);
+
+        tagline.animate()
                 .alpha(1f)
-                .setDuration(500)
+                .translationY(0f)
+                .setDuration(650)
+                .withEndAction(() -> revealSpinner(loader))
+                .start();
+    }
+
+    // ==============================================
+    // SCENE 7: BIFROST BRIDGE LOADING ANIMATION
+    // ==============================================
+
+    private void revealSpinner(BifrostLoaderView loader) {
+
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+
+        loader.animate()
+                .alpha(1f)
+                .setDuration(600)
                 .start();
     }
 

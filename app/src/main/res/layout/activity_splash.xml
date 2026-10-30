@@ -2,16 +2,12 @@
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/app_background"
     tools:context=".SplashActivity">
 
-    <!-- ==========================================
-         APP LOGO
-         Starts invisible for the entrance animation
-         ========================================== -->
+    <!-- APP LOGO -->
 
     <ImageView
         android:id="@+id/splashLogo"
@@ -26,32 +22,46 @@
         android:scaleX="0.8"
         android:scaleY="0.8" />
 
-    <!-- ==========================================
-         DEVELOPER CREDIT
-         ========================================== -->
+    <!-- APP TITLE -->
+
+    <TextView
+        android:id="@+id/textAppTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/splashLogo"
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:gravity="center"
+        android:text="SPEAK SMART BAGUIO"
+        android:textColor="@color/cyan_primary"
+        android:textSize="23sp"
+        android:textStyle="bold"
+        android:fontFamily="sans"
+        android:letterSpacing="0.04"
+        android:includeFontPadding="false"
+        android:alpha="0" />
+
+    <!-- DEVELOPER CREDIT -->
 
     <TextView
         android:id="@+id/textDeveloperCredit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/splashLogo"
-        android:layout_marginTop="14dp"
+        android:layout_below="@id/textAppTitle"
+        android:layout_marginTop="12dp"
         android:layout_marginStart="24dp"
         android:layout_marginEnd="24dp"
         android:gravity="center"
-        android:text="DEVELOPED BY BLUE PHENIX STUDENTS"
-        android:textColor="@color/hint_text"
+        android:text="PROJECT"
+        android:textColor="@color/text_secondary"
         android:textSize="11sp"
-        android:textStyle="normal"
         android:fontFamily="sans"
-        android:letterSpacing="0.08"
+        android:letterSpacing="0.12"
         android:includeFontPadding="false"
         android:alpha="0" />
 
-    <!-- ==========================================
-         ANIMATED GROUP TITLE
-         Existing ID preserved
-         ========================================== -->
+    <!-- ANIMATED BIFROST TITLE -->
 
     <LinearLayout
         android:id="@+id/letterContainer"
@@ -63,43 +73,55 @@
         android:layout_centerHorizontal="true"
         android:layout_marginTop="22dp" />
 
-    <!-- ==========================================
-         TAGLINE
-         Appears after the title animation finishes
-         ========================================== -->
+    <!-- MAIN TAGLINE -->
 
     <TextView
         android:id="@+id/textGroupSub"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/letterContainer"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="18dp"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:gravity="center"
         android:text="LEARN  •  UNDERSTAND  •  CONNECT"
-        android:textColor="@color/accent_teal"
-        android:textSize="11sp"
-        android:textStyle="normal"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
         android:fontFamily="sans"
-        android:letterSpacing="0.12"
+        android:letterSpacing="0.10"
         android:includeFontPadding="false"
         android:alpha="0" />
 
-    <!-- ==========================================
-         LOADING INDICATOR
-         Fades in after the tagline
-         ========================================== -->
+    <!-- SECONDARY BIFROST TAGLINE -->
 
-    <com.github.ybq.android.spinkit.SpinKitView
-        android:id="@+id/spinnerDots"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
+    <TextView
+        android:id="@+id/textBifrostSub"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/textGroupSub"
+        android:layout_marginTop="13dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:gravity="center"
+        android:text="BRIDGING LANGUAGES &amp; CONNECTING CULTURES"
+        android:textColor="#8298B2"
+        android:textSize="9sp"
+        android:textStyle="normal"
+        android:fontFamily="sans"
+        android:letterSpacing="0.08"
+        android:includeFontPadding="false"
+        android:alpha="0" />
+
+    <!-- CUSTOM BIFROST LOADING ANIMATION -->
+
+    <com.example.speaksmartbaguio.BifrostLoaderView
+        android:id="@+id/bifrostLoader"
+        android:layout_width="170dp"
+        android:layout_height="48dp"
         android:layout_centerHorizontal="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginBottom="80dp"
-        android:visibility="visible"
-        android:alpha="0"
-        app:SpinKit_Color="@color/primary_teal" />
+        android:layout_marginBottom="82dp"
+        android:alpha="0" />
 
 </RelativeLayout>

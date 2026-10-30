@@ -1,9 +1,11 @@
+
 package com.example.speaksmartbaguio;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -46,7 +48,34 @@ public class AboutSpeakSmartFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         setupBackButton();
+
         applyAccessibilitySettings();
+
+        // Animate the page when it opens.
+        animatePageEntrance(view);
+    }
+
+    // ---------------------------------------------------------
+    // PAGE ENTRANCE ANIMATION
+    // ---------------------------------------------------------
+
+    private void animatePageEntrance(@NonNull View view) {
+
+        // Start slightly lower and transparent.
+        view.setAlpha(0f);
+
+        float startTranslation =
+                24f * getResources().getDisplayMetrics().density;
+
+        view.setTranslationY(startTranslation);
+
+        // Smooth fade-in and upward movement.
+        view.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(450)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
     }
 
     @Override
@@ -64,6 +93,7 @@ public class AboutSpeakSmartFragment extends Fragment {
     // ---------------------------------------------------------
 
     private void setupBackButton() {
+
         binding.buttonAboutBack.setOnClickListener(v -> {
 
             if (!isAdded()) {
@@ -91,6 +121,7 @@ public class AboutSpeakSmartFragment extends Fragment {
     // ---------------------------------------------------------
 
     private void applyAccessibilitySettings() {
+
         if (binding == null || !isAdded()) {
             return;
         }
@@ -107,6 +138,12 @@ public class AboutSpeakSmartFragment extends Fragment {
 
     @Override
     public void onDestroyView() {
+
+        if (binding != null) {
+            // Cancel any running entrance animation.
+            binding.getRoot().animate().cancel();
+        }
+
         super.onDestroyView();
 
         binding = null;
