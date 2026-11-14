@@ -1,3 +1,4 @@
+
 package com.example.speaksmartbaguio;
 
 import android.content.Context;
@@ -9,43 +10,79 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 public class DictionaryFastScroller extends View {
 
+    private RecyclerView recyclerView;
+
     private final Paint thumbPaint =
             new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    private RecyclerView recyclerView;
+    private final Paint trackPaint =
+            new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    private RecyclerView.OnScrollListener scrollListener;
+    private final RectF thumbRect = new RectF();
+
+    private float thumbHeight;
+    private float thumbTop;
+    private float touchOffset;
+
+    private float minimumThumbHeight;
+    private float thumbWidth;
+
+    private boolean isDragging = false;
+    private boolean bottomCallbackTriggered = false;
 
     private Runnable onReachBottomListener;
 
-    private boolean dragging = false;
-    private boolean thumbVisible = false;
+    public interface ScrollCallback {
+        void onScrollChanged(int scrollY, int oldScrollY);
+    }
 
-    private float thumbTop = 0f;
-    private float thumbHeight = 0f;
-    private float lastTouchY = 0f;
-    private float dragOffsetY = 0f;
+    private ScrollCallback scrollCallback;
 
-    private final float thumbWidth;
-    private final float minimumThumbHeight;
-    private final float horizontalInset;
+    private final RecyclerView.OnScrollListener scrollListener =
+            new RecyclerView.OnScrollListener() {
 
-    private int thumbColor = 0xFF06B8A8;
-    private int activeThumbColor = 0xFF08D4C2;
+                @Override
+                public void onScrolled(
+                        RecyclerView view,
+                        int dx,
+                        int dy
+                ) {
+                    updateThumbPosition();
+                    invalidate();
+
+                    int offset = view.computeVerticalScrollOffset();
+                    int range = getScrollRange();
+                    int extent = view.computeVerticalScrollExtent();
+
+                    if (offset + extent < range - 2) {
+                        bottomCallbackTriggered = false;
+                    }
+
+                    if (scrollCallback != null) {
+                        scrollCallback.onScrollChanged(
+                                offset,
+                                offset - dy
+                        );
+                    }
+                }
+            };
 
     public DictionaryFastScroller(Context context) {
-        this(context, null);
+        super(context);
+        init();
     }
 
     public DictionaryFastScroller(
             Context context,
             @Nullable AttributeSet attrs
     ) {
-        this(context, attrs, 0);
+        super(context, attrs);
+        init();
     }
 
     public DictionaryFastScroller(
@@ -54,255 +91,278 @@ public class DictionaryFastScroller extends View {
             int defStyleAttr
     ) {
         super(context, attrs, defStyleAttr);
+        init();
+    }
 
-        thumbWidth = dp(6);
-        minimumThumbHeight = dp(36);
-        horizontalInset = dp(8);
+    private void init() {
+
+        thumbPaint.setColor(
+                ContextCompat.getColor(
+                        getContext(),
+                        R.color.cyan_primary
+                )
+        );
+
+        thumbPaint.setStyle(Paint.Style.FILL);
+
+        trackPaint.setColor(
+                ContextCompat.getColor(
+                        getContext(),
+                        R.color.cyan_deep
+                )
+        );
+
+        trackPaint.setAlpha(65);
+        trackPaint.setStyle(Paint.Style.FILL);
+
+        float density = getResources()
+                .getDisplayMetrics()
+                .density;
+
+        minimumThumbHeight = 48f * density;
+        thumbWidth = 5f * density;
 
         setClickable(true);
         setFocusable(true);
-
-        thumbPaint.setColor(thumbColor);
-        thumbPaint.setStyle(Paint.Style.FILL);
     }
 
-    private float dp(float value) {
-        return value * getResources()
-                .getDisplayMetrics().density;
-    }
-
-    /**
-     * Connects or disconnects the custom scrollbar
-     * from the dictionary RecyclerView.
-     */
     public void attachToRecyclerView(
             @Nullable RecyclerView newRecyclerView
     ) {
-        // Remove the previous listener before reconnecting.
-        if (recyclerView != null && scrollListener != null) {
+
+        if (recyclerView != null) {
             recyclerView.removeOnScrollListener(scrollListener);
         }
 
         recyclerView = newRecyclerView;
-        scrollListener = null;
-
-        dragging = false;
-        thumbVisible = false;
-        thumbTop = 0f;
-        thumbHeight = 0f;
+        bottomCallbackTriggered = false;
 
         if (recyclerView != null) {
-            scrollListener = new RecyclerView.OnScrollListener() {
-                @Override
-                public void onScrolled(
-                        RecyclerView recyclerView,
-                        int dx,
-                        int dy
-                ) {
-                    invalidate();
-                }
-
-                @Override
-                public void onScrollStateChanged(
-                        RecyclerView recyclerView,
-                        int newState
-                ) {
-                    invalidate();
-                }
-            };
-
             recyclerView.addOnScrollListener(scrollListener);
         }
 
+        updateThumbPosition();
         invalidate();
     }
 
-    /**
-     * Called when the user drags the thumb near the bottom.
-     * The Fragment can use this to load the next API page.
-     */
+    public void setScrollCallback(
+            @Nullable ScrollCallback callback
+    ) {
+        scrollCallback = callback;
+    }
+
     public void setOnReachBottomListener(
             @Nullable Runnable listener
     ) {
         onReachBottomListener = listener;
     }
 
-    /**
-     * Allows the thumb colors to be customized.
-     * The track color parameter is retained for compatibility,
-     * but no track is drawn.
-     */
-    public void setScrollbarColors(
-            int trackColor,
-            int thumbColor,
-            int activeThumbColor
-    ) {
-        this.thumbColor = thumbColor;
-        this.activeThumbColor = activeThumbColor;
-
-        thumbPaint.setColor(thumbColor);
-
-        invalidate();
-    }
-
     private int getScrollRange() {
+
         if (recyclerView == null) {
             return 0;
         }
 
-        return recyclerView.computeVerticalScrollRange();
-    }
-
-    private int getScrollExtent() {
-        if (recyclerView == null) {
-            return 0;
-        }
-
-        return recyclerView.computeVerticalScrollExtent();
-    }
-
-    private int getScrollOffset() {
-        if (recyclerView == null) {
-            return 0;
-        }
-
-        return recyclerView.computeVerticalScrollOffset();
-    }
-
-    private boolean canScroll() {
-        return recyclerView != null
-                && getHeight() > 0
-                && getScrollRange() > getScrollExtent();
-    }
-
-    private float getAvailableTravel() {
         return Math.max(
-                0f,
-                getHeight() - thumbHeight
+                0,
+                recyclerView.computeVerticalScrollRange()
         );
     }
 
     private void updateThumbPosition() {
-        thumbVisible = canScroll();
 
-        if (!thumbVisible) {
-            thumbTop = 0f;
-            thumbHeight = 0f;
+        if (recyclerView == null || getHeight() <= 0) {
             return;
         }
 
         int range = getScrollRange();
-        int extent = getScrollExtent();
-        int offset = getScrollOffset();
 
-        if (range <= 0 || extent <= 0) {
-            thumbVisible = false;
-            thumbTop = 0f;
-            thumbHeight = 0f;
+        int extent =
+                recyclerView.computeVerticalScrollExtent();
+
+        int offset =
+                recyclerView.computeVerticalScrollOffset();
+
+        if (range <= extent || extent <= 0) {
+            thumbHeight = getHeight();
+            thumbTop = 0;
             return;
         }
 
-        float proportionalHeight =
-                getHeight() * ((float) extent / range);
+        thumbHeight = getHeight()
+                * (extent / (float) range);
 
         thumbHeight = Math.max(
                 minimumThumbHeight,
-                proportionalHeight
+                Math.min(getHeight(), thumbHeight)
         );
 
-        thumbHeight = Math.min(
-                getHeight(),
-                thumbHeight
-        );
+        float availableTrack = getHeight() - thumbHeight;
 
-        float travel = getAvailableTravel();
+        float progress = offset / (float) (range - extent);
 
-        int maximumOffset = Math.max(
-                1,
-                range - extent
-        );
-
-        float progress = Math.max(
+        progress = Math.max(
                 0f,
-                Math.min(
-                        1f,
-                        (float) offset / maximumOffset
-                )
+                Math.min(1f, progress)
         );
 
-        thumbTop = travel * progress;
-
-        thumbTop = Math.max(
-                0f,
-                Math.min(travel, thumbTop)
-        );
+        thumbTop = availableTrack * progress;
     }
 
-    /**
-     * Draws ONLY the teal thumb.
-     * No vertical track line is drawn.
-     */
     @Override
     protected void onDraw(Canvas canvas) {
+
         super.onDraw(canvas);
 
-        updateThumbPosition();
-
-        if (!thumbVisible) {
+        if (recyclerView == null || getHeight() <= 0) {
             return;
         }
 
-        float centerX = getWidth() - horizontalInset;
+        if (getScrollRange()
+                <= recyclerView.computeVerticalScrollExtent()) {
+            return;
+        }
 
-        float thumbLeft = centerX - thumbWidth / 2f;
-        float thumbRight = centerX + thumbWidth / 2f;
+        float centerX = getWidth() / 2f;
 
-        RectF thumbRect = new RectF(
-                thumbLeft,
-                thumbTop,
-                thumbRight,
-                thumbTop + thumbHeight
+        float trackLeft = centerX - thumbWidth / 2f;
+        float trackRight = centerX + thumbWidth / 2f;
+
+        canvas.drawRoundRect(
+                trackLeft,
+                0,
+                trackRight,
+                getHeight(),
+                thumbWidth,
+                thumbWidth,
+                trackPaint
         );
 
-        thumbPaint.setColor(
-                dragging ? activeThumbColor : thumbColor
+        thumbRect.set(
+                trackLeft,
+                thumbTop,
+                trackRight,
+                thumbTop + thumbHeight
         );
 
         canvas.drawRoundRect(
                 thumbRect,
-                thumbWidth / 2f,
-                thumbWidth / 2f,
+                thumbWidth,
+                thumbWidth,
                 thumbPaint
         );
     }
 
-    private float clampProgress(float progress) {
-        return Math.max(
-                0f,
-                Math.min(1f, progress)
-        );
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+
+        if (recyclerView == null) {
+            return false;
+        }
+
+        if (getScrollRange()
+                <= recyclerView.computeVerticalScrollExtent()) {
+            return false;
+        }
+
+        float y = event.getY();
+
+        switch (event.getAction()) {
+
+            case MotionEvent.ACTION_DOWN:
+
+                updateThumbPosition();
+
+                if (y >= thumbTop
+                        && y <= thumbTop + thumbHeight) {
+
+                    touchOffset = y - thumbTop;
+
+                } else {
+
+                    touchOffset = thumbHeight / 2f;
+                }
+
+                isDragging = true;
+                bottomCallbackTriggered = false;
+
+                if (getParent() != null) {
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                }
+
+                moveThumbTo(y - touchOffset);
+
+                return true;
+
+            case MotionEvent.ACTION_MOVE:
+
+                if (isDragging) {
+                    moveThumbTo(y - touchOffset);
+                    return true;
+                }
+
+                break;
+
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+
+                if (isDragging) {
+
+                    isDragging = false;
+
+                    if (getParent() != null) {
+                        getParent().requestDisallowInterceptTouchEvent(false);
+                    }
+
+                    performClick();
+                    return true;
+                }
+
+                break;
+        }
+
+        return true;
     }
 
-    private void scrollToProgress(float progress) {
-        if (recyclerView == null || !canScroll()) {
+    @Override
+    public boolean performClick() {
+        super.performClick();
+        return true;
+    }
+
+    private void moveThumbTo(float requestedTop) {
+
+        if (recyclerView == null) {
             return;
         }
 
-        progress = clampProgress(progress);
+        float availableTrack = getHeight() - thumbHeight;
+
+        if (availableTrack <= 0) {
+            return;
+        }
+
+        float newTop = Math.max(
+                0f,
+                Math.min(availableTrack, requestedTop)
+        );
+
+        thumbTop = newTop;
+
+        float progress = newTop / availableTrack;
 
         int range = getScrollRange();
-        int extent = getScrollExtent();
 
-        int maximumOffset = Math.max(
-                0,
-                range - extent
-        );
+        int extent =
+                recyclerView.computeVerticalScrollExtent();
 
-        int targetOffset = Math.round(
-                progress * maximumOffset
-        );
+        int maximumOffset = Math.max(0, range - extent);
 
-        int currentOffset = getScrollOffset();
+        int targetOffset =
+                Math.round(progress * maximumOffset);
+
+        int currentOffset =
+                recyclerView.computeVerticalScrollOffset();
 
         recyclerView.scrollBy(
                 0,
@@ -312,146 +372,44 @@ public class DictionaryFastScroller extends View {
         invalidate();
 
         if (progress >= 0.96f
+                && !bottomCallbackTriggered
                 && onReachBottomListener != null) {
+
+            bottomCallbackTriggered = true;
             onReachBottomListener.run();
         }
     }
 
-    private float progressForTouch(float touchY) {
+    @Override
+    protected void onSizeChanged(
+            int width,
+            int height,
+            int oldWidth,
+            int oldHeight
+    ) {
+
+        super.onSizeChanged(
+                width,
+                height,
+                oldWidth,
+                oldHeight
+        );
+
         updateThumbPosition();
-
-        float travel = getAvailableTravel();
-
-        if (travel <= 0f) {
-            return 0f;
-        }
-
-        float desiredTop = touchY - dragOffsetY;
-
-        return clampProgress(desiredTop / travel);
-    }
-
-    private boolean isTouchInsideThumb(float x, float y) {
-        updateThumbPosition();
-
-        if (!thumbVisible) {
-            return false;
-        }
-
-        float centerX = getWidth() - horizontalInset;
-
-        // Expand the touch area without changing the visible thumb.
-        float touchHalfWidth = dp(18);
-        float touchTopPadding = dp(8);
-        float touchBottomPadding = dp(8);
-
-        return x >= centerX - touchHalfWidth
-                && x <= centerX + touchHalfWidth
-                && y >= thumbTop - touchTopPadding
-                && y <= thumbTop + thumbHeight
-                + touchBottomPadding;
+        invalidate();
     }
 
     @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        if (recyclerView == null) {
-            return false;
+    protected void onDetachedFromWindow() {
+
+        if (recyclerView != null) {
+            recyclerView.removeOnScrollListener(scrollListener);
+            recyclerView = null;
         }
 
-        switch (event.getActionMasked()) {
+        scrollCallback = null;
+        onReachBottomListener = null;
 
-            case MotionEvent.ACTION_DOWN:
-
-                if (!canScroll()) {
-                    return false;
-                }
-
-                lastTouchY = event.getY();
-
-                if (isTouchInsideThumb(
-                        event.getX(),
-                        event.getY()
-                )) {
-                    updateThumbPosition();
-
-                    dragging = true;
-
-                    dragOffsetY = lastTouchY - thumbTop;
-
-                    if (getParent() != null) {
-                        getParent()
-                                .requestDisallowInterceptTouchEvent(true);
-                    }
-
-                    thumbPaint.setColor(activeThumbColor);
-                    invalidate();
-
-                    return true;
-                }
-
-                // Allow tapping the invisible track area to jump
-                // to a position in the list.
-                dragOffsetY = thumbHeight / 2f;
-
-                scrollToProgress(
-                        progressForTouch(lastTouchY)
-                );
-
-                dragging = true;
-
-                if (getParent() != null) {
-                    getParent()
-                            .requestDisallowInterceptTouchEvent(true);
-                }
-
-                invalidate();
-
-                return true;
-
-            case MotionEvent.ACTION_MOVE:
-
-                if (!dragging) {
-                    return false;
-                }
-
-                lastTouchY = event.getY();
-
-                scrollToProgress(
-                        progressForTouch(lastTouchY)
-                );
-
-                return true;
-
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-
-                if (!dragging) {
-                    return false;
-                }
-
-                dragging = false;
-
-                if (getParent() != null) {
-                    getParent()
-                            .requestDisallowInterceptTouchEvent(false);
-                }
-
-                thumbPaint.setColor(thumbColor);
-
-                invalidate();
-
-                performClick();
-
-                return true;
-
-            default:
-                return dragging;
-        }
-    }
-
-    @Override
-    public boolean performClick() {
-        super.performClick();
-        return true;
+        super.onDetachedFromWindow();
     }
 }

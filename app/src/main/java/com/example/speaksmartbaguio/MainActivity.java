@@ -12,10 +12,14 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.example.speaksmartbaguio.databinding.ActivityMainBinding;
 import com.example.speaksmartbaguio.utils.SyncManager;
-
+import com.example.speaksmartbaguio.utils.ThemeManager;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
+
+    // =====================================================
+    // INTENT EXTRA KEYS
+    // =====================================================
 
     public static final String EXTRA_START_FRAGMENT =
             "START_FRAGMENT";
@@ -26,11 +30,21 @@ public class MainActivity extends AppCompatActivity {
     public static final String EXTRA_PHRASEBOOK_SEARCH =
             "PHRASEBOOK_SEARCH_QUERY";
 
+
     private ActivityMainBinding binding;
     private NavController navController;
 
+
+    // =====================================================
+    // ON CREATE
+    // =====================================================
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
+        // Apply saved theme before creating the activity.
+        ThemeManager.applySavedTheme(this);
+
         super.onCreate(savedInstanceState);
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
@@ -38,9 +52,10 @@ public class MainActivity extends AppCompatActivity {
 
         SyncManager.sync(getApplicationContext());
 
-        // ==========================================
+
+        // =================================================
         // CONNECT NAVIGATION CONTROLLER
-        // ==========================================
+        // =================================================
 
         NavHostFragment navHostFragment =
                 (NavHostFragment) getSupportFragmentManager()
@@ -56,66 +71,53 @@ public class MainActivity extends AppCompatActivity {
 
         BottomNavigationView navView = binding.navView;
 
-        // ==========================================
-        // CUSTOM BOTTOM NAVIGATION
-        // WITH SLIDE + FADE ANIMATION
-        // ==========================================
+
+        // =================================================
+        // BOTTOM NAVIGATION
+        // =================================================
 
         navView.setOnItemSelectedListener(item -> {
 
             int destinationId = item.getItemId();
 
-            // Do nothing if already on this destination.
             if (navController.getCurrentDestination() != null
                     && navController.getCurrentDestination().getId()
                     == destinationId) {
+
                 return true;
             }
 
-            int currentOrder = getModuleOrder(
+            int currentDestination =
                     navController.getCurrentDestination() != null
                             ? navController.getCurrentDestination().getId()
-                            : R.id.navigation_translator
-            );
+                            : R.id.navigation_translator;
 
+            int currentOrder = getModuleOrder(currentDestination);
             int targetOrder = getModuleOrder(destinationId);
 
-            // Determine animation direction.
             boolean movingForward = targetOrder >= currentOrder;
 
             int enterAnimation;
             int exitAnimation;
 
             if (movingForward) {
+
                 enterAnimation = R.anim.slide_in_right;
                 exitAnimation = R.anim.slide_out_left;
+
             } else {
+
                 enterAnimation = R.anim.slide_in_left;
                 exitAnimation = R.anim.slide_out_right;
             }
 
-            // ======================================
-            // NAVIGATION OPTIONS
-            // ======================================
-
-            NavOptions navOptions = new NavOptions.Builder()
-                    .setLaunchSingleTop(true)
-
-                    // Return to the main navigation destination
-                    // before opening another module.
-                    .setPopUpTo(
-                            R.id.navigation_translator,
-                            false
-                    )
-
-                    .setEnterAnim(enterAnimation)
-                    .setExitAnim(exitAnimation)
-                    .setPopEnterAnim(enterAnimation)
-                    .setPopExitAnim(exitAnimation)
-
-                    .build();
+            NavOptions navOptions = createNavOptions(
+                    enterAnimation,
+                    exitAnimation
+            );
 
             try {
+
                 navController.navigate(
                         destinationId,
                         null,
@@ -125,45 +127,49 @@ public class MainActivity extends AppCompatActivity {
                 return true;
 
             } catch (IllegalArgumentException e) {
+
                 e.printStackTrace();
                 return false;
             }
         });
 
-        // Prevent unnecessary animation when the
-        // currently selected navigation item is tapped.
+
+        // =================================================
+        // PREVENT UNNECESSARY RESELECTION
+        // =================================================
+
         navView.setOnItemReselectedListener(item -> {
             // Intentionally empty.
         });
 
-        // ==========================================
-        // KEEP NAVIGATION ITEM SELECTED
-        // AND CONTROL BOTTOM NAVIGATION VISIBILITY
-        // ==========================================
+
+        // =================================================
+        // DESTINATION CHANGES
+        // =================================================
 
         navController.addOnDestinationChangedListener(
                 (controller, destination, arguments) -> {
 
                     int destinationId = destination.getId();
 
-                    // Hide bottom navigation on these screens.
                     boolean hideBottomNavigation =
                             destinationId == R.id.navigation_accessibility_settings
                                     || destinationId == R.id.navigation_about;
 
-                    if (hideBottomNavigation) {
-                        navView.setVisibility(View.GONE);
-                    } else {
-                        navView.setVisibility(View.VISIBLE);
-                    }
+                    navView.setVisibility(
+                            hideBottomNavigation
+                                    ? View.GONE
+                                    : View.VISIBLE
+                    );
 
                     // Phrase List belongs to Phrasebook.
                     if (destinationId == R.id.phraseListFragment) {
                         destinationId = R.id.navigation_phrasebook;
                     }
 
-                    // Keep the correct main navigation item selected.
+                    // Keep the correct navigation item selected.
                     if (navView.getMenu().findItem(destinationId) != null) {
+
                         navView.getMenu()
                                 .findItem(destinationId)
                                 .setChecked(true);
@@ -171,16 +177,41 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
 
-        // ==========================================
-        // HANDLE HOME ACTIVITY NAVIGATION
-        // ==========================================
+
+        // =================================================
+        // HANDLE NAVIGATION FROM HOME ACTIVITY
+        // =================================================
 
         handleNavigationIntent(getIntent(), navView);
     }
 
-    // ==============================================
+
+    // =====================================================
+    // NAVIGATION OPTIONS
+    // =====================================================
+
+    private NavOptions createNavOptions(
+            int enterAnimation,
+            int exitAnimation
+    ) {
+
+        return new NavOptions.Builder()
+                .setLaunchSingleTop(true)
+                .setPopUpTo(
+                        R.id.navigation_translator,
+                        false
+                )
+                .setEnterAnim(enterAnimation)
+                .setExitAnim(exitAnimation)
+                .setPopEnterAnim(enterAnimation)
+                .setPopExitAnim(exitAnimation)
+                .build();
+    }
+
+
+    // =====================================================
     // GET MODULE ORDER
-    // ==============================================
+    // =====================================================
 
     private int getModuleOrder(int destinationId) {
 
@@ -204,16 +235,20 @@ public class MainActivity extends AppCompatActivity {
         return 0;
     }
 
-    // ==============================================
+
+    // =====================================================
     // HANDLE HOME ACTIVITY NAVIGATION
-    // ==============================================
+    // =====================================================
 
     private void handleNavigationIntent(
             Intent intent,
             BottomNavigationView navView
     ) {
 
-        if (intent == null || navView == null) {
+        if (intent == null
+                || navView == null
+                || navController == null) {
+
             return;
         }
 
@@ -227,49 +262,164 @@ public class MainActivity extends AppCompatActivity {
 
         int destinationId;
 
+        Bundle arguments = new Bundle();
+
         switch (startFragment) {
 
+            // =============================================
+            // DICTIONARY
+            // =============================================
+
             case "DICTIONARY":
+
                 destinationId = R.id.navigation_dictionary;
+
+                String dictionaryQuery =
+                        intent.getStringExtra(EXTRA_DICTIONARY_SEARCH);
+
+                if (dictionaryQuery != null
+                        && !dictionaryQuery.trim().isEmpty()) {
+
+                    arguments.putString(
+                            EXTRA_DICTIONARY_SEARCH,
+                            dictionaryQuery.trim()
+                    );
+                }
+
                 break;
+
+
+            // =============================================
+            // PHRASEBOOK
+            // =============================================
 
             case "PHRASEBOOK":
+
                 destinationId = R.id.navigation_phrasebook;
+
+                String phrasebookQuery =
+                        intent.getStringExtra(EXTRA_PHRASEBOOK_SEARCH);
+
+                if (phrasebookQuery != null
+                        && !phrasebookQuery.trim().isEmpty()) {
+
+                    arguments.putString(
+                            EXTRA_PHRASEBOOK_SEARCH,
+                            phrasebookQuery.trim()
+                    );
+                }
+
                 break;
 
+
+            // =============================================
+            // TRANSLATOR
+            // =============================================
+
             case "TRANSLATOR":
+
                 destinationId = R.id.navigation_translator;
                 break;
 
+
+            // =============================================
+            // FAVORITES
+            // =============================================
+
             case "FAVORITES":
+
                 destinationId = R.id.navigation_favorites;
                 break;
+
 
             default:
                 return;
         }
 
-        navView.setSelectedItemId(destinationId);
+
+        // =================================================
+        // DETERMINE ANIMATION DIRECTION
+        // =================================================
+
+        int currentDestination =
+                navController.getCurrentDestination() != null
+                        ? navController.getCurrentDestination().getId()
+                        : R.id.navigation_translator;
+
+        boolean movingForward =
+                getModuleOrder(destinationId)
+                        >= getModuleOrder(currentDestination);
+
+        int enterAnimation = movingForward
+                ? R.anim.slide_in_right
+                : R.anim.slide_in_left;
+
+        int exitAnimation = movingForward
+                ? R.anim.slide_out_left
+                : R.anim.slide_out_right;
+
+        NavOptions navOptions = createNavOptions(
+                enterAnimation,
+                exitAnimation
+        );
+
+
+        // =================================================
+        // NAVIGATE AND PASS SEARCH ARGUMENTS
+        // =================================================
+
+        try {
+
+            navController.navigate(
+                    destinationId,
+                    arguments,
+                    navOptions
+            );
+
+            // Update bottom navigation selection.
+            if (navView.getMenu().findItem(destinationId) != null) {
+
+                navView.getMenu()
+                        .findItem(destinationId)
+                        .setChecked(true);
+            }
+
+            // Remove consumed intent extras.
+            intent.removeExtra(EXTRA_START_FRAGMENT);
+            intent.removeExtra(EXTRA_DICTIONARY_SEARCH);
+            intent.removeExtra(EXTRA_PHRASEBOOK_SEARCH);
+
+        } catch (IllegalArgumentException e) {
+
+            e.printStackTrace();
+        }
     }
 
-    // ==============================================
+
+    // =====================================================
     // HANDLE NEW INTENTS
-    // ==============================================
+    // =====================================================
 
     @Override
     protected void onNewIntent(Intent intent) {
+
         super.onNewIntent(intent);
 
         setIntent(intent);
 
-        if (binding != null) {
-            handleNavigationIntent(intent, binding.navView);
+        if (binding != null && navController != null) {
+
+            handleNavigationIntent(
+                    intent,
+                    binding.navView
+            );
         }
     }
 
-    // ==============================================
+
+    // =====================================================
     // CLEANUP
-    // ==============================================
+    // =====================================================
 
     @Override
     protected void onDestroy() {

@@ -1,11 +1,14 @@
+
 package com.example.speaksmartbaguio;
 
 import android.content.Intent;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.text.Spannable;
 import android.text.SpannableString;
-import android.text.style.BackgroundColorSpan;
-import android.text.style.ForegroundColorSpan;
+import android.text.style.ReplacementSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -44,6 +47,8 @@ public class PhrasebookAdapter
     private boolean isLoading = false;
     private boolean hasMore = true;
 
+    private RecyclerView attachedRecyclerView;
+
     private Runnable loadMoreListener;
 
     private FavoriteRepository favoriteRepository;
@@ -57,16 +62,76 @@ public class PhrasebookAdapter
             OnPhraseClickListener listener,
             String selectedLanguage
     ) {
-        this.items = items != null ? items : new ArrayList<>();
+        this.items = items != null
+                ? new ArrayList<>(items)
+                : new ArrayList<>();
+
         this.clickListener = listener;
+
         this.selectedLanguage =
                 selectedLanguage != null
                         ? selectedLanguage
                         : "English";
     }
 
+    // ---------------------------------------------------------
+    // RECYCLERVIEW ATTACHMENT
+    // ---------------------------------------------------------
+
+    @Override
+    public void onAttachedToRecyclerView(
+            @NonNull RecyclerView recyclerView
+    ) {
+        super.onAttachedToRecyclerView(recyclerView);
+        attachedRecyclerView = recyclerView;
+    }
+
+    @Override
+    public void onDetachedFromRecyclerView(
+            @NonNull RecyclerView recyclerView
+    ) {
+        if (attachedRecyclerView == recyclerView) {
+            attachedRecyclerView = null;
+        }
+
+        super.onDetachedFromRecyclerView(recyclerView);
+    }
+
+    /**
+     * Executes adapter changes only when RecyclerView
+     * is not computing its layout.
+     */
+    private void runWhenRecyclerViewIsReady(
+            @NonNull Runnable action
+    ) {
+
+        RecyclerView recyclerView = attachedRecyclerView;
+
+        if (recyclerView == null) {
+            action.run();
+            return;
+        }
+
+        if (recyclerView.isComputingLayout()) {
+
+            recyclerView.post(() ->
+                    runWhenRecyclerViewIsReady(action)
+            );
+
+            return;
+        }
+
+        action.run();
+    }
+
+    // ---------------------------------------------------------
+    // FAVORITE REPOSITORY
+    // ---------------------------------------------------------
+
     private FavoriteRepository getFavoriteRepository(View view) {
+
         if (favoriteRepository == null) {
+
             favoriteRepository = new FavoriteRepository(
                     view.getContext().getApplicationContext()
             );
@@ -75,47 +140,92 @@ public class PhrasebookAdapter
         return favoriteRepository;
     }
 
+    // ---------------------------------------------------------
+    // SEARCH
+    // ---------------------------------------------------------
+
     public void setSearchQuery(String query) {
-        searchQuery = query == null
+
+        String newQuery = query == null
                 ? ""
                 : query.trim().toLowerCase(Locale.ROOT);
 
-        notifyDataSetChanged();
+        runWhenRecyclerViewIsReady(() -> {
+
+            if (newQuery.equals(searchQuery)) {
+                return;
+            }
+
+            searchQuery = newQuery;
+
+            notifyDataSetChanged();
+        });
     }
+
+    // ---------------------------------------------------------
+    // LANGUAGE
+    // ---------------------------------------------------------
 
     public void setSelectedLanguage(String language) {
-        selectedLanguage =
+
+        String newLanguage =
                 language == null || language.trim().isEmpty()
                         ? "English"
-                        : language;
+                        : language.trim();
 
-        notifyDataSetChanged();
+        runWhenRecyclerViewIsReady(() -> {
+
+            if (newLanguage.equals(selectedLanguage)) {
+                return;
+            }
+
+            selectedLanguage = newLanguage;
+
+            notifyDataSetChanged();
+        });
     }
+
+    // ---------------------------------------------------------
+    // PAGINATION STATE
+    // ---------------------------------------------------------
 
     public void setPaginationState(
             boolean isLoading,
             boolean hasMore
     ) {
-        this.isLoading = isLoading;
-        this.hasMore = hasMore;
 
-        int footerPosition = getItemCount() - 1;
+        runWhenRecyclerViewIsReady(() -> {
 
-        if (footerPosition >= 0) {
-            notifyItemChanged(footerPosition);
-        }
+            this.isLoading = isLoading;
+            this.hasMore = hasMore;
+
+            int footerPosition = getItemCount() - 1;
+
+            if (footerPosition >= 0) {
+                notifyItemChanged(footerPosition);
+            }
+        });
     }
 
     public void setOnLoadMoreListener(Runnable listener) {
         loadMoreListener = listener;
     }
 
+    // ---------------------------------------------------------
+    // ITEM VIEW TYPE
+    // ---------------------------------------------------------
+
     @Override
     public int getItemViewType(int position) {
+
         return position == items.size()
                 ? TYPE_FOOTER
                 : TYPE_ITEM;
     }
+
+    // ---------------------------------------------------------
+    // CREATE VIEW HOLDER
+    // ---------------------------------------------------------
 
     @NonNull
     @Override
@@ -123,10 +233,12 @@ public class PhrasebookAdapter
             @NonNull ViewGroup parent,
             int viewType
     ) {
+
         LayoutInflater inflater =
                 LayoutInflater.from(parent.getContext());
 
         if (viewType == TYPE_FOOTER) {
+
             View view = inflater.inflate(
                     R.layout.item_pagination_footer,
                     parent,
@@ -145,15 +257,22 @@ public class PhrasebookAdapter
         return new PhraseViewHolder(view);
     }
 
+    // ---------------------------------------------------------
+    // BIND VIEW HOLDER
+    // ---------------------------------------------------------
+
     @Override
     public void onBindViewHolder(
             @NonNull RecyclerView.ViewHolder holder,
             int position
     ) {
+
         if (holder instanceof PhraseViewHolder) {
+
             bindPhrase((PhraseViewHolder) holder, position);
 
         } else if (holder instanceof FooterViewHolder) {
+
             bindFooter((FooterViewHolder) holder);
         }
     }
@@ -166,6 +285,7 @@ public class PhrasebookAdapter
             PhraseViewHolder holder,
             int position
     ) {
+
         if (position < 0 || position >= items.size()) {
             return;
         }
@@ -199,8 +319,11 @@ public class PhrasebookAdapter
         );
 
         if (partOfSpeech.trim().isEmpty()) {
+
             holder.textViewPartOfSpeech.setVisibility(View.GONE);
+
         } else {
+
             holder.textViewPartOfSpeech.setVisibility(View.VISIBLE);
 
             holder.textViewPartOfSpeech.setText(
@@ -208,8 +331,9 @@ public class PhrasebookAdapter
             );
         }
 
-        // Open the phrase details screen.
+        // Open phrase details.
         holder.itemView.setOnClickListener(v -> {
+
             Intent intent = new Intent(
                     v.getContext(),
                     PhraseDetailActivity.class
@@ -239,8 +363,9 @@ public class PhrasebookAdapter
             v.getContext().startActivity(intent);
         });
 
-        // Play the phrase pronunciation.
+        // Play pronunciation.
         holder.buttonPlayAudio.setOnClickListener(v -> {
+
             if (clickListener != null) {
                 clickListener.onPlayClicked(phrase);
             }
@@ -250,10 +375,11 @@ public class PhrasebookAdapter
                 "Play pronunciation for " + ilokano
         );
 
-        // Show the default heart while checking the database.
+        // Default favorite state while checking Room.
         setHeartState(holder, false, ilokano);
 
         holder.buttonFavorite.setOnClickListener(v ->
+
                 toggleFavorite(
                         holder,
                         ilokano,
@@ -262,13 +388,14 @@ public class PhrasebookAdapter
                 )
         );
 
-        // Read the saved favorite state from Room.
+        // Retrieve favorite state.
         getFavoriteRepository(holder.itemView).isFavorite(
                 FavoriteRepository.TYPE_PHRASEBOOK,
                 ilokano,
                 english,
                 tagalog,
                 isSaved -> {
+
                     if (!isSameBoundPhrase(
                             holder,
                             ilokano,
@@ -282,7 +409,6 @@ public class PhrasebookAdapter
                 }
         );
 
-        // Apply the saved settings to this dynamically created card.
         AccessibilityPreferences.applyToViewTree(
                 holder.itemView.getContext(),
                 holder.itemView
@@ -299,6 +425,7 @@ public class PhrasebookAdapter
             String english,
             String tagalog
     ) {
+
         FavoriteRepository repository =
                 getFavoriteRepository(holder.itemView);
 
@@ -308,6 +435,7 @@ public class PhrasebookAdapter
                 english,
                 tagalog,
                 isSaved -> {
+
                     if (!isSameBoundPhrase(
                             holder,
                             ilokano,
@@ -318,6 +446,7 @@ public class PhrasebookAdapter
                     }
 
                     if (isSaved) {
+
                         removeFavorite(
                                 holder,
                                 repository,
@@ -327,12 +456,14 @@ public class PhrasebookAdapter
                         );
 
                     } else {
+
                         repository.saveFavorite(
                                 FavoriteRepository.TYPE_PHRASEBOOK,
                                 ilokano,
                                 english,
                                 tagalog,
                                 (success, message) -> {
+
                                     if (!isSameBoundPhrase(
                                             holder,
                                             ilokano,
@@ -343,6 +474,7 @@ public class PhrasebookAdapter
                                     }
 
                                     if (success) {
+
                                         setHeartState(
                                                 holder,
                                                 true,
@@ -369,9 +501,11 @@ public class PhrasebookAdapter
             String english,
             String tagalog
     ) {
+
         repository.getFavoritesByType(
                 FavoriteRepository.TYPE_PHRASEBOOK,
                 favorites -> {
+
                     if (!isSameBoundPhrase(
                             holder,
                             ilokano,
@@ -382,6 +516,7 @@ public class PhrasebookAdapter
                     }
 
                     if (favorites == null) {
+
                         Toast.makeText(
                                 holder.itemView.getContext(),
                                 "Could not load Favorites.",
@@ -394,15 +529,18 @@ public class PhrasebookAdapter
                     FavoriteEntity match = null;
 
                     for (FavoriteEntity favorite : favorites) {
+
                         if (ilokano.equals(favorite.getIlokanoText())
                                 && english.equals(favorite.getEnglishText())
                                 && tagalog.equals(favorite.getTagalogText())) {
+
                             match = favorite;
                             break;
                         }
                     }
 
                     if (match == null) {
+
                         setHeartState(holder, false, ilokano);
 
                         Toast.makeText(
@@ -417,6 +555,7 @@ public class PhrasebookAdapter
                     repository.removeFavorite(
                             match.getId(),
                             (success, message) -> {
+
                                 if (!isSameBoundPhrase(
                                         holder,
                                         ilokano,
@@ -427,6 +566,7 @@ public class PhrasebookAdapter
                                 }
 
                                 if (success) {
+
                                     setHeartState(
                                             holder,
                                             false,
@@ -450,8 +590,15 @@ public class PhrasebookAdapter
             boolean isSaved,
             String ilokano
     ) {
+
         holder.buttonFavorite.setText(
                 isSaved ? HEART_FILLED : HEART_EMPTY
+        );
+
+        holder.buttonFavorite.setTextColor(
+                isSaved
+                        ? Color.parseColor("#06B8A8")
+                        : Color.LTGRAY
         );
 
         holder.buttonFavorite.setContentDescription(
@@ -467,6 +614,7 @@ public class PhrasebookAdapter
             String english,
             String tagalog
     ) {
+
         return ilokano.equals(holder.boundIlokano)
                 && english.equals(holder.boundEnglish)
                 && tagalog.equals(holder.boundTagalog);
@@ -477,31 +625,36 @@ public class PhrasebookAdapter
     // ---------------------------------------------------------
 
     private void bindFooter(FooterViewHolder holder) {
+
         if (isLoading) {
+
             holder.footerProgress.setVisibility(View.VISIBLE);
             holder.footerText.setVisibility(View.GONE);
             holder.footerText.setOnClickListener(null);
 
         } else {
+
             holder.footerProgress.setVisibility(View.GONE);
 
             if (hasMore && !items.isEmpty()) {
+
                 holder.footerText.setVisibility(View.VISIBLE);
                 holder.footerText.setText("Load more phrases");
 
                 holder.footerText.setOnClickListener(v -> {
+
                     if (loadMoreListener != null && !isLoading) {
                         loadMoreListener.run();
                     }
                 });
 
             } else {
+
                 holder.footerText.setVisibility(View.GONE);
                 holder.footerText.setOnClickListener(null);
             }
         }
 
-        // Apply accessibility to the footer as well.
         AccessibilityPreferences.applyToViewTree(
                 holder.itemView.getContext(),
                 holder.itemView
@@ -518,58 +671,76 @@ public class PhrasebookAdapter
     }
 
     public void filterList(List<Phrase> filteredList) {
-        items = filteredList != null
-                ? filteredList
+
+        List<Phrase> safeList = filteredList != null
+                ? new ArrayList<>(filteredList)
                 : new ArrayList<>();
 
-        notifyDataSetChanged();
+        runWhenRecyclerViewIsReady(() -> {
+
+            items = safeList;
+
+            notifyDataSetChanged();
+        });
     }
 
     public void addItems(List<Phrase> newItems) {
+
         if (newItems == null || newItems.isEmpty()) {
             return;
         }
 
-        int startPosition = items.size();
-        items.addAll(newItems);
+        List<Phrase> safeItems = new ArrayList<>(newItems);
 
-        notifyItemRangeInserted(
-                startPosition,
-                newItems.size()
-        );
+        runWhenRecyclerViewIsReady(() -> {
+
+            int startPosition = items.size();
+
+            items.addAll(safeItems);
+
+            notifyItemRangeInserted(
+                    startPosition,
+                    safeItems.size()
+            );
+        });
     }
 
     // ---------------------------------------------------------
-    // SEARCH HIGHLIGHTING
+    // SAFE TEXT
     // ---------------------------------------------------------
 
     private String safeText(String value) {
         return value == null ? "" : value.trim();
     }
 
+    // ---------------------------------------------------------
+    // SEARCH HIGHLIGHTING
+    // ---------------------------------------------------------
+
     private SpannableString getHighlightedText(
             String text,
             String query
     ) {
+
         String safeValue = safeText(text);
 
         SpannableString spannable =
                 new SpannableString(safeValue);
 
-        if (query == null || query.trim().isEmpty()
+        if (query == null
+                || query.trim().isEmpty()
                 || safeValue.isEmpty()) {
+
             return spannable;
         }
 
         String lowerText = safeValue.toLowerCase(Locale.ROOT);
-        String lowerQuery = query.toLowerCase(Locale.ROOT);
+        String lowerQuery = query.trim().toLowerCase(Locale.ROOT);
 
         int start = 0;
 
-        int highlightBackground = Color.rgb(42, 157, 147);
-        int highlightText = Color.WHITE;
-
         while (true) {
+
             int index = lowerText.indexOf(lowerQuery, start);
 
             if (index < 0) {
@@ -579,14 +750,7 @@ public class PhrasebookAdapter
             int end = index + lowerQuery.length();
 
             spannable.setSpan(
-                    new BackgroundColorSpan(highlightBackground),
-                    index,
-                    end,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            );
-
-            spannable.setSpan(
-                    new ForegroundColorSpan(highlightText),
+                    new GlassHighlightSpan(),
                     index,
                     end,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -596,6 +760,143 @@ public class PhrasebookAdapter
         }
 
         return spannable;
+    }
+
+    // ---------------------------------------------------------
+    // FROSTED GLASS SPAN
+    // ---------------------------------------------------------
+
+    private static class GlassHighlightSpan extends ReplacementSpan {
+
+        private static final int GLASS_COLOR =
+                Color.parseColor("#CC24465C");
+
+        private static final int BORDER_COLOR =
+                Color.parseColor("#FF70D6ED");
+
+        private static final int TEXT_COLOR =
+                Color.parseColor("#FFFFFFFF");
+
+        private final float horizontalPadding;
+        private final float verticalPadding;
+        private final float cornerRadius;
+
+        private GlassHighlightSpan() {
+
+            float density = android.content.res.Resources.getSystem()
+                    .getDisplayMetrics().density;
+
+            horizontalPadding = 4f * density;
+            verticalPadding = 2f * density;
+            cornerRadius = 5f * density;
+        }
+
+        @Override
+        public int getSize(
+                Paint paint,
+                CharSequence text,
+                int start,
+                int end,
+                Paint.FontMetricsInt fm
+        ) {
+
+            if (fm != null) {
+
+                Paint.FontMetricsInt metrics =
+                        paint.getFontMetricsInt();
+
+                fm.ascent = metrics.ascent
+                        - (int) Math.ceil(verticalPadding);
+
+                fm.descent = metrics.descent
+                        + (int) Math.ceil(verticalPadding);
+
+                fm.top = metrics.top
+                        - (int) Math.ceil(verticalPadding);
+
+                fm.bottom = metrics.bottom
+                        + (int) Math.ceil(verticalPadding);
+
+                fm.leading = metrics.leading;
+            }
+
+            return (int) Math.ceil(
+                    paint.measureText(text, start, end)
+                            + (horizontalPadding * 2)
+            );
+        }
+
+        @Override
+        public void draw(
+                Canvas canvas,
+                CharSequence text,
+                int start,
+                int end,
+                float x,
+                int top,
+                int y,
+                int bottom,
+                Paint paint
+        ) {
+
+            float textWidth = paint.measureText(text, start, end);
+
+            Paint.FontMetricsInt metrics =
+                    paint.getFontMetricsInt();
+
+            float rectTop =
+                    y + metrics.ascent - verticalPadding;
+
+            float rectBottom =
+                    y + metrics.descent + verticalPadding;
+
+            RectF background = new RectF(
+                    x,
+                    rectTop,
+                    x + textWidth + (horizontalPadding * 2),
+                    rectBottom
+            );
+
+            Paint backgroundPaint = new Paint(paint);
+            backgroundPaint.setAntiAlias(true);
+            backgroundPaint.setColor(GLASS_COLOR);
+            backgroundPaint.setStyle(Paint.Style.FILL);
+
+            canvas.drawRoundRect(
+                    background,
+                    cornerRadius,
+                    cornerRadius,
+                    backgroundPaint
+            );
+
+            Paint borderPaint = new Paint(paint);
+            borderPaint.setAntiAlias(true);
+            borderPaint.setColor(BORDER_COLOR);
+            borderPaint.setStyle(Paint.Style.STROKE);
+            borderPaint.setStrokeWidth(
+                    Math.max(1f, paint.getTextSize() * 0.045f)
+            );
+
+            canvas.drawRoundRect(
+                    background,
+                    cornerRadius,
+                    cornerRadius,
+                    borderPaint
+            );
+
+            Paint textPaint = new Paint(paint);
+            textPaint.setAntiAlias(true);
+            textPaint.setColor(TEXT_COLOR);
+
+            canvas.drawText(
+                    text,
+                    start,
+                    end,
+                    x + horizontalPadding,
+                    y,
+                    textPaint
+            );
+        }
     }
 
     // ---------------------------------------------------------
@@ -609,6 +910,7 @@ public class PhrasebookAdapter
         TextView textViewSelected;
         TextView textViewPartOfSpeech;
         TextView buttonFavorite;
+
         ImageButton buttonPlayAudio;
 
         String boundIlokano = "";
@@ -616,6 +918,7 @@ public class PhrasebookAdapter
         String boundTagalog = "";
 
         PhraseViewHolder(@NonNull View itemView) {
+
             super(itemView);
 
             textViewIlokano = itemView.findViewById(
@@ -647,6 +950,7 @@ public class PhrasebookAdapter
         TextView footerText;
 
         FooterViewHolder(@NonNull View itemView) {
+
             super(itemView);
 
             footerProgress = itemView.findViewById(

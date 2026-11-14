@@ -7,14 +7,13 @@
     android:background="@color/app_background"
     tools:context=".SplashActivity">
 
-    <!-- APP LOGO -->
-
+    <!-- LOGO -->
     <ImageView
         android:id="@+id/splashLogo"
-        android:layout_width="150dp"
-        android:layout_height="150dp"
+        android:layout_width="148dp"
+        android:layout_height="148dp"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="88dp"
+        android:layout_marginTop="76dp"
         android:src="@drawable/ic_logo"
         android:scaleType="fitCenter"
         android:contentDescription="Speak Smart Baguio Logo"
@@ -22,47 +21,44 @@
         android:scaleX="0.8"
         android:scaleY="0.8" />
 
-    <!-- APP TITLE -->
-
+    <!-- APP NAME -->
     <TextView
         android:id="@+id/textAppTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/splashLogo"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="13dp"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:gravity="center"
-        android:text="SPEAK SMART BAGUIO"
-        android:textColor="@color/cyan_primary"
-        android:textSize="23sp"
+        android:text="SPEAK SMART&#10;BAGUIO"
+        android:textColor="@color/text_primary"
+        android:textSize="29sp"
         android:textStyle="bold"
-        android:fontFamily="sans"
-        android:letterSpacing="0.04"
+        android:fontFamily="sans-serif-black"
+        android:letterSpacing="0.08"
+        android:lineSpacingExtra="1dp"
         android:includeFontPadding="false"
         android:alpha="0" />
 
     <!-- DEVELOPER CREDIT -->
-
     <TextView
         android:id="@+id/textDeveloperCredit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/textAppTitle"
-        android:layout_marginTop="12dp"
-        android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp"
+        android:layout_marginTop="17dp"
         android:gravity="center"
-        android:text="PROJECT"
+        android:text="DEVELOPED BY"
         android:textColor="@color/text_secondary"
-        android:textSize="11sp"
-        android:fontFamily="sans"
-        android:letterSpacing="0.12"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.28"
         android:includeFontPadding="false"
         android:alpha="0" />
 
-    <!-- ANIMATED BIFROST TITLE -->
-
+    <!-- TEAM NAME -->
     <LinearLayout
         android:id="@+id/letterContainer"
         android:layout_width="wrap_content"
@@ -71,57 +67,54 @@
         android:gravity="center"
         android:layout_below="@id/textDeveloperCredit"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="22dp" />
+        android:layout_marginTop="19dp" />
 
     <!-- MAIN TAGLINE -->
-
     <TextView
         android:id="@+id/textGroupSub"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/letterContainer"
-        android:layout_marginTop="18dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
+        android:layout_marginTop="36dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
         android:gravity="center"
         android:text="LEARN  •  UNDERSTAND  •  CONNECT"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/text_primary"
         android:textSize="12sp"
         android:textStyle="bold"
-        android:fontFamily="sans"
-        android:letterSpacing="0.10"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.12"
         android:includeFontPadding="false"
         android:alpha="0" />
 
-    <!-- SECONDARY BIFROST TAGLINE -->
-
+    <!-- SECONDARY TAGLINE -->
     <TextView
         android:id="@+id/textBifrostSub"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/textGroupSub"
-        android:layout_marginTop="13dp"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
+        android:layout_marginTop="14dp"
+        android:layout_marginStart="25dp"
+        android:layout_marginEnd="25dp"
         android:gravity="center"
-        android:text="BRIDGING LANGUAGES &amp; CONNECTING CULTURES"
-        android:textColor="#8298B2"
-        android:textSize="9sp"
-        android:textStyle="normal"
-        android:fontFamily="sans"
-        android:letterSpacing="0.08"
+        android:text="BRIDGING LANGUAGES&#10;&amp; CONNECTING CULTURES"
+        android:textColor="@color/text_secondary"
+        android:textSize="10sp"
+        android:fontFamily="sans-serif"
+        android:letterSpacing="0.09"
+        android:lineSpacingExtra="4dp"
         android:includeFontPadding="false"
         android:alpha="0" />
 
-    <!-- CUSTOM BIFROST LOADING ANIMATION -->
-
+    <!-- LOADING ANIMATION -->
     <com.example.speaksmartbaguio.BifrostLoaderView
         android:id="@+id/bifrostLoader"
         android:layout_width="170dp"
         android:layout_height="48dp"
         android:layout_centerHorizontal="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginBottom="82dp"
+        android:layout_marginBottom="75dp"
         android:alpha="0" />
 
 </RelativeLayout>

@@ -2,8 +2,8 @@
 package com.example.speaksmartbaguio;
 
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,20 +15,21 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Filter;
-import android.widget.Toast;
-
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.ConcatAdapter;
 import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.speaksmartbaguio.databinding.FragmentPhrasebookBinding;
+import com.example.speaksmartbaguio.databinding.ItemPhrasebookHeaderBinding;
 import com.example.speaksmartbaguio.mapper.EntityMapper;
 import com.example.speaksmartbaguio.repository.PhraseRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.example.speaksmartbaguio.utils.NetworkUtil;
 import com.example.speaksmartbaguio.utils.SettingsMenuHelper;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,32 +38,43 @@ import java.util.Locale;
 
 public class PhrasebookFragment extends Fragment {
 
-    private FragmentPhrasebookBinding binding;
-    private PhrasebookAdapter adapter;
-    private ApiService apiService;
-    private PhraseRepository repository;
-
-    private TextToSpeech tts;
-    private boolean ttsReady = false;
-
-    private String selectedLanguage = "English";
-    private String pendingSearchQuery = "";
-
-    private int currentPage = 1;
-    private boolean isLoading = false;
-    private boolean hasMore = true;
-    private boolean isApplyingIncomingSearch = false;
+    private static final String TAG = "PHRASEBOOK";
+    private static final String TTS_TAG = "PHRASEBOOK_TTS";
 
     private static final int PAGE_SIZE = 100;
 
     private static final String PREFS_NAME = "PhrasePrefs";
     private static final String KEY_LANGUAGE = "selectedLanguage";
 
+    private FragmentPhrasebookBinding binding;
+    private ItemPhrasebookHeaderBinding headerBinding;
+
+    private PhrasebookAdapter adapter;
+    private PhrasebookHeaderAdapter headerAdapter;
+
+    private ApiService apiService;
+    private PhraseRepository repository;
+
+    private TextToSpeech tts;
+    private boolean ttsReady = false;
+    private boolean incomingSearchHandled = false;
+    private String selectedLanguage = "English";
+    private String pendingSearchQuery = "";
+
+    private int currentPage = 1;
+
+    private boolean isLoading = false;
+    private boolean hasMore = true;
+    private boolean isApplyingIncomingSearch = false;
+    private boolean headerInitialized = false;
+
     private final Handler searchHandler =
             new Handler(Looper.getMainLooper());
 
-    private final Runnable searchRunnable = () -> {
+    private final Handler mainHandler =
+            new Handler(Looper.getMainLooper());
 
+    private final Runnable searchRunnable = () -> {
         if (binding != null && isAdded()) {
             loadPhrases(true);
         }
@@ -85,62 +97,227 @@ public class PhrasebookFragment extends Fragment {
 
         binding = FragmentPhrasebookBinding.bind(view);
 
+        // Allow incoming search handling for this view lifecycle.
+        incomingSearchHandled = false;
+
         apiService = ApiService.getInstance();
+
         repository = new PhraseRepository(requireContext());
 
         setupTextToSpeech();
         setupRecyclerView();
-        setupLanguageDropdown();
-        setupSearch();
-        setupSettingsMenuButton();
-
-        // Read the search request sent by HomeActivity.
-        handleIncomingSearch();
 
         AccessibilityPreferences.applyToViewTree(
                 requireContext(),
                 view
         );
+    }
+    // =========================================================
+    // LOAD SAVED LANGUAGE
+    // =========================================================
 
-        // When a search was requested, search directly
-        // instead of first loading every saved phrase.
-        if (!pendingSearchQuery.isEmpty()) {
+    private void loadSavedLanguage() {
 
-            loadPhrases(true);
+        if (!isAdded()) {
+            selectedLanguage = "English";
+            return;
+        }
 
-        } else {
+        SharedPreferences prefs =
+                requireContext().getSharedPreferences(
+                        PREFS_NAME,
+                        Context.MODE_PRIVATE
+                );
 
-            loadOfflinePhrases();
+        selectedLanguage = prefs.getString(
+                KEY_LANGUAGE,
+                "English"
+        );
 
-            if (NetworkUtil.isOnline(requireContext())) {
-                loadPhrases(true);
-            }
+        if (!"English".equals(selectedLanguage)
+                && !"Tagalog".equals(selectedLanguage)) {
+
+            selectedLanguage = "English";
         }
     }
 
     // =========================================================
-    // INCOMING SEARCH FROM HOME
+    // RECYCLER VIEW + HEADER + FAST SCROLLER
+    // =========================================================
+
+    private void setupRecyclerView() {
+
+        // Load the saved language BEFORE creating the adapter.
+        loadSavedLanguage();
+
+        adapter = new PhrasebookAdapter(
+                new ArrayList<>(),
+                this::speakPhrase,
+                selectedLanguage
+        );
+
+        adapter.setSearchQuery(pendingSearchQuery);
+
+        adapter.setOnLoadMoreListener(() -> {
+            if (!isLoading && hasMore) {
+                loadPhrases(false);
+            }
+        });
+
+        LinearLayoutManager layoutManager =
+                new LinearLayoutManager(requireContext());
+
+        binding.recyclerViewPhrasebook.setLayoutManager(
+                layoutManager
+        );
+
+        headerAdapter = new PhrasebookHeaderAdapter(
+                this::onHeaderBound
+        );
+
+        ConcatAdapter concatAdapter = new ConcatAdapter(
+                headerAdapter,
+                adapter
+        );
+
+        binding.recyclerViewPhrasebook.setAdapter(
+                concatAdapter
+        );
+
+        binding.recyclerViewPhrasebook.setNestedScrollingEnabled(
+                true
+        );
+
+        binding.phrasebookFastScroller.attachToRecyclerView(
+                binding.recyclerViewPhrasebook
+        );
+
+        binding.phrasebookFastScroller.setOnReachBottomListener(
+                () -> {
+                    if (!isLoading && hasMore) {
+                        loadPhrases(false);
+                    }
+                }
+        );
+    }
+
+    // =========================================================
+    // HEADER INITIALIZATION
+    // =========================================================
+
+    private void onHeaderBound(
+            ItemPhrasebookHeaderBinding newHeaderBinding
+    ) {
+
+        if (binding == null || !isAdded()) {
+            return;
+        }
+
+        headerBinding = newHeaderBinding;
+
+        // Prevent duplicate initialization during header rebinding.
+        if (headerInitialized) {
+            return;
+        }
+
+        headerInitialized = true;
+
+        setupSettingsMenuButton();
+        setupLanguageDropdown();
+        setupSearch();
+
+        // Wait until RecyclerView has finished its layout.
+        runWhenRecyclerViewIsIdle(() -> {
+
+            if (binding == null
+                    || !isAdded()
+                    || adapter == null
+                    || headerBinding == null) {
+                return;
+            }
+
+            // Apply the incoming Daily Ilokano search.
+            handleIncomingSearch();
+
+            if (!pendingSearchQuery.isEmpty()) {
+
+                // Load matching online phrases.
+                loadPhrases(true);
+
+            } else {
+
+                // Load locally saved phrases first.
+                loadOfflinePhrases();
+
+                Context context = getContext();
+
+                // Refresh from the API when internet is available.
+                if (context != null
+                        && NetworkUtil.isOnline(context)) {
+
+                    loadPhrases(true);
+                }
+            }
+        });
+    }
+    private void runWhenRecyclerViewIsIdle(Runnable action) {
+
+        if (binding == null || !isAdded()) {
+            return;
+        }
+
+        RecyclerView recyclerView =
+                binding.recyclerViewPhrasebook;
+
+        recyclerView.post(new Runnable() {
+
+            @Override
+            public void run() {
+
+                if (binding == null
+                        || !isAdded()
+                        || binding.recyclerViewPhrasebook != recyclerView) {
+                    return;
+                }
+
+                if (recyclerView.isComputingLayout()) {
+
+                    recyclerView.post(this);
+
+                    return;
+                }
+
+                action.run();
+            }
+        });
+    }
+    // =========================================================
+    // INCOMING SEARCH
     // =========================================================
 
     private void handleIncomingSearch() {
 
-        if (!isAdded() || binding == null) {
+        if (!isAdded()
+                || binding == null
+                || headerBinding == null
+                || incomingSearchHandled) {
             return;
         }
 
-        Intent intent = requireActivity().getIntent();
+        Bundle args = getArguments();
 
-        if (intent == null
-                || !intent.hasExtra(MainActivity.EXTRA_PHRASEBOOK_SEARCH)) {
+        incomingSearchHandled = true;
+
+        if (args == null) {
             return;
         }
 
-        String query = intent.getStringExtra(
+        String query = args.getString(
                 MainActivity.EXTRA_PHRASEBOOK_SEARCH
         );
 
-        // Consume the request so it is not applied again unnecessarily.
-        intent.removeExtra(MainActivity.EXTRA_PHRASEBOOK_SEARCH);
+        // Consume the argument so it cannot be applied again.
+        args.remove(MainActivity.EXTRA_PHRASEBOOK_SEARCH);
 
         if (query == null || query.trim().isEmpty()) {
             return;
@@ -148,38 +325,42 @@ public class PhrasebookFragment extends Fragment {
 
         pendingSearchQuery = query.trim();
 
-        if (adapter != null) {
-            adapter.setSearchQuery(pendingSearchQuery);
-        }
-
-        // Avoid scheduling another search through the TextWatcher.
+        // Prevent the TextWatcher from treating this as
+        // a manually entered search.
         isApplyingIncomingSearch = true;
 
-        binding.searchBar.setText(pendingSearchQuery);
-        binding.searchBar.setSelection(
-                binding.searchBar.getText().length()
+        headerBinding.searchBar.setText(
+                pendingSearchQuery
+        );
+
+        headerBinding.searchBar.setSelection(
+                headerBinding.searchBar.getText().length()
         );
 
         isApplyingIncomingSearch = false;
+
+        if (adapter != null) {
+            adapter.setSearchQuery(pendingSearchQuery);
+        }
     }
 
     // =========================================================
-    // SHARED SETTINGS MENU
+    // SETTINGS MENU
     // =========================================================
 
     private void setupSettingsMenuButton() {
 
-        if (binding == null) {
+        if (headerBinding == null) {
             return;
         }
 
-        binding.buttonSettingsMenu.setOnClickListener(
+        headerBinding.buttonSettingsMenu.setOnClickListener(
                 v -> SettingsMenuHelper.show(v)
         );
     }
 
     // =========================================================
-    // ANDROID TEXT-TO-SPEECH
+    // TEXT-TO-SPEECH
     // =========================================================
 
     private void setupTextToSpeech() {
@@ -199,36 +380,52 @@ public class PhrasebookFragment extends Fragment {
                         ttsReady = false;
 
                         Log.e(
-                                "PHRASEBOOK_TTS",
-                                "Android Text-to-Speech initialization failed."
+                                TTS_TAG,
+                                "Text-to-Speech initialization failed."
                         );
 
                         return;
                     }
 
-                    tts.setPitch(0.95f);
-                    tts.setSpeechRate(0.85f);
+                    try {
 
-                    ttsReady = setBestAvailableTtsLanguage();
+                        tts.setPitch(0.95f);
+                        tts.setSpeechRate(0.85f);
 
-                    if (!ttsReady) {
+                        ttsReady = setBestAvailableTtsLanguage();
+
+                        if (!ttsReady) {
+                            Log.e(
+                                    TTS_TAG,
+                                    "No supported TTS language was found."
+                            );
+                        }
+
+                    } catch (Exception e) {
+
+                        ttsReady = false;
 
                         Log.e(
-                                "PHRASEBOOK_TTS",
-                                "No supported TTS language was found."
+                                TTS_TAG,
+                                "Unable to configure Text-to-Speech.",
+                                e
                         );
                     }
                 }
         );
     }
 
+    /**
+     * Android does not guarantee a native Ilokano voice.
+     * Try Filipino/Tagalog first, then English as fallback.
+     */
     private boolean setBestAvailableTtsLanguage() {
 
         if (tts == null) {
             return false;
         }
 
-        Locale[] preferredLocales = new Locale[] {
+        Locale[] preferredLocales = {
                 new Locale("fil", "PH"),
                 new Locale("tl", "PH"),
                 new Locale("en", "PH"),
@@ -242,28 +439,29 @@ public class PhrasebookFragment extends Fragment {
                 int availability =
                         tts.isLanguageAvailable(locale);
 
-                if (availability != TextToSpeech.LANG_MISSING_DATA
-                        && availability != TextToSpeech.LANG_NOT_SUPPORTED) {
+                if (availability == TextToSpeech.LANG_MISSING_DATA
+                        || availability == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    continue;
+                }
 
-                    int result = tts.setLanguage(locale);
+                int result = tts.setLanguage(locale);
 
-                    if (result != TextToSpeech.LANG_MISSING_DATA
-                            && result != TextToSpeech.LANG_NOT_SUPPORTED) {
+                if (result != TextToSpeech.LANG_MISSING_DATA
+                        && result != TextToSpeech.LANG_NOT_SUPPORTED) {
 
-                        Log.d(
-                                "PHRASEBOOK_TTS",
-                                "Selected TTS language: " + locale
-                        );
+                    Log.d(
+                            TTS_TAG,
+                            "Selected TTS language: " + locale
+                    );
 
-                        return true;
-                    }
+                    return true;
                 }
 
             } catch (IllegalArgumentException e) {
 
                 Log.w(
-                        "PHRASEBOOK_TTS",
-                        "TTS language could not be selected: " + locale,
+                        TTS_TAG,
+                        "Could not select TTS language: " + locale,
                         e
                 );
             }
@@ -273,95 +471,14 @@ public class PhrasebookFragment extends Fragment {
     }
 
     // =========================================================
-    // RECYCLER VIEW + CUSTOM FAST SCROLLER
-    // =========================================================
-
-    private void setupRecyclerView() {
-
-        adapter = new PhrasebookAdapter(
-                new ArrayList<>(),
-                this::speakPhrase,
-                selectedLanguage
-        );
-
-        adapter.setSearchQuery(pendingSearchQuery);
-
-        // Existing adapter pagination.
-        adapter.setOnLoadMoreListener(() -> {
-
-            if (!isLoading && hasMore) {
-                loadPhrases(false);
-            }
-        });
-
-        LinearLayoutManager layoutManager =
-                new LinearLayoutManager(requireContext());
-
-        binding.recyclerViewPhrasebook.setLayoutManager(
-                layoutManager
-        );
-
-        binding.recyclerViewPhrasebook.setAdapter(adapter);
-
-        // =====================================================
-        // CUSTOM DICTIONARY-STYLE FAST SCROLLER
-        // =====================================================
-
-        binding.phrasebookFastScroller.attachToRecyclerView(
-                binding.recyclerViewPhrasebook
-        );
-
-        // Load another API page when the scrollbar
-        // is dragged close to the bottom.
-        binding.phrasebookFastScroller.setOnReachBottomListener(
-                () -> {
-
-                    if (!isLoading && hasMore) {
-                        loadPhrases(false);
-                    }
-                }
-        );
-
-        // =====================================================
-        // EXISTING RECYCLER VIEW PAGINATION
-        // =====================================================
-
-        binding.recyclerViewPhrasebook.addOnScrollListener(
-                new RecyclerView.OnScrollListener() {
-
-                    @Override
-                    public void onScrolled(
-                            @NonNull RecyclerView recyclerView,
-                            int dx,
-                            int dy
-                    ) {
-
-                        super.onScrolled(recyclerView, dx, dy);
-
-                        if (dy <= 0 || isLoading || !hasMore) {
-                            return;
-                        }
-
-                        int totalCount = adapter.getItemCount();
-
-                        int lastVisible =
-                                layoutManager.findLastVisibleItemPosition();
-
-                        if (totalCount > 0
-                                && lastVisible >= totalCount - 3) {
-
-                            loadPhrases(false);
-                        }
-                    }
-                }
-        );
-    }
-
-    // =========================================================
     // LANGUAGE DROPDOWN
     // =========================================================
 
     private void setupLanguageDropdown() {
+
+        if (headerBinding == null || !isAdded()) {
+            return;
+        }
 
         final String[] languages = {
                 "English",
@@ -373,17 +490,6 @@ public class PhrasebookFragment extends Fragment {
                         PREFS_NAME,
                         Context.MODE_PRIVATE
                 );
-
-        selectedLanguage = prefs.getString(
-                KEY_LANGUAGE,
-                "English"
-        );
-
-        if (!"English".equals(selectedLanguage)
-                && !"Tagalog".equals(selectedLanguage)) {
-
-            selectedLanguage = "English";
-        }
 
         ArrayAdapter<String> dropdownAdapter =
                 new ArrayAdapter<String>(
@@ -442,42 +548,39 @@ public class PhrasebookFragment extends Fragment {
                     }
                 };
 
-        binding.languageDropdown.setAdapter(dropdownAdapter);
+        headerBinding.languageDropdown.setAdapter(
+                dropdownAdapter
+        );
 
-        binding.languageDropdown.setDropDownBackgroundResource(
+        headerBinding.languageDropdown.setDropDownBackgroundResource(
                 R.drawable.dropdown_glass_background
         );
 
-        binding.languageDropdown.setKeyListener(null);
-        binding.languageDropdown.setFocusable(false);
-        binding.languageDropdown.setInputType(InputType.TYPE_NULL);
-        binding.languageDropdown.setThreshold(0);
+        headerBinding.languageDropdown.setKeyListener(null);
+        headerBinding.languageDropdown.setFocusable(false);
+        headerBinding.languageDropdown.setInputType(InputType.TYPE_NULL);
+        headerBinding.languageDropdown.setThreshold(0);
 
-        binding.languageDropdownLayout.setHint(
+        headerBinding.languageDropdownLayout.setHint(
                 "Select Target Language"
         );
 
-        binding.languageDropdown.setText(
+        headerBinding.languageDropdown.setText(
                 selectedLanguage,
                 false
         );
-
-        if (adapter != null) {
-            adapter.setSelectedLanguage(selectedLanguage);
-            adapter.notifyDataSetChanged();
-        }
 
         final boolean[] isDropdownOpen = {false};
 
         View.OnClickListener toggleDropdown = v -> {
 
-            if (binding == null) {
+            if (headerBinding == null) {
                 return;
             }
 
             if (isDropdownOpen[0]) {
 
-                binding.languageDropdown.dismissDropDown();
+                headerBinding.languageDropdown.dismissDropDown();
                 isDropdownOpen[0] = false;
 
                 return;
@@ -487,34 +590,35 @@ public class PhrasebookFragment extends Fragment {
                     "",
                     count -> {
 
-                        if (binding == null) {
+                        if (headerBinding == null) {
                             return;
                         }
 
-                        binding.languageDropdown.setAdapter(
+                        headerBinding.languageDropdown.setAdapter(
                                 dropdownAdapter
                         );
 
-                        binding.languageDropdown.setText(
+                        headerBinding.languageDropdown.setText(
                                 selectedLanguage,
                                 false
                         );
 
-                        binding.languageDropdown.showDropDown();
+                        headerBinding.languageDropdown.showDropDown();
+
                         isDropdownOpen[0] = true;
                     }
             );
         };
 
-        binding.languageDropdown.setOnClickListener(
+        headerBinding.languageDropdown.setOnClickListener(
                 toggleDropdown
         );
 
-        binding.languageDropdownLayout.setEndIconOnClickListener(
+        headerBinding.languageDropdownLayout.setEndIconOnClickListener(
                 toggleDropdown
         );
 
-        binding.languageDropdown.setOnItemClickListener(
+        headerBinding.languageDropdown.setOnItemClickListener(
                 (parent, itemView, position, id) -> {
 
                     Object selectedItem =
@@ -533,7 +637,7 @@ public class PhrasebookFragment extends Fragment {
                             )
                             .apply();
 
-                    binding.languageDropdown.setText(
+                    headerBinding.languageDropdown.setText(
                             selectedLanguage,
                             false
                     );
@@ -541,12 +645,9 @@ public class PhrasebookFragment extends Fragment {
                     isDropdownOpen[0] = false;
 
                     if (adapter != null) {
-
                         adapter.setSelectedLanguage(
                                 selectedLanguage
                         );
-
-                        adapter.notifyDataSetChanged();
                     }
                 }
         );
@@ -558,7 +659,11 @@ public class PhrasebookFragment extends Fragment {
 
     private void setupSearch() {
 
-        binding.searchBar.addTextChangedListener(
+        if (headerBinding == null) {
+            return;
+        }
+
+        headerBinding.searchBar.addTextChangedListener(
                 new TextWatcher() {
 
                     @Override
@@ -568,7 +673,6 @@ public class PhrasebookFragment extends Fragment {
                             int count,
                             int after
                     ) {
-                        // Not needed.
                     }
 
                     @Override
@@ -584,7 +688,9 @@ public class PhrasebookFragment extends Fragment {
                         }
 
                         pendingSearchQuery =
-                                s == null ? "" : s.toString().trim();
+                                s == null
+                                        ? ""
+                                        : s.toString().trim();
 
                         if (adapter != null) {
                             adapter.setSearchQuery(
@@ -592,7 +698,9 @@ public class PhrasebookFragment extends Fragment {
                             );
                         }
 
-                        searchHandler.removeCallbacks(searchRunnable);
+                        searchHandler.removeCallbacks(
+                                searchRunnable
+                        );
 
                         searchHandler.postDelayed(
                                 searchRunnable,
@@ -602,10 +710,40 @@ public class PhrasebookFragment extends Fragment {
 
                     @Override
                     public void afterTextChanged(Editable s) {
-                        // Not needed.
                     }
                 }
         );
+    }
+
+    // =========================================================
+    // MODERN SNACKBAR NOTIFICATION
+    // =========================================================
+
+    private void showPhrasebookMessage(String message) {
+
+        if (!isAdded() || binding == null) {
+            return;
+        }
+
+        Snackbar snackbar = Snackbar.make(
+                binding.getRoot(),
+                message,
+                Snackbar.LENGTH_SHORT
+        );
+
+        snackbar.setBackgroundTint(
+                Color.rgb(25, 35, 40)
+        );
+
+        snackbar.setTextColor(
+                Color.WHITE
+        );
+
+        snackbar.setAnimationMode(
+                Snackbar.ANIMATION_MODE_SLIDE
+        );
+
+        snackbar.show();
     }
 
     // =========================================================
@@ -624,7 +762,19 @@ public class PhrasebookFragment extends Fragment {
             return;
         }
 
+        // Offline mode.
         if (!NetworkUtil.isOnline(context)) {
+
+            isLoading = false;
+
+            if (reset) {
+                currentPage = 1;
+                hasMore = false;
+            }
+
+            if (adapter != null) {
+                adapter.setPaginationState(false, false);
+            }
 
             if (pendingSearchQuery.isEmpty()) {
                 loadOfflinePhrases();
@@ -632,11 +782,9 @@ public class PhrasebookFragment extends Fragment {
                 searchOfflinePhrases(pendingSearchQuery);
             }
 
-            Toast.makeText(
-                    context,
-                    "Offline Mode — showing saved phrases",
-                    Toast.LENGTH_SHORT
-            ).show();
+            showPhrasebookMessage(
+                    "Offline Mode — showing saved phrases"
+            );
 
             return;
         }
@@ -656,7 +804,11 @@ public class PhrasebookFragment extends Fragment {
             currentPage = 1;
             hasMore = true;
 
-            binding.progressBar.setVisibility(View.VISIBLE);
+            if (headerBinding != null) {
+                headerBinding.progressBar.setVisibility(
+                        View.VISIBLE
+                );
+            }
 
             adapter.setPaginationState(false, false);
 
@@ -680,111 +832,118 @@ public class PhrasebookFragment extends Fragment {
                             boolean more
                     ) {
 
-                        if (binding == null || !isAdded()) {
-                            isLoading = false;
-                            return;
-                        }
+                        mainHandler.post(() -> {
 
-                        // Ignore results from a previous search.
-                        if (!requestedQuery.equals(pendingSearchQuery)) {
+                            if (binding == null || !isAdded()) {
+                                isLoading = false;
+                                return;
+                            }
+
+                            // Ignore results from an older search.
+                            if (!requestedQuery.equals(pendingSearchQuery)) {
+
+                                isLoading = false;
+
+                                adapter.setPaginationState(
+                                        false,
+                                        hasMore
+                                );
+
+                                loadPhrases(true);
+                                return;
+                            }
 
                             isLoading = false;
+
+                            if (headerBinding != null) {
+                                headerBinding.progressBar.setVisibility(
+                                        View.GONE
+                                );
+                            }
+
+                            List<Phrase> safeItems =
+                                    items != null
+                                            ? items
+                                            : new ArrayList<>();
+
+                            if (reset) {
+
+                                adapter.filterList(
+                                        new ArrayList<>(safeItems)
+                                );
+
+                            } else {
+
+                                adapter.addItems(safeItems);
+                            }
+
+                            if (!safeItems.isEmpty()) {
+
+                                repository.insertAll(
+                                        EntityMapper.toPhraseEntityList(
+                                                safeItems
+                                        )
+                                );
+                            }
+
+                            hasMore = more;
+                            currentPage = requestedPage + 1;
 
                             adapter.setPaginationState(
                                     false,
                                     hasMore
                             );
 
-                            loadPhrases(true);
-                            return;
-                        }
-
-                        isLoading = false;
-
-                        binding.progressBar.setVisibility(View.GONE);
-
-                        List<Phrase> safeItems =
-                                items != null
-                                        ? items
-                                        : new ArrayList<>();
-
-                        if (reset) {
-
-                            adapter.filterList(
-                                    new ArrayList<>(safeItems)
+                            updateEmptyState(
+                                    adapterPhraseCount(),
+                                    requestedQuery
                             );
-
-                        } else {
-
-                            adapter.addItems(safeItems);
-                        }
-
-                        if (!safeItems.isEmpty()) {
-
-                            repository.insertAll(
-                                    EntityMapper.toPhraseEntityList(
-                                            safeItems
-                                    )
-                            );
-                        }
-
-                        hasMore = more;
-                        currentPage = requestedPage + 1;
-
-                        adapter.setPaginationState(
-                                false,
-                                hasMore
-                        );
-
-                        updateEmptyState(
-                                adapterPhraseCount(),
-                                requestedQuery
-                        );
+                        });
                     }
 
                     @Override
                     public void onError(String error) {
 
-                        isLoading = false;
+                        mainHandler.post(() -> {
 
-                        if (binding == null || !isAdded()) {
-                            return;
-                        }
+                            isLoading = false;
 
-                        if (!requestedQuery.equals(pendingSearchQuery)) {
-                            loadPhrases(true);
-                            return;
-                        }
+                            if (binding == null || !isAdded()) {
+                                return;
+                            }
 
-                        binding.progressBar.setVisibility(View.GONE);
+                            if (!requestedQuery.equals(pendingSearchQuery)) {
+                                loadPhrases(true);
+                                return;
+                            }
 
-                        adapter.setPaginationState(
-                                false,
-                                hasMore
-                        );
+                            if (headerBinding != null) {
+                                headerBinding.progressBar.setVisibility(
+                                        View.GONE
+                                );
+                            }
 
-                        if (requestedQuery.isEmpty()) {
-                            loadOfflinePhrases();
-                        } else {
-                            searchOfflinePhrases(requestedQuery);
-                        }
+                            adapter.setPaginationState(
+                                    false,
+                                    hasMore
+                            );
 
-                        Context currentContext = getContext();
+                            if (requestedQuery.isEmpty()) {
+                                loadOfflinePhrases();
+                            } else {
+                                searchOfflinePhrases(requestedQuery);
+                            }
 
-                        if (currentContext != null) {
-
-                            Toast.makeText(
-                                    currentContext,
+                            showPhrasebookMessage(
                                     "Unable to refresh phrases. "
-                                            + "Showing saved results if available.",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-                        }
+                                            + "Showing saved results if available."
+                            );
 
-                        Log.e(
-                                "PHRASEBOOK",
-                                "Unable to load phrases: " + error
-                        );
+                            Log.e(
+                                    TAG,
+                                    "Unable to load phrases: " + error
+                            );
+                        });
                     }
                 }
         );
@@ -800,7 +959,6 @@ public class PhrasebookFragment extends Fragment {
             return;
         }
 
-        // If there is an active search, do not load every phrase.
         if (!pendingSearchQuery.isEmpty()) {
             searchOfflinePhrases(pendingSearchQuery);
             return;
@@ -808,13 +966,11 @@ public class PhrasebookFragment extends Fragment {
 
         repository.getAllPhrases(result -> {
 
-            if (!isAdded()) {
-                return;
-            }
+            mainHandler.post(() -> {
 
-            requireActivity().runOnUiThread(() -> {
-
-                if (binding == null || adapter == null) {
+                if (binding == null
+                        || !isAdded()
+                        || adapter == null) {
                     return;
                 }
 
@@ -832,7 +988,11 @@ public class PhrasebookFragment extends Fragment {
                         pendingSearchQuery
                 );
 
-                binding.progressBar.setVisibility(View.GONE);
+                if (headerBinding != null) {
+                    headerBinding.progressBar.setVisibility(
+                            View.GONE
+                    );
+                }
             });
         });
     }
@@ -849,13 +1009,16 @@ public class PhrasebookFragment extends Fragment {
 
         repository.searchPhrases(query, result -> {
 
-            if (!isAdded()) {
-                return;
-            }
+            mainHandler.post(() -> {
 
-            requireActivity().runOnUiThread(() -> {
+                if (binding == null
+                        || !isAdded()
+                        || adapter == null) {
+                    return;
+                }
 
-                if (binding == null || adapter == null) {
+                // Do not display results for an outdated query.
+                if (!query.equals(pendingSearchQuery)) {
                     return;
                 }
 
@@ -874,7 +1037,11 @@ public class PhrasebookFragment extends Fragment {
                         query
                 );
 
-                binding.progressBar.setVisibility(View.GONE);
+                if (headerBinding != null) {
+                    headerBinding.progressBar.setVisibility(
+                            View.GONE
+                    );
+                }
             });
         });
     }
@@ -889,7 +1056,7 @@ public class PhrasebookFragment extends Fragment {
             return 0;
         }
 
-        // The adapter includes one footer row.
+        // PhrasebookAdapter includes one footer row.
         return Math.max(
                 0,
                 adapter.getItemCount() - 1
@@ -901,38 +1068,40 @@ public class PhrasebookFragment extends Fragment {
             String query
     ) {
 
-        if (binding == null) {
+        if (headerBinding == null || binding == null) {
             return;
         }
 
         if (phraseCount == 0) {
 
-            binding.textViewEmpty.setVisibility(View.VISIBLE);
+            headerBinding.textViewEmpty.setVisibility(
+                    View.VISIBLE
+            );
 
             if (query != null && !query.trim().isEmpty()) {
 
-                binding.textViewEmpty.setText(
+                headerBinding.textViewEmpty.setText(
                         "No phrases found. Try another search."
                 );
 
             } else {
 
-                binding.textViewEmpty.setText(
+                headerBinding.textViewEmpty.setText(
                         "No phrases available yet. "
                                 + "Connect to the internet to refresh."
                 );
             }
 
-            binding.recyclerViewPhrasebook.setVisibility(View.GONE);
-
         } else {
 
-            binding.textViewEmpty.setVisibility(View.GONE);
-
-            binding.recyclerViewPhrasebook.setVisibility(
-                    View.VISIBLE
+            headerBinding.textViewEmpty.setVisibility(
+                    View.GONE
             );
         }
+
+        binding.recyclerViewPhrasebook.setVisibility(
+                View.VISIBLE
+        );
     }
 
     // =========================================================
@@ -945,51 +1114,55 @@ public class PhrasebookFragment extends Fragment {
             return;
         }
 
-        // Prefer the complete Ilokano sentence when available.
-        String ilokanoText = phrase.getIlokanoSentence();
-
-        if (ilokanoText == null || ilokanoText.trim().isEmpty()) {
-            ilokanoText = phrase.getIlokanoWord();
-        }
+        String ilokanoText = phrase.getIlokanoWord();
 
         if (ilokanoText == null || ilokanoText.trim().isEmpty()) {
 
-            Toast.makeText(
-                    requireContext(),
-                    "Ilokano phrase is not available.",
-                    Toast.LENGTH_SHORT
-            ).show();
+            showPhrasebookMessage(
+                    "Ilokano word is not available."
+            );
 
             return;
         }
 
         if (tts == null || !ttsReady) {
 
-            Toast.makeText(
-                    requireContext(),
-                    "Text-to-Speech is still starting. Please try again.",
-                    Toast.LENGTH_SHORT
-            ).show();
+            showPhrasebookMessage(
+                    "Text-to-Speech is still starting. Please try again."
+            );
 
             return;
         }
 
-        tts.stop();
+        try {
 
-        int result = tts.speak(
-                ilokanoText.trim(),
-                TextToSpeech.QUEUE_FLUSH,
-                null,
-                "phrasebook_" + System.currentTimeMillis()
-        );
+            tts.stop();
 
-        if (result == TextToSpeech.ERROR) {
+            int result = tts.speak(
+                    ilokanoText.trim(),
+                    TextToSpeech.QUEUE_FLUSH,
+                    null,
+                    "phrasebook_word_" + System.currentTimeMillis()
+            );
 
-            Toast.makeText(
-                    requireContext(),
-                    "Unable to speak this phrase.",
-                    Toast.LENGTH_SHORT
-            ).show();
+            if (result == TextToSpeech.ERROR) {
+
+                showPhrasebookMessage(
+                        "Unable to pronounce this Ilokano word."
+                );
+            }
+
+        } catch (Exception e) {
+
+            Log.e(
+                    TTS_TAG,
+                    "Error speaking Ilokano word: " + ilokanoText,
+                    e
+            );
+
+            showPhrasebookMessage(
+                    "Unable to pronounce this word."
+            );
         }
     }
 
@@ -1001,20 +1174,22 @@ public class PhrasebookFragment extends Fragment {
     public void onDestroyView() {
 
         searchHandler.removeCallbacksAndMessages(null);
+        mainHandler.removeCallbacksAndMessages(null);
 
         ttsReady = false;
 
         if (tts != null) {
 
             try {
+
                 tts.stop();
                 tts.shutdown();
 
             } catch (Exception e) {
 
                 Log.w(
-                        "PHRASEBOOK_TTS",
-                        "Error shutting down TTS.",
+                        TTS_TAG,
+                        "Error shutting down Text-to-Speech.",
                         e
                 );
             }
@@ -1022,13 +1197,29 @@ public class PhrasebookFragment extends Fragment {
             tts = null;
         }
 
-        // Detach the custom fast scroller before destroying the view.
         if (binding != null) {
 
-            binding.phrasebookFastScroller.attachToRecyclerView(null);
+            binding.phrasebookFastScroller.setOnReachBottomListener(
+                    null
+            );
 
-            binding.phrasebookFastScroller.setOnReachBottomListener(null);
+            binding.phrasebookFastScroller.setScrollCallback(
+                    null
+            );
+
+            binding.phrasebookFastScroller.attachToRecyclerView(
+                    null
+            );
         }
+
+        headerBinding = null;
+        headerAdapter = null;
+        adapter = null;
+
+        headerInitialized = false;
+        incomingSearchHandled = false;
+
+        isLoading = false;
 
         binding = null;
 

@@ -2,7 +2,7 @@
 package com.example.speaksmartbaguio;
 
 import android.content.SharedPreferences;
-import android.media.MediaPlayer;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -12,24 +12,26 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
-import android.widget.AutoCompleteTextView;
 import android.widget.Filter;
 import android.widget.Toast;
-import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.ConcatAdapter;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.speaksmartbaguio.databinding.FragmentDictionaryBinding;
+import com.example.speaksmartbaguio.databinding.ItemDictionaryHeaderBinding;
 import com.example.speaksmartbaguio.mapper.EntityMapper;
 import com.example.speaksmartbaguio.repository.DictionaryRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.example.speaksmartbaguio.utils.NetworkUtil;
 import com.example.speaksmartbaguio.utils.SettingsMenuHelper;
+import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -37,48 +39,97 @@ import java.util.Locale;
 
 public class DictionaryFragment extends Fragment {
 
-    private FragmentDictionaryBinding binding;
-
-    private DictionaryAdapter dictionaryAdapter;
-    private ApiService apiService;
-    private TextToSpeech tts;
-    private MediaPlayer mediaPlayer;
-    private DictionaryRepository repository;
-
-    private String selectedLanguage = "English";
-    private String selectedSortOrder = DictionaryAdapter.SORT_A_TO_Z;
-
-    private boolean isLoading = false;
-    private boolean hasMore = true;
-
-    private int currentPage = 1;
+    private static final String TAG = "DICTIONARY";
+    private static final String TTS_TAG = "DICTIONARY_TTS";
 
     private static final int PAGE_SIZE = 100;
+    private static final long SEARCH_DELAY = 300L;
 
     private static final String PREFS_NAME = "DictionaryPrefs";
     private static final String KEY_LANGUAGE = "selectedLanguage";
     private static final String KEY_SORT_ORDER = "sortOrder";
 
+    private FragmentDictionaryBinding binding;
+    private ItemDictionaryHeaderBinding headerBinding;
+
+    private DictionaryHeaderAdapter headerAdapter;
+    private DictionaryAdapter dictionaryAdapter;
+    private ConcatAdapter concatAdapter;
+
+    private RecyclerView.OnScrollListener paginationScrollListener;
+
+    private ApiService apiService;
+    private DictionaryRepository repository;
+
+    private TextToSpeech tts;
+    private boolean isTtsReady = false;
+
+    private String selectedLanguage = "English";
+
+    private String selectedSortOrder =
+            DictionaryAdapter.SORT_A_TO_Z;
+
+    private String pendingSearchQuery = "";
+
+    private int currentPage = 1;
+
+    private boolean isLoading = false;
+    private boolean hasMore = true;
+    private boolean isApplyingIncomingSearch = false;
+
+    private boolean headerInitialized = false;
+    private boolean initialLoadScheduled = false;
+
+    private long dataGeneration = 0L;
+
+    private boolean onlineResultApplied = false;
+
     private final Handler searchHandler =
             new Handler(Looper.getMainLooper());
 
-    private String pendingSearchQuery = "";
+    private final Handler mainHandler =
+            new Handler(Looper.getMainLooper());
 
     public DictionaryFragment() {
         super(R.layout.fragment_dictionary);
     }
+
+    // =========================================================
+    // INITIALIZATION
+    // =========================================================
 
     @Override
     public void onViewCreated(
             @NonNull View view,
             @Nullable Bundle savedInstanceState
     ) {
+
         super.onViewCreated(view, savedInstanceState);
 
         binding = FragmentDictionaryBinding.bind(view);
 
         apiService = ApiService.getInstance();
-        repository = new DictionaryRepository(requireContext());
+
+        repository = new DictionaryRepository(
+                requireContext().getApplicationContext()
+        );
+
+        restorePreferences();
+
+        setupTextToSpeech();
+        setupRecyclerView();
+
+        AccessibilityPreferences.applyToViewTree(
+                requireContext(),
+                binding.getRoot()
+        );
+    }
+
+    // =========================================================
+    // RESTORE PREFERENCES
+    // =========================================================
+
+    private void restorePreferences() {
 
         SharedPreferences preferences =
                 requireContext().getSharedPreferences(
@@ -86,7 +137,6 @@ public class DictionaryFragment extends Fragment {
                         android.content.Context.MODE_PRIVATE
                 );
 
-        // Restore the saved language.
         selectedLanguage = preferences.getString(
                 KEY_LANGUAGE,
                 "English"
@@ -94,10 +144,10 @@ public class DictionaryFragment extends Fragment {
 
         if (!"English".equals(selectedLanguage)
                 && !"Tagalog".equals(selectedLanguage)) {
+
             selectedLanguage = "English";
         }
 
-        // Restore the saved sorting order.
         selectedSortOrder = preferences.getString(
                 KEY_SORT_ORDER,
                 DictionaryAdapter.SORT_A_TO_Z
@@ -107,130 +157,58 @@ public class DictionaryFragment extends Fragment {
             selectedSortOrder = DictionaryAdapter.SORT_A_TO_Z;
         }
 
-        // Remove any old alphabet-filter preference.
         preferences.edit()
                 .remove("selectedLetter")
                 .apply();
-
-        setupSettingsMenuButton();
-        setupTextToSpeech();
-        setupRecyclerView();
-        setupLanguageDropdown();
-        setupFilterPanel();
-        setupSearch();
-
-        AccessibilityPreferences.applyToViewTree(
-                requireContext(),
-                binding.getRoot()
-        );
-
-        updateSortRadioButtons();
-
-        // Show locally saved words immediately.
-        loadOfflineWords();
-
-        // Refresh the dictionary from the API when online.
-        if (NetworkUtil.isOnline(requireContext())) {
-            loadWords(true);
-        }
     }
 
     // =========================================================
-    // SETTINGS MENU
-    // =========================================================
-
-    private void setupSettingsMenuButton() {
-        binding.buttonSettingsMenu.setOnClickListener(v ->
-                SettingsMenuHelper.show(v)
-        );
-    }
-
-    // =========================================================
-    // TEXT TO SPEECH / RECORDED AUDIO SUPPORT
-    // =========================================================
-
-    private void setupTextToSpeech() {
-        tts = new TextToSpeech(
-                requireContext(),
-                status -> {
-                    if (status == TextToSpeech.SUCCESS && tts != null) {
-                        tts.setPitch(0.95f);
-                        tts.setSpeechRate(0.85f);
-                        tts.setLanguage(new Locale("fil", "PH"));
-                    }
-                }
-        );
-    }
-    private void handleIncomingSearch() {
-
-        if (getArguments() != null) {
-            String query = getArguments().getString(
-                    MainActivity.EXTRA_DICTIONARY_SEARCH
-            );
-
-            if (query != null && !query.trim().isEmpty()) {
-
-                pendingSearchQuery = query.trim();
-
-                binding.searchBar.setText(pendingSearchQuery);
-                binding.searchBar.setSelection(
-                        binding.searchBar.getText().length()
-                );
-            }
-        }
-    }
-    // =========================================================
-    // RECYCLER VIEW AND CUSTOM DRAGGABLE SCROLLBAR
+    // RECYCLER VIEW
     // =========================================================
 
     private void setupRecyclerView() {
 
-        // Initialize the adapter using the original constructor.
         dictionaryAdapter = new DictionaryAdapter(
                 new ArrayList<>(),
                 this::speakWord,
                 selectedLanguage
         );
 
-        // Apply the saved sorting order.
         dictionaryAdapter.setSortOrder(selectedSortOrder);
-
-        // Ensure no alphabet filter is active.
         dictionaryAdapter.clearLetterFilter();
 
-        // Keep the adapter's automatic pagination enabled.
-        dictionaryAdapter.setOnLoadMoreListener(
-                () -> {
-                    if (!isLoading && hasMore) {
-                        loadWords(false);
-                    }
-                }
+        dictionaryAdapter.setOnLoadMoreListener(() -> {
+
+            if (!isLoading && hasMore) {
+                loadWords(false);
+            }
+        });
+
+        headerAdapter = new DictionaryHeaderAdapter(
+                this::onHeaderBound
         );
 
-        // Configure the RecyclerView layout manager.
+        concatAdapter = new ConcatAdapter(
+                headerAdapter,
+                dictionaryAdapter
+        );
+
         LinearLayoutManager layoutManager =
                 new LinearLayoutManager(requireContext());
 
-        binding.recyclerViewDictionary.setLayoutManager(layoutManager);
-        binding.recyclerViewDictionary.setAdapter(dictionaryAdapter);
-
-        // Connect the custom draggable scrollbar to the RecyclerView.
-        binding.dictionaryFastScroller.attachToRecyclerView(
-                binding.recyclerViewDictionary
+        binding.recyclerViewDictionary.setLayoutManager(
+                layoutManager
         );
 
-        // Request another API page when dragging the scrollbar
-        // reaches the bottom of the currently loaded words.
-        binding.dictionaryFastScroller.setOnReachBottomListener(
-                () -> {
-                    if (!isLoading && hasMore) {
-                        loadWords(false);
-                    }
-                }
+        binding.recyclerViewDictionary.setHasFixedSize(false);
+
+        binding.recyclerViewDictionary.setItemViewCacheSize(8);
+
+        binding.recyclerViewDictionary.setAdapter(
+                concatAdapter
         );
 
-        // Load more words during normal downward scrolling.
-        binding.recyclerViewDictionary.addOnScrollListener(
+        paginationScrollListener =
                 new RecyclerView.OnScrollListener() {
 
                     @Override
@@ -239,35 +217,281 @@ public class DictionaryFragment extends Fragment {
                             int dx,
                             int dy
                     ) {
-                        super.onScrolled(recyclerView, dx, dy);
 
-                        // Only load more when scrolling downward.
-                        if (dy <= 0 || isLoading || !hasMore) {
+                        if (dy <= 0
+                                || isLoading
+                                || !hasMore) {
                             return;
                         }
 
-                        int lastVisiblePosition =
+                        int lastVisible =
                                 layoutManager.findLastVisibleItemPosition();
 
-                        int totalCount =
-                                dictionaryAdapter.getItemCount();
+                        int totalItems =
+                                concatAdapter.getItemCount();
 
-                        // Load another page before reaching the bottom.
-                        if (totalCount > 0
-                                && lastVisiblePosition >= totalCount - 3) {
+                        if (lastVisible >= totalItems - 5) {
                             loadWords(false);
                         }
+                    }
+                };
+
+        binding.recyclerViewDictionary.addOnScrollListener(
+                paginationScrollListener
+        );
+
+        binding.dictionaryFastScroller.attachToRecyclerView(
+                binding.recyclerViewDictionary
+        );
+
+        binding.dictionaryFastScroller.setOnReachBottomListener(
+                () -> {
+
+                    if (!isLoading && hasMore) {
+                        loadWords(false);
                     }
                 }
         );
     }
 
+    // =========================================================
+    // HEADER INITIALIZATION
+    // =========================================================
 
+    private void onHeaderBound(
+            ItemDictionaryHeaderBinding newHeaderBinding
+    ) {
+
+        if (binding == null || !isAdded()) {
+            return;
+        }
+
+        if (headerBinding == newHeaderBinding
+                && headerInitialized) {
+            return;
+        }
+
+        headerBinding = newHeaderBinding;
+
+        if (headerInitialized) {
+            return;
+        }
+
+        headerInitialized = true;
+
+        setupSettingsMenuButton();
+        setupLanguageDropdown();
+        setupFilterPanel();
+        setupSearch();
+
+        updateSortRadioButtons();
+        handleIncomingSearch();
+
+        if (!pendingSearchQuery.isEmpty()) {
+
+            dictionaryAdapter.setSearchQuery(
+                    pendingSearchQuery
+            );
+        }
+
+        scheduleInitialLoad();
+    }
+
+    private void scheduleInitialLoad() {
+
+        if (initialLoadScheduled || binding == null) {
+            return;
+        }
+
+        initialLoadScheduled = true;
+
+        binding.recyclerViewDictionary.post(() -> {
+
+            initialLoadScheduled = false;
+
+            if (!isAdded()
+                    || binding == null
+                    || dictionaryAdapter == null
+                    || repository == null) {
+                return;
+            }
+
+            loadWords(true);
+        });
+    }
+
+    // =========================================================
+    // INCOMING SEARCH
+    // =========================================================
+
+    private void handleIncomingSearch() {
+
+        if (headerBinding == null || getArguments() == null) {
+            return;
+        }
+
+        String query = getArguments().getString(
+                MainActivity.EXTRA_DICTIONARY_SEARCH
+        );
+
+        if (query == null || query.trim().isEmpty()) {
+            return;
+        }
+
+        pendingSearchQuery = query.trim();
+
+        dictionaryAdapter.setSearchQuery(
+                pendingSearchQuery
+        );
+
+        isApplyingIncomingSearch = true;
+
+        headerBinding.searchBar.setText(
+                pendingSearchQuery
+        );
+
+        headerBinding.searchBar.setSelection(
+                headerBinding.searchBar.getText().length()
+        );
+
+        isApplyingIncomingSearch = false;
+    }
+
+    // =========================================================
+    // SETTINGS MENU
+    // =========================================================
+
+    private void setupSettingsMenuButton() {
+
+        headerBinding.buttonSettingsMenu.setOnClickListener(
+                v -> SettingsMenuHelper.show(v)
+        );
+    }
+
+    // =========================================================
+    // TEXT TO SPEECH
+    // =========================================================
+
+    private void setupTextToSpeech() {
+
+        isTtsReady = false;
+
+        tts = new TextToSpeech(
+                requireContext().getApplicationContext(),
+                status -> {
+
+                    if (tts == null) {
+                        return;
+                    }
+
+                    if (status != TextToSpeech.SUCCESS) {
+
+                        isTtsReady = false;
+
+                        Log.e(
+                                TTS_TAG,
+                                "Text-to-Speech initialization failed."
+                        );
+
+                        return;
+                    }
+
+                    try {
+
+                        tts.setPitch(0.95f);
+                        tts.setSpeechRate(0.85f);
+
+                        configureTtsLanguage();
+
+                        isTtsReady = true;
+
+                        Log.d(
+                                TTS_TAG,
+                                "Text-to-Speech initialized successfully."
+                        );
+
+                    } catch (Exception e) {
+
+                        isTtsReady = false;
+
+                        Log.e(
+                                TTS_TAG,
+                                "Unable to configure Text-to-Speech.",
+                                e
+                        );
+                    }
+                }
+        );
+    }
+
+    private void configureTtsLanguage() {
+
+        if (tts == null) {
+            return;
+        }
+
+        Locale[] preferredLocales = {
+                new Locale("fil", "PH"),
+                new Locale("tl", "PH"),
+                new Locale("en", "PH"),
+                Locale.US
+        };
+
+        boolean languageSelected = false;
+
+        for (Locale locale : preferredLocales) {
+
+            try {
+
+                int availability =
+                        tts.isLanguageAvailable(locale);
+
+                if (availability == TextToSpeech.LANG_MISSING_DATA
+                        || availability == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    continue;
+                }
+
+                int result = tts.setLanguage(locale);
+
+                if (result != TextToSpeech.LANG_MISSING_DATA
+                        && result != TextToSpeech.LANG_NOT_SUPPORTED) {
+
+                    Log.d(
+                            TTS_TAG,
+                            "Selected TTS language: " + locale
+                    );
+
+                    languageSelected = true;
+                    break;
+                }
+
+            } catch (IllegalArgumentException e) {
+
+                Log.w(
+                        TTS_TAG,
+                        "Unable to select TTS language: " + locale,
+                        e
+                );
+            }
+        }
+
+        if (!languageSelected) {
+
+            Log.e(
+                    TTS_TAG,
+                    "No supported TTS language was found."
+            );
+        }
+    }
+
+    // =========================================================
+    // LANGUAGE DROPDOWN
+    // =========================================================
 
     private void setupLanguageDropdown() {
 
         MaterialAutoCompleteTextView languageDropdown =
-                binding.languageDropdown;
+                headerBinding.languageDropdown;
 
         List<String> languages = Arrays.asList(
                 "English",
@@ -278,37 +502,46 @@ public class DictionaryFragment extends Fragment {
                 new ArrayAdapter<String>(
                         requireContext(),
                         R.layout.item_language_dropdown,
-                        languages
+                        new ArrayList<>(languages)
                 ) {
+
+                    private final Filter showAllLanguagesFilter =
+                            new Filter() {
+
+                                @Override
+                                protected FilterResults performFiltering(
+                                        CharSequence constraint
+                                ) {
+
+                                    FilterResults results =
+                                            new FilterResults();
+
+                                    List<String> allLanguages =
+                                            new ArrayList<>(languages);
+
+                                    results.values = allLanguages;
+                                    results.count = allLanguages.size();
+
+                                    return results;
+                                }
+
+                                @Override
+                                protected void publishResults(
+                                        CharSequence constraint,
+                                        FilterResults results
+                                ) {
+
+                                    if (results != null
+                                            && results.values != null) {
+                                        notifyDataSetChanged();
+                                    }
+                                }
+                            };
 
                     @NonNull
                     @Override
                     public Filter getFilter() {
-
-                        return new Filter() {
-
-                            @Override
-                            protected FilterResults performFiltering(
-                                    CharSequence constraint
-                            ) {
-
-                                FilterResults results =
-                                        new FilterResults();
-
-                                results.values = languages;
-                                results.count = languages.size();
-
-                                return results;
-                            }
-
-                            @Override
-                            protected void publishResults(
-                                    CharSequence constraint,
-                                    FilterResults results
-                            ) {
-                                notifyDataSetChanged();
-                            }
-                        };
+                        return showAllLanguagesFilter;
                     }
                 };
 
@@ -320,12 +553,10 @@ public class DictionaryFragment extends Fragment {
 
         languageDropdown.setThreshold(0);
 
-        languageDropdown.setText(selectedLanguage, false);
-
-        // IMPORTANT:
-        // Do not add a custom OnClickListener.
-        // Do not override the TextInputLayout end-icon listener.
-        // Material Components handles dropdown toggling.
+        languageDropdown.setText(
+                selectedLanguage,
+                false
+        );
 
         languageDropdown.setOnItemClickListener(
                 (parent, itemView, position, id) -> {
@@ -333,15 +564,17 @@ public class DictionaryFragment extends Fragment {
                     Object selectedItem =
                             parent.getItemAtPosition(position);
 
-                    selectedLanguage =
-                            String.valueOf(selectedItem);
+                    if (selectedItem == null) {
+                        return;
+                    }
+
+                    selectedLanguage = selectedItem.toString();
 
                     languageDropdown.setText(
                             selectedLanguage,
                             false
                     );
 
-                    // Save selected language.
                     requireContext()
                             .getSharedPreferences(
                                     PREFS_NAME,
@@ -354,7 +587,6 @@ public class DictionaryFragment extends Fragment {
                             )
                             .apply();
 
-                    // Update dictionary adapter.
                     if (dictionaryAdapter != null) {
 
                         dictionaryAdapter.setSelectedLanguage(
@@ -365,26 +597,25 @@ public class DictionaryFragment extends Fragment {
         );
     }
 
-
-
     // =========================================================
-    // SORT FILTER PANEL
-    // Only A–Z and Z–A sorting remain.
+    // SORTING PANEL
     // =========================================================
 
     private void setupFilterPanel() {
 
-        binding.dictionaryFilterPanel.setVisibility(View.GONE);
+        headerBinding.dictionaryFilterPanel.setVisibility(
+                View.GONE
+        );
 
         updateSortRadioButtons();
 
-        binding.buttonDictionaryFilter.setOnClickListener(v -> {
+        headerBinding.buttonDictionaryFilter.setOnClickListener(v -> {
 
             boolean isVisible =
-                    binding.dictionaryFilterPanel.getVisibility()
+                    headerBinding.dictionaryFilterPanel.getVisibility()
                             == View.VISIBLE;
 
-            binding.dictionaryFilterPanel.setVisibility(
+            headerBinding.dictionaryFilterPanel.setVisibility(
                     isVisible ? View.GONE : View.VISIBLE
             );
 
@@ -393,93 +624,97 @@ public class DictionaryFragment extends Fragment {
             }
         });
 
-        binding.sortOrderGroup.setOnCheckedChangeListener(
+        headerBinding.sortOrderGroup.setOnCheckedChangeListener(
                 (group, checkedId) -> {
 
-                    if (checkedId == binding.radioSortZA.getId()) {
+                    if (checkedId == headerBinding.radioSortZA.getId()) {
+
                         selectedSortOrder =
                                 DictionaryAdapter.SORT_Z_TO_A;
 
                     } else if (checkedId
-                            == binding.radioSortAZ.getId()) {
+                            == headerBinding.radioSortAZ.getId()) {
+
                         selectedSortOrder =
                                 DictionaryAdapter.SORT_A_TO_Z;
                     }
                 }
         );
 
-        // Apply the selected sorting order.
-        binding.buttonApplyDictionaryFilters.setOnClickListener(v -> {
+        headerBinding.buttonApplyDictionaryFilters.setOnClickListener(v -> {
 
             selectedSortOrder =
-                    binding.radioSortZA.isChecked()
+                    headerBinding.radioSortZA.isChecked()
                             ? DictionaryAdapter.SORT_Z_TO_A
                             : DictionaryAdapter.SORT_A_TO_Z;
 
-            requireContext()
-                    .getSharedPreferences(
-                            PREFS_NAME,
-                            android.content.Context.MODE_PRIVATE
-                    )
-                    .edit()
-                    .putString(KEY_SORT_ORDER, selectedSortOrder)
-                    .remove("selectedLetter")
-                    .apply();
+            saveSortPreference();
 
-            if (dictionaryAdapter != null) {
-                dictionaryAdapter.setSortOrder(selectedSortOrder);
-                dictionaryAdapter.clearLetterFilter();
-            }
+            dictionaryAdapter.setSortOrder(
+                    selectedSortOrder
+            );
 
-            binding.dictionaryFilterPanel.setVisibility(View.GONE);
+            dictionaryAdapter.clearLetterFilter();
+
+            headerBinding.dictionaryFilterPanel.setVisibility(
+                    View.GONE
+            );
 
             loadWords(true);
         });
 
-        // Reset sorting to A–Z.
-        binding.buttonClearDictionaryFilters.setOnClickListener(v -> {
+        headerBinding.buttonClearDictionaryFilters.setOnClickListener(v -> {
 
-            selectedSortOrder = DictionaryAdapter.SORT_A_TO_Z;
+            selectedSortOrder =
+                    DictionaryAdapter.SORT_A_TO_Z;
 
-            requireContext()
-                    .getSharedPreferences(
-                            PREFS_NAME,
-                            android.content.Context.MODE_PRIVATE
-                    )
-                    .edit()
-                    .putString(
-                            KEY_SORT_ORDER,
-                            DictionaryAdapter.SORT_A_TO_Z
-                    )
-                    .remove("selectedLetter")
-                    .apply();
+            saveSortPreference();
 
             updateSortRadioButtons();
 
-            if (dictionaryAdapter != null) {
-                dictionaryAdapter.setSortOrder(
-                        DictionaryAdapter.SORT_A_TO_Z
-                );
+            dictionaryAdapter.setSortOrder(
+                    selectedSortOrder
+            );
 
-                dictionaryAdapter.clearLetterFilter();
-            }
+            dictionaryAdapter.clearLetterFilter();
 
-            binding.dictionaryFilterPanel.setVisibility(View.GONE);
+            headerBinding.dictionaryFilterPanel.setVisibility(
+                    View.GONE
+            );
 
             loadWords(true);
         });
     }
 
+    private void saveSortPreference() {
+
+        requireContext()
+                .getSharedPreferences(
+                        PREFS_NAME,
+                        android.content.Context.MODE_PRIVATE
+                )
+                .edit()
+                .putString(
+                        KEY_SORT_ORDER,
+                        selectedSortOrder
+                )
+                .remove("selectedLetter")
+                .apply();
+    }
+
     private void updateSortRadioButtons() {
 
-        if (binding == null) {
+        if (headerBinding == null) {
             return;
         }
 
         if (DictionaryAdapter.SORT_Z_TO_A.equals(selectedSortOrder)) {
-            binding.radioSortZA.setChecked(true);
+
+            headerBinding.radioSortZA.setChecked(true);
+
         } else {
-            binding.radioSortAZ.setChecked(true);
+
+            headerBinding.radioSortAZ.setChecked(true);
         }
     }
 
@@ -489,77 +724,87 @@ public class DictionaryFragment extends Fragment {
 
     private void setupSearch() {
 
-        binding.searchBar.addTextChangedListener(new TextWatcher() {
+        headerBinding.searchBar.addTextChangedListener(
+                new TextWatcher() {
 
-            @Override
-            public void beforeTextChanged(
-                    CharSequence s,
-                    int start,
-                    int count,
-                    int after
-            ) {
-                // Not needed.
-            }
-
-            @Override
-            public void onTextChanged(
-                    CharSequence s,
-                    int start,
-                    int before,
-                    int count
-            ) {
-                searchHandler.removeCallbacksAndMessages(null);
-
-                searchHandler.postDelayed(() -> {
-
-                    if (!isAdded() || binding == null) {
-                        return;
+                    @Override
+                    public void beforeTextChanged(
+                            CharSequence s,
+                            int start,
+                            int count,
+                            int after
+                    ) {
                     }
 
-                    pendingSearchQuery = s == null
-                            ? ""
-                            : s.toString().trim();
+                    @Override
+                    public void onTextChanged(
+                            CharSequence s,
+                            int start,
+                            int before,
+                            int count
+                    ) {
 
-                    if (dictionaryAdapter != null) {
-                        dictionaryAdapter.setSearchQuery(
-                                pendingSearchQuery
-                        );
+                        if (isApplyingIncomingSearch) {
+                            return;
+                        }
+
+                        final String query =
+                                s == null
+                                        ? ""
+                                        : s.toString().trim();
+
+                        searchHandler.removeCallbacksAndMessages(null);
+
+                        searchHandler.postDelayed(() -> {
+
+                            if (!isAdded()
+                                    || binding == null
+                                    || headerBinding == null) {
+                                return;
+                            }
+
+                            pendingSearchQuery = query;
+
+                            if (dictionaryAdapter != null) {
+
+                                dictionaryAdapter.setSearchQuery(query);
+                            }
+
+                            loadWords(true);
+
+                        }, SEARCH_DELAY);
                     }
 
-                    loadWords(true);
-
-                }, 300);
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                // Not needed.
-            }
-        });
+                    @Override
+                    public void afterTextChanged(Editable s) {
+                    }
+                }
+        );
     }
 
     // =========================================================
-    // ONLINE DICTIONARY LOADING
+    // DICTIONARY LOADING
+    // LOCAL FIRST, ONLINE IN BACKGROUND
     // =========================================================
 
     private void loadWords(boolean reset) {
 
-        if (!isAdded() || binding == null) {
+        if (!isAdded()
+                || binding == null
+                || repository == null
+                || dictionaryAdapter == null) {
             return;
         }
 
-        if (!NetworkUtil.isOnline(requireContext())) {
+        android.content.Context context = getContext();
 
-            if (!pendingSearchQuery.isEmpty()) {
-                searchOffline(pendingSearchQuery);
-            } else {
-                loadOfflineWords();
-            }
-
+        if (context == null) {
             return;
         }
 
-        if (isLoading) {
+        boolean isOnline = NetworkUtil.isOnline(context);
+
+        if (isOnline && isLoading) {
             return;
         }
 
@@ -568,15 +813,82 @@ public class DictionaryFragment extends Fragment {
         }
 
         if (reset) {
+
             currentPage = 1;
             hasMore = true;
+
+            dataGeneration++;
+
+            onlineResultApplied = false;
         }
 
-        isLoading = true;
+        final long requestGeneration = dataGeneration;
+        final String requestedQuery = pendingSearchQuery;
 
-        binding.progressBar.setVisibility(
-                reset ? View.VISIBLE : View.GONE
-        );
+        // =====================================================
+        // OFFLINE MODE
+        // =====================================================
+
+        if (!isOnline) {
+
+            isLoading = false;
+            hasMore = false;
+
+            dictionaryAdapter.setPaginationState(
+                    false,
+                    false
+            );
+
+            if (requestedQuery.isEmpty()) {
+
+                loadOfflineWords(
+                        requestGeneration,
+                        requestedQuery
+                );
+
+            } else {
+
+                searchOffline(
+                        requestedQuery,
+                        requestGeneration
+                );
+            }
+
+            return;
+        }
+
+        // =====================================================
+        // LOAD LOCAL DATA FIRST
+        // =====================================================
+
+        if (reset) {
+
+            if (headerBinding != null) {
+
+                headerBinding.progressBar.setVisibility(View.GONE);
+            }
+
+            if (requestedQuery.isEmpty()) {
+
+                loadOfflineWords(
+                        requestGeneration,
+                        requestedQuery
+                );
+
+            } else {
+
+                searchOffline(
+                        requestedQuery,
+                        requestGeneration
+                );
+            }
+        }
+
+        // =====================================================
+        // START ONLINE REFRESH
+        // =====================================================
+
+        isLoading = true;
 
         dictionaryAdapter.setPaginationState(
                 !reset,
@@ -585,7 +897,10 @@ public class DictionaryFragment extends Fragment {
 
         final int requestedPage = currentPage;
 
-        ApiService.ApiCallback<Word> callback =
+        apiService.getDictionary(
+                requestedPage,
+                PAGE_SIZE,
+                requestedQuery,
                 new ApiService.ApiCallback<Word>() {
 
                     @Override
@@ -593,118 +908,179 @@ public class DictionaryFragment extends Fragment {
                             List<Word> items,
                             boolean more
                     ) {
-                        isLoading = false;
 
-                        if (!isAdded() || binding == null) {
-                            return;
-                        }
+                        mainHandler.post(() -> {
 
-                        binding.progressBar.setVisibility(View.GONE);
+                            if (!isAdded()
+                                    || binding == null
+                                    || dictionaryAdapter == null) {
+                                return;
+                            }
 
-                        List<Word> safeItems = items == null
-                                ? new ArrayList<>()
-                                : items;
+                            if (requestGeneration != dataGeneration) {
+                                return;
+                            }
 
-                        if (reset) {
-                            dictionaryAdapter.filterList(
-                                    new ArrayList<>(safeItems)
+                            if (!requestedQuery.equals(pendingSearchQuery)) {
+
+                                isLoading = false;
+                                loadWords(true);
+                                return;
+                            }
+
+                            isLoading = false;
+
+                            onlineResultApplied = true;
+
+                            if (headerBinding != null) {
+
+                                headerBinding.progressBar.setVisibility(
+                                        View.GONE
+                                );
+                            }
+
+                            List<Word> safeItems =
+                                    items != null
+                                            ? items
+                                            : new ArrayList<>();
+
+                            if (reset) {
+
+                                dictionaryAdapter.filterList(
+                                        new ArrayList<>(safeItems)
+                                );
+
+                            } else {
+
+                                dictionaryAdapter.addItems(safeItems);
+                            }
+
+                            // Save downloaded words for offline use.
+                            if (!safeItems.isEmpty()
+                                    && repository != null) {
+
+                                repository.insertAll(
+                                        EntityMapper.toEntityList(safeItems)
+                                );
+                            }
+
+                            hasMore = more;
+                            currentPage = requestedPage + 1;
+
+                            dictionaryAdapter.setPaginationState(
+                                    false,
+                                    hasMore
                             );
-                        } else {
-                            dictionaryAdapter.addItems(safeItems);
-                        }
 
-                        if (!safeItems.isEmpty()) {
-                            repository.insertAll(
-                                    EntityMapper.toEntityList(safeItems)
-                            );
-                        }
+                            boolean noVisibleWords =
+                                    dictionaryAdapter.getItemCount() <= 1;
 
-                        hasMore = more;
-                        currentPage = requestedPage + 1;
+                            if (headerBinding != null) {
 
-                        dictionaryAdapter.setPaginationState(
-                                false,
-                                hasMore
-                        );
+                                headerBinding.textViewEmpty.setVisibility(
+                                        noVisibleWords && !hasMore
+                                                ? View.VISIBLE
+                                                : View.GONE
+                                );
 
-                        boolean noVisibleWords =
-                                dictionaryAdapter.getItemCount() <= 1;
+                                if (noVisibleWords && !hasMore) {
 
-                        binding.textViewEmpty.setVisibility(
-                                noVisibleWords && !hasMore
-                                        ? View.VISIBLE
-                                        : View.GONE
-                        );
+                                    headerBinding.textViewEmpty.setText(
+                                            requestedQuery.isEmpty()
+                                                    ? "No dictionary words available."
+                                                    : "No matching words found."
+                                    );
+                                }
+                            }
 
-                        if (!pendingSearchQuery.isEmpty()) {
-                            dictionaryAdapter.setSearchQuery(
-                                    pendingSearchQuery
-                            );
-                        }
+                            if (!requestedQuery.isEmpty()
+                                    && noVisibleWords
+                                    && hasMore) {
 
-                        // Continue searching later API pages if the
-                        // current page has no visible matching words.
-                        if (!pendingSearchQuery.isEmpty()
-                                && noVisibleWords
-                                && hasMore) {
-
-                            searchHandler.post(
-                                    () -> loadWords(false)
-                            );
-                        }
+                                searchHandler.post(
+                                        () -> loadWords(false)
+                                );
+                            }
+                        });
                     }
 
                     @Override
                     public void onError(String error) {
 
-                        isLoading = false;
+                        mainHandler.post(() -> {
 
-                        if (!isAdded() || binding == null) {
-                            return;
-                        }
+                            if (!isAdded()
+                                    || binding == null
+                                    || dictionaryAdapter == null) {
+                                return;
+                            }
 
-                        binding.progressBar.setVisibility(View.GONE);
+                            if (requestGeneration != dataGeneration) {
+                                return;
+                            }
 
-                        dictionaryAdapter.setPaginationState(
-                                false,
-                                hasMore
-                        );
+                            isLoading = false;
 
-                        Log.e("DICTIONARY", error);
+                            if (!requestedQuery.equals(pendingSearchQuery)) {
 
-                        if (dictionaryAdapter.getItemCount() <= 1) {
+                                loadWords(true);
+                                return;
+                            }
 
-                            binding.textViewEmpty.setVisibility(
-                                    View.VISIBLE
+                            if (headerBinding != null) {
+
+                                headerBinding.progressBar.setVisibility(
+                                        View.GONE
+                                );
+                            }
+
+                            dictionaryAdapter.setPaginationState(
+                                    false,
+                                    hasMore
                             );
 
-                            binding.textViewEmpty.setText(
-                                    "Unable to load words. Please try again."
+                            Log.e(
+                                    TAG,
+                                    "Online dictionary loading failed: " + error
                             );
-                        }
 
-                        Toast.makeText(
-                                requireContext(),
-                                "Could not load dictionary: " + error,
-                                Toast.LENGTH_SHORT
-                        ).show();
+                            // Keep local data available.
+                            if (!onlineResultApplied) {
+
+                                if (requestedQuery.isEmpty()) {
+
+                                    loadOfflineWords(
+                                            requestGeneration,
+                                            requestedQuery
+                                    );
+
+                                } else {
+
+                                    searchOffline(
+                                            requestedQuery,
+                                            requestGeneration
+                                    );
+                                }
+                            }
+
+                            Log.d(
+                                    TAG,
+                                    "Keeping saved dictionary data available."
+                            );
+                        });
                     }
-                };
-
-        // Load words without alphabet-letter API filtering.
-        apiService.getDictionary(
-                requestedPage,
-                PAGE_SIZE,
-                pendingSearchQuery,
-                callback
+                }
         );
     }
 
     // =========================================================
-    // OFFLINE DICTIONARY
+    // LOAD SAVED DICTIONARY WORDS
     // =========================================================
 
-    private void loadOfflineWords() {
+    private void loadOfflineWords(
+            long requestGeneration,
+            String requestedQuery
+    ) {
 
         if (!isAdded() || repository == null) {
             return;
@@ -712,179 +1088,239 @@ public class DictionaryFragment extends Fragment {
 
         repository.getAllWords(result -> {
 
-            if (!isAdded()) {
-                return;
-            }
+            mainHandler.post(() -> {
 
-            requireActivity().runOnUiThread(() -> {
-
-                if (!isAdded() || binding == null) {
+                if (!isAdded()
+                        || binding == null
+                        || dictionaryAdapter == null) {
                     return;
                 }
 
-                List<Word> words = result == null
-                        ? new ArrayList<>()
-                        : EntityMapper.toWordList(result);
+                if (requestGeneration != dataGeneration) {
+                    return;
+                }
+
+                if (!requestedQuery.equals(pendingSearchQuery)) {
+                    return;
+                }
+
+                if (onlineResultApplied) {
+                    return;
+                }
+
+                List<Word> words =
+                        result == null
+                                ? new ArrayList<>()
+                                : EntityMapper.toWordList(result);
 
                 dictionaryAdapter.filterList(words);
 
-                binding.progressBar.setVisibility(View.GONE);
+                if (headerBinding != null) {
 
-                boolean noWords =
-                        dictionaryAdapter.getItemCount() <= 1;
+                    headerBinding.progressBar.setVisibility(View.GONE);
 
-                binding.textViewEmpty.setVisibility(
-                        noWords ? View.VISIBLE : View.GONE
-                );
+                    boolean noWords =
+                            dictionaryAdapter.getItemCount() <= 1;
 
-                if (noWords) {
-                    binding.textViewEmpty.setText(
-                            "No saved dictionary words found offline."
+                    headerBinding.textViewEmpty.setVisibility(
+                            noWords ? View.VISIBLE : View.GONE
                     );
+
+                    if (noWords) {
+
+                        headerBinding.textViewEmpty.setText(
+                                "No saved dictionary words found."
+                        );
+                    }
                 }
+
+                Log.d(
+                        TAG,
+                        "Displayed " + words.size()
+                                + " saved dictionary words."
+                );
             });
         });
     }
 
-    private void searchOffline(String query) {
+    // =========================================================
+    // SEARCH SAVED DICTIONARY WORDS
+    // =========================================================
+
+    private void searchOffline(
+            String query,
+            long requestGeneration
+    ) {
 
         if (!isAdded() || repository == null) {
             return;
         }
 
-        repository.searchWords(query, result -> {
+        final String requestedQuery = query;
 
-            if (!isAdded()) {
-                return;
-            }
+        repository.searchWords(
+                requestedQuery,
+                result -> {
 
-            requireActivity().runOnUiThread(() -> {
+                    mainHandler.post(() -> {
 
-                if (!isAdded() || binding == null) {
-                    return;
+                        if (!isAdded()
+                                || binding == null
+                                || dictionaryAdapter == null) {
+                            return;
+                        }
+
+                        if (requestGeneration != dataGeneration) {
+                            return;
+                        }
+
+                        if (!requestedQuery.equals(pendingSearchQuery)) {
+                            return;
+                        }
+
+                        if (onlineResultApplied) {
+                            return;
+                        }
+
+                        List<Word> words =
+                                result == null
+                                        ? new ArrayList<>()
+                                        : EntityMapper.toWordList(result);
+
+                        dictionaryAdapter.setSearchQuery(
+                                requestedQuery
+                        );
+
+                        dictionaryAdapter.filterList(words);
+
+                        if (headerBinding != null) {
+
+                            headerBinding.progressBar.setVisibility(
+                                    View.GONE
+                            );
+
+                            boolean noWords =
+                                    dictionaryAdapter.getItemCount() <= 1;
+
+                            headerBinding.textViewEmpty.setVisibility(
+                                    noWords ? View.VISIBLE : View.GONE
+                            );
+
+                            if (noWords) {
+
+                                headerBinding.textViewEmpty.setText(
+                                        "No matching saved words found."
+                                );
+                            }
+                        }
+
+                        Log.d(
+                                TAG,
+                                "Displayed " + words.size()
+                                        + " saved search results."
+                        );
+                    });
                 }
-
-                List<Word> words = result == null
-                        ? new ArrayList<>()
-                        : EntityMapper.toWordList(result);
-
-                dictionaryAdapter.setSearchQuery(query);
-                dictionaryAdapter.filterList(words);
-
-                binding.progressBar.setVisibility(View.GONE);
-
-                boolean noWords =
-                        dictionaryAdapter.getItemCount() <= 1;
-
-                binding.textViewEmpty.setVisibility(
-                        noWords ? View.VISIBLE : View.GONE
-                );
-
-                if (noWords) {
-                    binding.textViewEmpty.setText(
-                            "No matching offline words found."
-                    );
-                }
-            });
-        });
+        );
     }
 
     // =========================================================
-    // RECORDED PRONUNCIATION AUDIO
+    // MODERN NOTIFICATIONS
+    // =========================================================
+
+    private void showDictionaryMessage(String message) {
+
+        if (!isAdded() || binding == null) {
+            return;
+        }
+
+        View rootView = binding.getRoot();
+
+        Snackbar snackbar = Snackbar.make(
+                rootView,
+                message,
+                Snackbar.LENGTH_SHORT
+        );
+
+        snackbar.setBackgroundTint(
+                Color.rgb(25, 35, 40)
+        );
+
+        snackbar.setTextColor(
+                Color.WHITE
+        );
+
+        snackbar.setAnimationMode(
+                Snackbar.ANIMATION_MODE_SLIDE
+        );
+
+        snackbar.show();
+    }
+
+    // =========================================================
+    // ILOKANO PRONUNCIATION
     // =========================================================
 
     private void speakWord(Word word) {
 
-        if (word == null) {
+        if (word == null || !isAdded()) {
             return;
         }
 
-        if (tts != null) {
-            tts.stop();
-        }
+        if (tts == null || !isTtsReady) {
 
-        String audioUrl = word.getTtsUrl();
-
-        if (audioUrl == null || audioUrl.trim().isEmpty()) {
-
-            Toast.makeText(
-                    requireContext(),
-                    "Recorded pronunciation is not available.",
-                    Toast.LENGTH_SHORT
-            ).show();
+            showDictionaryMessage(
+                    "Speech is still initializing. Please try again."
+            );
 
             return;
         }
 
-        playAudio(audioUrl.trim());
-    }
+        String textToSpeak = word.getIlokanoWord();
 
-    private void playAudio(String audioUrl) {
+        if (textToSpeak == null || textToSpeak.trim().isEmpty()) {
+
+            showDictionaryMessage(
+                    "Ilokano pronunciation is unavailable."
+            );
+
+            return;
+        }
 
         try {
 
-            if (mediaPlayer != null) {
-                mediaPlayer.release();
-                mediaPlayer = null;
-            }
+            tts.stop();
 
-            mediaPlayer = new MediaPlayer();
+            int result = tts.speak(
+                    textToSpeak.trim(),
+                    TextToSpeech.QUEUE_FLUSH,
+                    null,
+                    "dictionary_word_" + System.currentTimeMillis()
+            );
 
-            mediaPlayer.setDataSource(audioUrl);
-
-            mediaPlayer.setOnPreparedListener(player -> {
-
-                if (isAdded()) {
-                    player.start();
-                }
-            });
-
-            mediaPlayer.setOnErrorListener((player, what, extra) -> {
+            if (result == TextToSpeech.ERROR) {
 
                 Log.e(
-                        "DICTIONARY_AUDIO",
-                        "Playback error: " + what + ", " + extra
+                        TTS_TAG,
+                        "Unable to generate speech."
                 );
 
-                player.release();
+                showDictionaryMessage(
+                        "Unable to generate pronunciation."
+                );
+            }
 
-                if (mediaPlayer == player) {
-                    mediaPlayer = null;
-                }
-
-                if (isAdded()) {
-                    Toast.makeText(
-                            requireContext(),
-                            "Unable to play pronunciation audio.",
-                            Toast.LENGTH_SHORT
-                    ).show();
-                }
-
-                return true;
-            });
-
-            mediaPlayer.prepareAsync();
-
-        } catch (IOException | IllegalStateException e) {
+        } catch (Exception e) {
 
             Log.e(
-                    "DICTIONARY_AUDIO",
-                    "Audio setup failed",
+                    TTS_TAG,
+                    "Error speaking dictionary word.",
                     e
             );
 
-            if (mediaPlayer != null) {
-                mediaPlayer.release();
-                mediaPlayer = null;
-            }
-
-            if (isAdded()) {
-                Toast.makeText(
-                        requireContext(),
-                        "Unable to play pronunciation audio.",
-                        Toast.LENGTH_SHORT
-                ).show();
-            }
+            showDictionaryMessage(
+                    "Unable to generate pronunciation."
+            );
         }
     }
 
@@ -895,38 +1331,69 @@ public class DictionaryFragment extends Fragment {
     @Override
     public void onDestroyView() {
 
-        // Stop pending search tasks.
         searchHandler.removeCallbacksAndMessages(null);
+        mainHandler.removeCallbacksAndMessages(null);
 
-        // Detach the custom scrollbar to prevent it from retaining
-        // the old RecyclerView or receiving callbacks after this view
-        // has been destroyed.
+        dataGeneration++;
+
+        isLoading = false;
+        onlineResultApplied = false;
+        headerInitialized = false;
+        initialLoadScheduled = false;
+
         if (binding != null) {
-            binding.dictionaryFastScroller.attachToRecyclerView(null);
-            binding.dictionaryFastScroller.setOnReachBottomListener(null);
-        }
 
-        // Release recorded audio playback.
-        if (mediaPlayer != null) {
+            if (paginationScrollListener != null) {
 
-            try {
-                if (mediaPlayer.isPlaying()) {
-                    mediaPlayer.stop();
-                }
-            } catch (IllegalStateException ignored) {
-                // The player may already have stopped.
+                binding.recyclerViewDictionary.removeOnScrollListener(
+                        paginationScrollListener
+                );
             }
 
-            mediaPlayer.release();
-            mediaPlayer = null;
+            binding.dictionaryFastScroller.setScrollCallback(null);
+
+            binding.dictionaryFastScroller.setOnReachBottomListener(
+                    null
+            );
+
+            binding.dictionaryFastScroller.attachToRecyclerView(null);
+
+            binding.recyclerViewDictionary.setAdapter(null);
         }
 
-        // Shut down TextToSpeech.
         if (tts != null) {
-            tts.stop();
-            tts.shutdown();
+
+            try {
+
+                tts.stop();
+                tts.shutdown();
+
+            } catch (Exception e) {
+
+                Log.w(
+                        TTS_TAG,
+                        "Error shutting down Text-to-Speech.",
+                        e
+                );
+            }
+
             tts = null;
         }
+
+        isTtsReady = false;
+
+        if (repository != null) {
+
+            repository.close();
+            repository = null;
+        }
+
+        headerBinding = null;
+        headerAdapter = null;
+        dictionaryAdapter = null;
+        concatAdapter = null;
+        paginationScrollListener = null;
+        apiService = null;
 
         binding = null;
 

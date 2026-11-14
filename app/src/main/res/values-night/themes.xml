@@ -2,12 +2,10 @@
 <resources>
 
     <!-- =====================================================
-         SPEAK SMART BAGUIO — NIGHT THEME
-         Consistent dark surfaces and cyan focus styling
+         SPEAK SMART BAGUIO — DARK APPLICATION THEME
          ===================================================== -->
 
-    <style
-        name="Base.Theme.IlokanoTranslator"
+    <style name="Theme.SpeakSmartBaguio"
         parent="Theme.MaterialComponents.DayNight.NoActionBar">
 
         <!-- Brand colors -->
@@ -25,55 +23,78 @@
         <item name="colorOnSurface">@color/text_primary</item>
         <item name="android:windowBackground">@color/app_background</item>
 
-        <!-- Focus, cursor, and widget accents -->
+        <!-- Widget accents -->
         <item name="colorAccent">@color/cyan_primary</item>
         <item name="android:colorAccent">@color/cyan_primary</item>
         <item name="colorControlActivated">@color/cyan_primary</item>
         <item name="colorControlNormal">@color/text_secondary</item>
         <item name="colorControlHighlight">@color/cyan_secondary</item>
 
-        <!-- Text field defaults -->
+        <!-- Input field styling -->
         <item name="textInputStyle">@style/Widget.SpeakSmartBaguio.TextInputLayout</item>
         <item name="autoCompleteTextViewStyle">@style/Widget.SpeakSmartBaguio.AutoCompleteTextView</item>
 
-        <!-- Dialog and popup surfaces -->
+        <!-- Dialogs and popups -->
         <item name="android:colorBackgroundFloating">@color/app_surface_elevated</item>
+        <item name="android:windowActionModeOverlay">true</item>
 
-        <!-- System bars -->
+        <!-- Progress indicator -->
+        <item name="android:progressBarStyle">@style/Widget.SpeakSmartBaguio.ProgressBar</item>
+
+        <!-- System bars: light icons on dark backgrounds -->
         <item name="android:statusBarColor">@color/status_bar_color</item>
-        <item name="android:windowLightStatusBar">false</item>
         <item name="android:navigationBarColor">@color/navigation_bar_color</item>
+        <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
 
+        <!-- Text appearance -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorHint">@color/text_disabled</item>
+
     </style>
 
-    <!-- Default Material text-field appearance -->
-    <style
-        name="Widget.SpeakSmartBaguio.TextInputLayout"
+    <!-- =====================================================
+         TEXT INPUT LAYOUT
+         ===================================================== -->
+
+    <style name="Widget.SpeakSmartBaguio.TextInputLayout"
         parent="Widget.MaterialComponents.TextInputLayout.FilledBox">
 
+        <item name="boxBackgroundColor">@color/input_background</item>
         <item name="boxStrokeColor">@color/input_stroke_focused</item>
-        <item name="boxBackgroundColor">@color/app_surface</item>
-        <item name="hintTextColor">@color/cyan_primary</item>
         <item name="boxStrokeWidth">1dp</item>
         <item name="boxStrokeWidthFocused">2dp</item>
+        <item name="hintTextColor">@color/text_secondary</item>
 
     </style>
 
-    <!-- Default dropdown text appearance -->
-    <style
-        name="Widget.SpeakSmartBaguio.AutoCompleteTextView"
+    <!-- =====================================================
+         AUTO COMPLETE TEXT VIEW
+         ===================================================== -->
+
+    <style name="Widget.SpeakSmartBaguio.AutoCompleteTextView"
         parent="Widget.AppCompat.AutoCompleteTextView">
 
         <item name="android:textColor">@color/text_primary</item>
         <item name="android:textColorHint">@color/text_secondary</item>
         <item name="android:colorAccent">@color/cyan_primary</item>
         <item name="android:popupBackground">@color/app_surface_elevated</item>
+        <item name="android:backgroundTint">@color/cyan_primary</item>
 
     </style>
 
-    <style
-        name="Theme.IlokanoTranslator"
-        parent="Base.Theme.IlokanoTranslator" />
+    <!-- =====================================================
+         CYAN PROGRESS INDICATOR
+         ===================================================== -->
+
+    <style name="Widget.SpeakSmartBaguio.ProgressBar"
+        parent="Widget.AppCompat.ProgressBar.Horizontal">
+
+        <item name="android:indeterminateTint">@color/cyan_primary</item>
+        <item name="android:progressTint">@color/cyan_primary</item>
+        <item name="android:progressBackgroundTint">@color/divider_color</item>
+
+    </style>
 
 </resources>

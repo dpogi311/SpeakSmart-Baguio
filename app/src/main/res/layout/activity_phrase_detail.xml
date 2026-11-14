@@ -66,6 +66,7 @@
 
         </LinearLayout>
 
+
         <!-- MAIN ILOKANO PHRASE CARD -->
 
         <com.google.android.material.card.MaterialCardView
@@ -93,18 +94,47 @@
                     android:textStyle="bold"
                     android:letterSpacing="0.12" />
 
-                <TextView
-                    android:id="@+id/tvIlokano"
+
+                <!-- MAIN ILOKANO PHRASE AND SPEAKER BUTTON -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
-                    android:textColor="@color/cyan_primary"
-                    android:textSize="30sp"
-                    android:textStyle="bold"
-                    android:lineSpacingExtra="5dp"
-                    android:breakStrategy="high_quality"
-                    android:hyphenationFrequency="none"
-                    android:textIsSelectable="true" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvIlokano"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:paddingEnd="8dp"
+                        android:textColor="@color/cyan_primary"
+                        android:textSize="30sp"
+                        android:textStyle="bold"
+                        android:lineSpacingExtra="5dp"
+                        android:breakStrategy="high_quality"
+                        android:hyphenationFrequency="none"
+                        android:textIsSelectable="true" />
+
+                    <ImageButton
+                        android:id="@+id/btnSpeakPhrase"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_speaker_button"
+                        android:contentDescription="Listen to Ilokano phrase"
+                        android:padding="13dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_sound"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:stateListAnimator="@null"
+                        android:tooltipText="Listen to pronunciation"
+                        app:tint="@color/cyan_primary" />
+
+                </LinearLayout>
+
 
                 <View
                     android:layout_width="48dp"
@@ -144,6 +174,7 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+
         <!-- TRANSLATIONS HEADING -->
 
         <TextView
@@ -163,6 +194,7 @@
             android:textColor="@color/text_secondary"
             android:textSize="14sp"
             android:lineSpacingExtra="3dp" />
+
 
         <!-- ENGLISH TRANSLATION CARD -->
 
@@ -205,6 +237,7 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+
         <!-- TAGALOG TRANSLATION CARD -->
 
         <com.google.android.material.card.MaterialCardView
@@ -246,13 +279,14 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+
         <!-- EXAMPLE SENTENCES HEADING -->
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="30dp"
-            android:text="Example Sentences"
+            android:text="Other Example Sentences"
             android:textColor="@color/text_primary"
             android:textSize="22sp"
             android:textStyle="bold" />
@@ -265,6 +299,7 @@
             android:textColor="@color/text_secondary"
             android:textSize="14sp"
             android:lineSpacingExtra="3dp" />
+
 
         <!-- ILOKANO EXAMPLE SENTENCE -->
 
@@ -307,6 +342,7 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+
         <!-- ENGLISH EXAMPLE TRANSLATION -->
 
         <com.google.android.material.card.MaterialCardView
@@ -347,6 +383,7 @@
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
+
 
         <!-- APP FOOTER -->
 

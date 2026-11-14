@@ -1,33 +1,41 @@
+
 package com.example.speaksmartbaguio;
 
 import android.content.Intent;
+import android.content.res.Configuration;
+import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-
+import android.content.SharedPreferences;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 public class SplashActivity extends AppCompatActivity {
 
     // ==========================================
-    // TEAM IDENTITY
+    // CONFIGURATION
     // ==========================================
 
     private static final String GROUP_NAME = "BIFROST";
-
     private static final long SPLASH_DELAY = 7500L;
 
     private final Handler handler =
             new Handler(Looper.getMainLooper());
 
     private boolean navigationStarted = false;
+
 
     private final Runnable openHome = () -> {
 
@@ -37,10 +45,32 @@ public class SplashActivity extends AppCompatActivity {
 
         navigationStarted = true;
 
-        Intent intent = new Intent(
-                SplashActivity.this,
-                HomeActivity.class
+        // Check whether the user has completed the guide.
+        SharedPreferences preferences = getSharedPreferences(
+                "FirstTimeGuidePrefs",
+                MODE_PRIVATE
         );
+
+        boolean guideCompleted = preferences.getBoolean(
+                "guide_completed",
+                false
+        );
+
+        // First-time users see the guide.
+        // Returning users go directly to HomeActivity.
+        Intent intent;
+
+        if (guideCompleted) {
+            intent = new Intent(
+                    SplashActivity.this,
+                    HomeActivity.class
+            );
+        } else {
+            intent = new Intent(
+                    SplashActivity.this,
+                    FirstTimeGuideActivity.class
+            );
+        }
 
         startActivity(intent);
 
@@ -52,6 +82,11 @@ public class SplashActivity extends AppCompatActivity {
         finish();
     };
 
+
+    // ==========================================
+    // ACTIVITY CREATION
+    // ==========================================
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -59,22 +94,37 @@ public class SplashActivity extends AppCompatActivity {
         setContentView(R.layout.activity_splash);
 
         // ==========================================
-        // SYSTEM BAR COLORS
+        // SYSTEM BAR COLORS — LIGHT / DARK SUPPORT
         // ==========================================
 
-        getWindow().setStatusBarColor(
-                ContextCompat.getColor(
-                        this,
-                        R.color.app_background
-                )
+        int statusBarColor = ContextCompat.getColor(
+                this,
+                R.color.status_bar_color
         );
 
-        getWindow().setNavigationBarColor(
-                ContextCompat.getColor(
-                        this,
-                        R.color.app_background
-                )
+        int navigationBarColor = ContextCompat.getColor(
+                this,
+                R.color.navigation_bar_color
         );
+
+        getWindow().setStatusBarColor(statusBarColor);
+        getWindow().setNavigationBarColor(navigationBarColor);
+
+        int nightModeFlags = getResources()
+                .getConfiguration()
+                .uiMode & Configuration.UI_MODE_NIGHT_MASK;
+
+        boolean isDarkMode = nightModeFlags
+                == Configuration.UI_MODE_NIGHT_YES;
+
+        WindowInsetsControllerCompat controller =
+                new WindowInsetsControllerCompat(
+                        getWindow(),
+                        getWindow().getDecorView()
+                );
+
+        controller.setAppearanceLightStatusBars(!isDarkMode);
+        controller.setAppearanceLightNavigationBars(!isDarkMode);
 
         // ==========================================
         // CONNECT VIEWS
@@ -102,7 +152,7 @@ public class SplashActivity extends AppCompatActivity {
                 findViewById(R.id.bifrostLoader);
 
         // ==========================================
-        // TEAL GRADIENT COLORS
+        // THEME COLORS
         // ==========================================
 
         int tealStart = ContextCompat.getColor(
@@ -116,7 +166,13 @@ public class SplashActivity extends AppCompatActivity {
         );
 
         // ==========================================
-        // SCENE 1: LOGO REVEAL
+        // SCENE 1: PREMIUM APP TITLE
+        // ==========================================
+
+        setupAppTitle(textAppTitle, tealEnd);
+
+        // ==========================================
+        // SCENE 2: LOGO REVEAL
         // ==========================================
 
         splashLogo.animate()
@@ -127,11 +183,10 @@ public class SplashActivity extends AppCompatActivity {
                 .start();
 
         // ==========================================
-        // SCENE 2: APP TITLE REVEAL
-        // SPEAK SMART BAGUIO
+        // SCENE 3: APP TITLE REVEAL
         // ==========================================
 
-        textAppTitle.setTranslationY(12f);
+        textAppTitle.setTranslationY(16f);
 
         textAppTitle.animate()
                 .alpha(1f)
@@ -141,7 +196,7 @@ public class SplashActivity extends AppCompatActivity {
                 .start();
 
         // ==========================================
-        // SCENE 3: DEVELOPER CREDIT
+        // SCENE 4: DEVELOPER CREDIT
         // ==========================================
 
         textDeveloperCredit.setTranslationY(12f);
@@ -154,44 +209,17 @@ public class SplashActivity extends AppCompatActivity {
                 .start();
 
         // ==========================================
-        // SCENE 4: ANIMATED BIFROST TITLE
+        // SCENE 5: CREATE BIFROST TITLE
         // ==========================================
 
-        for (char c : GROUP_NAME.toCharArray()) {
-
-            TextView letter = new TextView(this);
-
-            letter.setText(String.valueOf(c));
-            letter.setTextSize(36f);
-            letter.setTypeface(null, Typeface.BOLD);
-            letter.setAlpha(0f);
-
-            letter.setTextColor(
-                    ContextCompat.getColor(
-                            this,
-                            R.color.text_light
-                    )
-            );
-
-            Shader shader = new LinearGradient(
-                    0f,
-                    0f,
-                    0f,
-                    48f,
-                    tealStart,
-                    tealEnd,
-                    Shader.TileMode.CLAMP
-            );
-
-            letter.getPaint().setShader(shader);
-
-            letter.setPadding(2, 0, 2, 0);
-
-            letterContainer.addView(letter);
-        }
+        createBifrostLetters(
+                letterContainer,
+                tealStart,
+                tealEnd
+        );
 
         // ==========================================
-        // START TITLE ANIMATION
+        // SCENE 6: START LETTER ANIMATION
         // ==========================================
 
         handler.postDelayed(() -> {
@@ -213,15 +241,134 @@ public class SplashActivity extends AppCompatActivity {
         }, 1600);
 
         // ==========================================
-        // SCENE 8: OPEN HOME
+        // SCENE 7: OPEN HOME
         // ==========================================
 
-        handler.postDelayed(openHome, SPLASH_DELAY);
+        handler.postDelayed(
+                openHome,
+                SPLASH_DELAY
+        );
     }
 
-    // ==============================================
-    // LETTER-BY-LETTER TITLE ANIMATION
-    // ==============================================
+    // ==========================================
+    // PREMIUM APP TITLE
+    // ==========================================
+
+    private void setupAppTitle(
+            TextView title,
+            int tealColor
+    ) {
+
+        SpannableString appTitle =
+                new SpannableString("SPEAK SMART\nBAGUIO");
+
+        int baguioStart =
+                appTitle.toString().indexOf("BAGUIO");
+
+        appTitle.setSpan(
+                new RelativeSizeSpan(0.68f),
+                baguioStart,
+                appTitle.length(),
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+
+        appTitle.setSpan(
+                new ForegroundColorSpan(tealColor),
+                baguioStart,
+                appTitle.length(),
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+
+        title.setText(appTitle);
+
+        title.setTypeface(
+                Typeface.create(
+                        "sans-serif-black",
+                        Typeface.BOLD
+                )
+        );
+
+        title.setShadowLayer(
+                16f,
+                0f,
+                3f,
+                Color.argb(65, 0, 210, 200)
+        );
+    }
+
+    // ==========================================
+    // CREATE GRADIENT BIFROST LETTERS
+    // ==========================================
+
+    private void createBifrostLetters(
+            LinearLayout container,
+            int tealStart,
+            int tealEnd
+    ) {
+
+        container.removeAllViews();
+
+        for (char c : GROUP_NAME.toCharArray()) {
+
+            TextView letter = new TextView(this);
+
+            letter.setText(String.valueOf(c));
+
+            letter.setTextSize(39f);
+
+            letter.setTypeface(
+                    Typeface.create(
+                            "sans-serif-black",
+                            Typeface.BOLD
+                    )
+            );
+
+            letter.setAlpha(0f);
+
+            letter.setTextColor(Color.WHITE);
+
+            Shader shader = new LinearGradient(
+                    0f,
+                    0f,
+                    0f,
+                    55f,
+                    new int[]{
+                            tealStart,
+                            Color.WHITE,
+                            tealEnd
+                    },
+                    null,
+                    Shader.TileMode.CLAMP
+            );
+
+            letter.getPaint().setShader(shader);
+
+            letter.setShadowLayer(
+                    15f,
+                    0f,
+                    2f,
+                    Color.argb(
+                            100,
+                            0,
+                            210,
+                            200
+                    )
+            );
+
+            letter.setPadding(
+                    5,
+                    0,
+                    5,
+                    0
+            );
+
+            container.addView(letter);
+        }
+    }
+
+    // ==========================================
+    // LETTER-BY-LETTER ANIMATION
+    // ==========================================
 
     private void animateLetters(
             LinearLayout container,
@@ -241,12 +388,17 @@ public class SplashActivity extends AppCompatActivity {
         TextView letter =
                 (TextView) container.getChildAt(index);
 
-        letter.setTranslationY(10f);
+        letter.setTranslationY(12f);
+
+        letter.setScaleX(0.85f);
+        letter.setScaleY(0.85f);
 
         letter.animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setDuration(150)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(180)
                 .withEndAction(() ->
                         animateLetters(
                                 container,
@@ -257,10 +409,9 @@ public class SplashActivity extends AppCompatActivity {
                 .start();
     }
 
-    // ==============================================
-    // SCENE 5: MAIN TAGLINE REVEAL
-    // LEARN • UNDERSTAND • CONNECT
-    // ==============================================
+    // ==========================================
+    // MAIN TAGLINE REVEAL
+    // ==========================================
 
     private void revealTagline(
             TextView tagline,
@@ -287,10 +438,9 @@ public class SplashActivity extends AppCompatActivity {
                 .start();
     }
 
-    // ==============================================
-    // SCENE 6: SECONDARY TAGLINE REVEAL
-    // BRIDGING LANGUAGES & CONNECTING CULTURES
-    // ==============================================
+    // ==========================================
+    // SECONDARY TAGLINE REVEAL
+    // ==========================================
 
     private void revealSecondaryTagline(
             TextView tagline,
@@ -307,15 +457,19 @@ public class SplashActivity extends AppCompatActivity {
                 .alpha(1f)
                 .translationY(0f)
                 .setDuration(650)
-                .withEndAction(() -> revealSpinner(loader))
+                .withEndAction(() ->
+                        revealSpinner(loader)
+                )
                 .start();
     }
 
-    // ==============================================
-    // SCENE 7: BIFROST BRIDGE LOADING ANIMATION
-    // ==============================================
+    // ==========================================
+    // BIFROST LOADING ANIMATION
+    // ==========================================
 
-    private void revealSpinner(BifrostLoaderView loader) {
+    private void revealSpinner(
+            BifrostLoaderView loader
+    ) {
 
         if (isFinishing() || isDestroyed()) {
             return;
@@ -327,9 +481,9 @@ public class SplashActivity extends AppCompatActivity {
                 .start();
     }
 
-    // ==============================================
+    // ==========================================
     // CLEANUP
-    // ==============================================
+    // ==========================================
 
     @Override
     protected void onDestroy() {

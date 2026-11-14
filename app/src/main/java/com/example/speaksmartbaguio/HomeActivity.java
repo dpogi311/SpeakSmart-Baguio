@@ -44,7 +44,7 @@ public class HomeActivity extends AppCompatActivity {
     // Exact Ilokano text displayed in the daily card.
     private String dailyPhraseSearchTerm = "";
 
-    // Source module of the selected daily content.
+    // Original source of the selected daily content.
     // Possible values: PHRASEBOOK or DICTIONARY.
     private String dailyPhraseDestination = "PHRASEBOOK";
 
@@ -112,7 +112,6 @@ public class HomeActivity extends AppCompatActivity {
         if (dailyPhraseSearchTerm == null
                 || dailyPhraseSearchTerm.trim().isEmpty()) {
 
-            // No selected record exists yet.
             openLearningTool("PHRASEBOOK");
             return;
         }
@@ -122,12 +121,13 @@ public class HomeActivity extends AppCompatActivity {
                 MainActivity.class
         );
 
-        // Open the module that supplied this exact record.
+        // Open the original module that supplied the content.
         intent.putExtra(
                 MainActivity.EXTRA_START_FRAGMENT,
                 dailyPhraseDestination
         );
 
+        // Pass the exact Ilokano search term.
         if ("DICTIONARY".equals(dailyPhraseDestination)) {
 
             intent.putExtra(
@@ -166,8 +166,7 @@ public class HomeActivity extends AppCompatActivity {
      * Loads saved content from BOTH Phrasebook and Dictionary.
      *
      * Each record keeps its original source.
-     * The daily card will never guess the destination
-     * based on whether the content is a word or sentence.
+     * The daily card never guesses its destination.
      */
     private void loadDailyPhrase() {
 
@@ -433,6 +432,26 @@ public class HomeActivity extends AppCompatActivity {
 
 
         // -----------------------------------------------------
+        // DISPLAY SOURCE LABEL
+        // -----------------------------------------------------
+
+        if ("DICTIONARY".equals(selectedItem.source)) {
+
+            binding.tvDailyPhraseSource.setText(
+                    "SOURCE: DICTIONARY"
+            );
+
+        } else {
+
+            binding.tvDailyPhraseSource.setText(
+                    "SOURCE: PHRASEBOOK"
+            );
+        }
+
+        binding.tvDailyPhraseSource.setVisibility(View.VISIBLE);
+
+
+        // -----------------------------------------------------
         // DISPLAY DAILY CONTENT
         // -----------------------------------------------------
 
@@ -546,6 +565,9 @@ public class HomeActivity extends AppCompatActivity {
 
         dailyPhraseSearchTerm = "";
         dailyPhraseDestination = "PHRASEBOOK";
+
+        // Hide source when no daily item is available.
+        binding.tvDailyPhraseSource.setVisibility(View.GONE);
 
         binding.tvDailyPhrase.setText(
                 "Daily phrase is not available yet."

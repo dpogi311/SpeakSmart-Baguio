@@ -1,3 +1,4 @@
+
 package com.example.speaksmartbaguio;
 
 import android.app.Activity;
@@ -5,7 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.media.MediaPlayer;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -17,7 +18,6 @@ import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
-import android.util.Base64;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -26,8 +26,8 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Filter;
 import android.widget.TextView;
-import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -40,16 +40,13 @@ import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.example.speaksmartbaguio.utils.NetworkUtil;
 import com.example.speaksmartbaguio.utils.SettingsMenuHelper;
 
-import com.google.firebase.functions.FirebaseFunctions;
+import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.snackbar.BaseTransientBottomBar;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 public class TranslatorFragment extends Fragment {
 
@@ -58,6 +55,9 @@ public class TranslatorFragment extends Fragment {
 
     private static final String ARROW_SYMBOL = "⇄";
     private static final int ARROW_COLOR = Color.rgb(13, 163, 150);
+
+    private static final int TEAL_COLOR = Color.rgb(13, 163, 150);
+    private static final int SNACKBAR_BACKGROUND = Color.rgb(25, 30, 30);
 
     private static final String MODE_ENGLISH_TO_ILOKANO =
             "English  ⇄  Ilokano";
@@ -71,9 +71,6 @@ public class TranslatorFragment extends Fragment {
     private static final String MODE_ILOKANO_TO_TAGALOG =
             "Ilokano  ⇄  Tagalog";
 
-    private static final String TTS_FUNCTION_NAME =
-            "synthesizeSpeech";
-
     private FragmentTranslatorBinding binding;
 
     private ApiService apiService;
@@ -81,20 +78,7 @@ public class TranslatorFragment extends Fragment {
     private PhraseRepository phraseRepository;
     private TextToSpeech tts;
 
-    private FirebaseFunctions firebaseFunctions;
-
-    private MediaPlayer pronunciationPlayer;
-    private MediaPlayer cloudTtsPlayer;
-
-    private File cloudTtsFile;
-
-    private int cloudTtsRequestId = 0;
-
-    private final List<String> currentIlokanoAudioUrls =
-            new ArrayList<>();
-
-    private int currentAudioIndex = 0;
-    private boolean audioPlaybackHadError = false;
+    private Snackbar currentSnackbar;
 
     private final Handler searchHandler =
             new Handler(Looper.getMainLooper());
@@ -147,10 +131,6 @@ public class TranslatorFragment extends Fragment {
                 requireContext()
         );
 
-        firebaseFunctions = FirebaseFunctions.getInstance(
-                "asia-southeast1"
-        );
-
         setupTextToSpeech();
         setupDropdown();
         setupListeners();
@@ -197,6 +177,120 @@ public class TranslatorFragment extends Fragment {
     }
 
     // ---------------------------------------------------------
+    // MODERN MATERIAL SNACKBAR NOTIFICATIONS
+    // ---------------------------------------------------------
+
+    private void showMessage(
+            String message,
+            boolean isError
+    ) {
+
+        if (!isAdded()
+                || binding == null
+                || getView() == null) {
+            return;
+        }
+
+        // Replace the previous notification.
+        if (currentSnackbar != null) {
+
+            currentSnackbar.dismiss();
+
+            currentSnackbar = null;
+        }
+
+        Snackbar snackbar = Snackbar.make(
+                binding.getRoot(),
+                message,
+                Snackbar.LENGTH_SHORT
+        );
+
+        View snackbarView = snackbar.getView();
+
+        float density = getResources()
+                .getDisplayMetrics()
+                .density;
+
+        // Rounded dark background.
+        GradientDrawable background = new GradientDrawable();
+
+        background.setColor(SNACKBAR_BACKGROUND);
+
+        background.setCornerRadius(
+                18f * density
+        );
+
+        snackbarView.setBackground(background);
+
+        snackbarView.setElevation(
+                12f * density
+        );
+
+        // Style the notification message.
+        TextView messageView = snackbarView.findViewById(
+                com.google.android.material.R.id.snackbar_text
+        );
+
+        if (messageView != null) {
+
+            messageView.setTextColor(Color.WHITE);
+
+            messageView.setTextSize(14f);
+
+            messageView.setMaxLines(3);
+
+            messageView.setTypeface(
+                    android.graphics.Typeface.create(
+                            "sans-serif-medium",
+                            android.graphics.Typeface.NORMAL
+                    )
+            );
+
+            messageView.setGravity(
+                    Gravity.CENTER_VERTICAL
+            );
+        }
+
+        // Teal action color.
+        snackbar.setActionTextColor(TEAL_COLOR);
+
+        // Smooth slide animation.
+        snackbar.setAnimationMode(
+                BaseTransientBottomBar.ANIMATION_MODE_SLIDE
+        );
+
+        // Error messages stay slightly longer.
+        snackbar.setDuration(
+                isError ? 3000 : 2000
+        );
+
+        currentSnackbar = snackbar;
+
+        snackbar.addCallback(
+                new Snackbar.Callback() {
+
+                    @Override
+                    public void onDismissed(
+                            Snackbar transientBottomBar,
+                            int event
+                    ) {
+
+                        super.onDismissed(
+                                transientBottomBar,
+                                event
+                        );
+
+                        if (currentSnackbar == transientBottomBar) {
+                            currentSnackbar = null;
+                        }
+                    }
+                }
+        );
+
+        snackbar.show();
+    }
+
+    // ---------------------------------------------------------
     // ANDROID TEXT-TO-SPEECH
     // ---------------------------------------------------------
 
@@ -208,14 +302,10 @@ public class TranslatorFragment extends Fragment {
 
                     if (status != TextToSpeech.SUCCESS) {
 
-                        if (isAdded() && getContext() != null) {
-
-                            Toast.makeText(
-                                    requireContext(),
-                                    "Android TTS initialization failed",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-                        }
+                        showMessage(
+                                "Speech initialization failed.",
+                                true
+                        );
 
                     } else if (tts != null) {
 
@@ -266,8 +356,15 @@ public class TranslatorFragment extends Fragment {
 
         textView.setText(getStyledModeText(mode));
 
-        textView.setTextColor(Color.WHITE);
+        textView.setTextColor(
+                ContextCompat.getColor(
+                        context,
+                        R.color.text_primary
+                )
+        );
+
         textView.setTextSize(15f);
+
         textView.setTypeface(
                 android.graphics.Typeface.DEFAULT,
                 android.graphics.Typeface.BOLD
@@ -275,13 +372,11 @@ public class TranslatorFragment extends Fragment {
 
         textView.setGravity(Gravity.CENTER_VERTICAL);
 
-        int horizontalPadding = (int) (
-                16 * context.getResources().getDisplayMetrics().density
-        );
+        float density = context.getResources()
+                .getDisplayMetrics().density;
 
-        int verticalPadding = (int) (
-                12 * context.getResources().getDisplayMetrics().density
-        );
+        int horizontalPadding = (int) (16 * density);
+        int verticalPadding = (int) (12 * density);
 
         textView.setPadding(
                 horizontalPadding,
@@ -291,14 +386,7 @@ public class TranslatorFragment extends Fragment {
         );
 
         if (isDropdownItem) {
-
-            textView.setMinHeight(
-                    (int) (
-                            48 * context.getResources()
-                                    .getDisplayMetrics()
-                                    .density
-                    )
-            );
+            textView.setMinHeight((int) (48 * density));
         }
 
         return textView;
@@ -543,11 +631,7 @@ public class TranslatorFragment extends Fragment {
 
                     isDropdownOpen[0] = false;
 
-                    cancelCloudTtsSpeech();
                     stopTextToSpeech();
-                    stopIlokanoAudio();
-
-                    currentIlokanoAudioUrls.clear();
 
                     binding.editTextInput.setText("");
                     binding.originalText.setText("");
@@ -597,40 +681,86 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
-        if (isIlokanoOutputMode()) {
-            return;
-        }
-
-        Locale locale;
+        List<Locale> candidates = new ArrayList<>();
 
         switch (translationMode) {
 
             case MODE_ILOKANO_TO_ENGLISH:
-                locale = Locale.US;
+                candidates.add(new Locale("en", "PH"));
+                candidates.add(Locale.US);
+                candidates.add(new Locale("fil", "PH"));
+                candidates.add(new Locale("tl", "PH"));
                 break;
 
             case MODE_ILOKANO_TO_TAGALOG:
-                locale = new Locale("fil", "PH");
+                candidates.add(new Locale("fil", "PH"));
+                candidates.add(new Locale("tl", "PH"));
+                candidates.add(new Locale("en", "PH"));
+                candidates.add(Locale.US);
                 break;
 
+            case MODE_ENGLISH_TO_ILOKANO:
+            case MODE_TAGALOG_TO_ILOKANO:
             default:
-                locale = Locale.US;
+                candidates.add(new Locale("fil", "PH"));
+                candidates.add(new Locale("tl", "PH"));
+                candidates.add(new Locale("en", "PH"));
+                candidates.add(Locale.US);
                 break;
         }
 
-        int result = tts.setLanguage(locale);
+        boolean languageSelected = false;
 
-        if (result == TextToSpeech.LANG_NOT_SUPPORTED
-                || result == TextToSpeech.LANG_MISSING_DATA) {
+        for (Locale locale : candidates) {
 
-            if (isAdded() && getContext() != null) {
+            try {
 
-                Toast.makeText(
-                        requireContext(),
-                        "Android TTS language is not supported. "
-                                + "Cloud speech may still be available.",
-                        Toast.LENGTH_LONG
-                ).show();
+                int result = tts.setLanguage(locale);
+
+                if (result != TextToSpeech.LANG_MISSING_DATA
+                        && result != TextToSpeech.LANG_NOT_SUPPORTED) {
+
+                    Log.i(
+                            TAG,
+                            "Using Android TTS language: "
+                                    + locale.toLanguageTag()
+                    );
+
+                    languageSelected = true;
+                    break;
+                }
+
+            } catch (Exception e) {
+
+                Log.w(
+                        TAG,
+                        "TTS language unavailable: "
+                                + locale.toLanguageTag(),
+                        e
+                );
+            }
+        }
+
+        if (!languageSelected) {
+
+            try {
+
+                Locale deviceLocale = Locale.getDefault();
+
+                int result = tts.setLanguage(deviceLocale);
+
+                if (result == TextToSpeech.LANG_MISSING_DATA
+                        || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+
+                    Log.w(
+                            TAG,
+                            "No preferred TTS language is installed."
+                    );
+                }
+
+            } catch (Exception e) {
+
+                Log.e(TAG, "Could not set device TTS language.", e);
             }
         }
     }
@@ -667,11 +797,7 @@ public class TranslatorFragment extends Fragment {
 
                         latestInput = input;
 
-                        cancelCloudTtsSpeech();
-                        stopIlokanoAudio();
                         stopTextToSpeech();
-
-                        currentIlokanoAudioUrls.clear();
 
                         searchHandler.removeCallbacksAndMessages(null);
 
@@ -756,11 +882,12 @@ public class TranslatorFragment extends Fragment {
 
         } catch (Exception e) {
 
-            Toast.makeText(
-                    requireContext(),
-                    "Speech recognition not supported",
-                    Toast.LENGTH_SHORT
-            ).show();
+            Log.e(TAG, "Speech recognition unavailable.", e);
+
+            showMessage(
+                    "Speech recognition is unavailable.",
+                    true
+            );
         }
     }
 
@@ -811,323 +938,20 @@ public class TranslatorFragment extends Fragment {
 
         if (text.isEmpty()) {
 
-            Toast.makeText(
-                    requireContext(),
-                    "Nothing to speak",
-                    Toast.LENGTH_SHORT
-            ).show();
-
-            return;
-        }
-
-        if (isIlokanoOutputMode()) {
-
-            cancelCloudTtsSpeech();
-            stopTextToSpeech();
-
-            playIlokanoRecordings();
-
-            return;
-        }
-
-        stopIlokanoAudio();
-
-        cancelCloudTtsSpeech();
-
-        final int requestId = cloudTtsRequestId;
-
-        if (getContext() == null
-                || !NetworkUtil.isOnline(requireContext())) {
-
-            speakWithAndroidTts(text);
-
-            return;
-        }
-
-        requestCloudSpeech(text, requestId);
-    }
-
-    // ---------------------------------------------------------
-    // GOOGLE CLOUD TEXT-TO-SPEECH
-    // ---------------------------------------------------------
-
-    private void requestCloudSpeech(
-            String text,
-            int requestId
-    ) {
-
-        if (binding == null
-                || !isAdded()
-                || firebaseFunctions == null
-                || requestId != cloudTtsRequestId) {
-
-            return;
-        }
-
-        String language;
-
-        if (MODE_ILOKANO_TO_TAGALOG.equals(translationMode)) {
-            language = "tl";
-        } else {
-            language = "en";
-        }
-
-        Map<String, Object> data = new HashMap<>();
-
-        data.put("text", text);
-        data.put("language", language);
-
-        firebaseFunctions
-                .getHttpsCallable(TTS_FUNCTION_NAME)
-                .call(data)
-                .addOnSuccessListener(result -> {
-
-                    if (!isAdded()
-                            || binding == null
-                            || requestId != cloudTtsRequestId) {
-
-                        return;
-                    }
-
-                    try {
-
-                        Object rawData = result.getData();
-
-                        if (!(rawData instanceof Map)) {
-
-                            throw new IllegalStateException(
-                                    "Cloud TTS returned an unexpected response."
-                            );
-                        }
-
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> response =
-                                (Map<String, Object>) rawData;
-
-                        Object audioValue =
-                                response.get("audioBase64");
-
-                        if (!(audioValue instanceof String)
-                                || ((String) audioValue).trim().isEmpty()) {
-
-                            throw new IllegalStateException(
-                                    "Cloud TTS returned no audio."
-                            );
-                        }
-
-                        String audioBase64 =
-                                (String) audioValue;
-
-                        byte[] audioBytes = Base64.decode(
-                                audioBase64,
-                                Base64.DEFAULT
-                        );
-
-                        if (audioBytes.length == 0) {
-
-                            throw new IllegalStateException(
-                                    "Cloud TTS audio was empty."
-                            );
-                        }
-
-                        playCloudSpeechAudio(
-                                audioBytes,
-                                text,
-                                requestId
-                        );
-
-                    } catch (Exception e) {
-
-                        Log.e(
-                                TAG,
-                                "Could not process Google Cloud TTS audio.",
-                                e
-                        );
-
-                        fallbackToAndroidTts(
-                                text,
-                                requestId
-                        );
-                    }
-                })
-                .addOnFailureListener(e -> {
-
-                    if (requestId != cloudTtsRequestId) {
-                        return;
-                    }
-
-                    Log.w(
-                            TAG,
-                            "Google Cloud TTS request failed; "
-                                    + "using Android TTS fallback.",
-                            e
-                    );
-
-                    fallbackToAndroidTts(
-                            text,
-                            requestId
-                    );
-                });
-    }
-
-    // ---------------------------------------------------------
-    // PLAY GOOGLE CLOUD MP3 AUDIO
-    // ---------------------------------------------------------
-
-    private void playCloudSpeechAudio(
-            byte[] audioBytes,
-            String originalText,
-            int requestId
-    ) {
-
-        if (!isAdded()
-                || binding == null
-                || requestId != cloudTtsRequestId) {
-
-            return;
-        }
-
-        try {
-
-            stopCloudTtsAudioOnly();
-
-            File outputFile = File.createTempFile(
-                    "speaksmart_cloud_tts_",
-                    ".mp3",
-                    requireContext().getCacheDir()
+            showMessage(
+                    "Nothing to speak yet.",
+                    false
             );
 
-            cloudTtsFile = outputFile;
-
-            try (FileOutputStream outputStream =
-                         new FileOutputStream(outputFile)) {
-
-                outputStream.write(audioBytes);
-                outputStream.flush();
-            }
-
-            MediaPlayer player = new MediaPlayer();
-
-            cloudTtsPlayer = player;
-
-            player.setOnPreparedListener(mp -> {
-
-                if (cloudTtsPlayer != mp
-                        || !isAdded()
-                        || binding == null
-                        || requestId != cloudTtsRequestId) {
-
-                    if (cloudTtsPlayer == mp) {
-                        cloudTtsPlayer = null;
-                    }
-
-                    releaseCloudPlayerAndFile(mp);
-
-                    return;
-                }
-
-                try {
-
-                    mp.start();
-
-                } catch (Exception e) {
-
-                    Log.e(
-                            TAG,
-                            "Could not start cloud-generated speech.",
-                            e
-                    );
-
-                    if (cloudTtsPlayer == mp) {
-                        cloudTtsPlayer = null;
-                    }
-
-                    releaseCloudPlayerAndFile(mp);
-
-                    fallbackToAndroidTts(
-                            originalText,
-                            requestId
-                    );
-                }
-            });
-
-            player.setOnCompletionListener(mp -> {
-
-                if (cloudTtsPlayer == mp) {
-                    cloudTtsPlayer = null;
-                }
-
-                releaseCloudPlayerAndFile(mp);
-            });
-
-            player.setOnErrorListener((mp, what, extra) -> {
-
-                Log.e(
-                        TAG,
-                        "Cloud audio playback error. what="
-                                + what + ", extra=" + extra
-                );
-
-                if (cloudTtsPlayer == mp) {
-                    cloudTtsPlayer = null;
-                }
-
-                releaseCloudPlayerAndFile(mp);
-
-                fallbackToAndroidTts(
-                        originalText,
-                        requestId
-                );
-
-                return true;
-            });
-
-            player.setDataSource(outputFile.getAbsolutePath());
-            player.prepareAsync();
-
-        } catch (Exception e) {
-
-            Log.e(
-                    TAG,
-                    "Could not prepare cloud TTS audio.",
-                    e
-            );
-
-            stopCloudTtsAudioOnly();
-
-            fallbackToAndroidTts(
-                    originalText,
-                    requestId
-            );
-        }
-    }
-
-    // ---------------------------------------------------------
-    // ANDROID TTS FALLBACK
-    // ---------------------------------------------------------
-
-    private void fallbackToAndroidTts(
-            String text,
-            int requestId
-    ) {
-
-        if (!isAdded()
-                || binding == null
-                || requestId != cloudTtsRequestId) {
-
             return;
         }
-
-        stopCloudTtsAudioOnly();
-
-        Log.i(
-                TAG,
-                "Using Android TTS fallback for mode: "
-                        + translationMode
-        );
 
         speakWithAndroidTts(text);
     }
+
+    // ---------------------------------------------------------
+    // ANDROID TEXT-TO-SPEECH PLAYBACK
+    // ---------------------------------------------------------
 
     private void speakWithAndroidTts(String text) {
 
@@ -1150,337 +974,32 @@ public class TranslatorFragment extends Fragment {
 
                 if (result == TextToSpeech.ERROR) {
 
-                    Toast.makeText(
-                            requireContext(),
-                            "Speech could not be played. "
-                                    + "Check your installed TTS voice.",
-                            Toast.LENGTH_LONG
-                    ).show();
+                    showMessage(
+                            "Unable to play speech. Check your installed TTS voice.",
+                            true
+                    );
                 }
 
             } catch (Exception e) {
 
                 Log.e(
                         TAG,
-                        "Android TTS fallback failed.",
+                        "Android TTS playback failed.",
                         e
                 );
 
-                Toast.makeText(
-                        requireContext(),
+                showMessage(
                         "Speech is unavailable on this device.",
-                        Toast.LENGTH_LONG
-                ).show();
+                        true
+                );
             }
 
         } else {
 
-            Toast.makeText(
-                    requireContext(),
-                    "Speech is not ready yet. Please try again.",
-                    Toast.LENGTH_SHORT
-            ).show();
-        }
-    }
-
-    // ---------------------------------------------------------
-    // CLOUD AUDIO CLEANUP
-    // ---------------------------------------------------------
-
-    private void cancelCloudTtsSpeech() {
-
-        cloudTtsRequestId++;
-
-        stopCloudTtsAudioOnly();
-    }
-
-    private void stopCloudTtsAudioOnly() {
-
-        MediaPlayer player = cloudTtsPlayer;
-
-        cloudTtsPlayer = null;
-
-        if (player != null) {
-
-            try {
-                player.setOnPreparedListener(null);
-                player.setOnCompletionListener(null);
-                player.setOnErrorListener(null);
-            } catch (Exception ignored) {
-            }
-
-            try {
-                player.stop();
-            } catch (Exception ignored) {
-            }
-
-            try {
-                player.release();
-            } catch (Exception ignored) {
-            }
-        }
-
-        File file = cloudTtsFile;
-
-        cloudTtsFile = null;
-
-        deleteTemporaryAudioFile(file);
-    }
-
-    private void releaseCloudPlayerAndFile(
-            MediaPlayer player
-    ) {
-
-        if (player != null) {
-
-            try {
-                player.setOnPreparedListener(null);
-                player.setOnCompletionListener(null);
-                player.setOnErrorListener(null);
-            } catch (Exception ignored) {
-            }
-
-            try {
-                player.release();
-            } catch (Exception ignored) {
-            }
-        }
-
-        File file = cloudTtsFile;
-
-        cloudTtsFile = null;
-
-        deleteTemporaryAudioFile(file);
-    }
-
-    private void deleteTemporaryAudioFile(
-            @Nullable File file
-    ) {
-
-        if (file != null && file.exists()) {
-
-            try {
-
-                if (!file.delete()) {
-
-                    Log.w(
-                            TAG,
-                            "Could not delete temporary speech file."
-                    );
-                }
-
-            } catch (Exception e) {
-
-                Log.w(
-                        TAG,
-                        "Error deleting temporary speech file.",
-                        e
-                );
-            }
-        }
-    }
-
-    // ---------------------------------------------------------
-    // RECORDED ILOKANO AUDIO
-    // ---------------------------------------------------------
-
-    private void playIlokanoRecordings() {
-
-        stopIlokanoAudio();
-
-        if (currentIlokanoAudioUrls.isEmpty()) {
-
-            Toast.makeText(
-                    requireContext(),
-                    "Recorded Ilokano pronunciation is not available "
-                            + "for this translation yet.",
-                    Toast.LENGTH_LONG
-            ).show();
-
-            return;
-        }
-
-        currentAudioIndex = 0;
-        audioPlaybackHadError = false;
-
-        playNextIlokanoRecording();
-    }
-
-    private void playNextIlokanoRecording() {
-
-        if (!isAdded()) {
-
-            stopIlokanoAudio();
-
-            return;
-        }
-
-        if (currentAudioIndex >= currentIlokanoAudioUrls.size()) {
-
-            currentAudioIndex = 0;
-
-            if (audioPlaybackHadError && getContext() != null) {
-
-                Toast.makeText(
-                        requireContext(),
-                        "Some pronunciation recordings could not be played.",
-                        Toast.LENGTH_LONG
-                ).show();
-            }
-
-            audioPlaybackHadError = false;
-
-            return;
-        }
-
-        String audioUrl =
-                currentIlokanoAudioUrls.get(currentAudioIndex);
-
-        if (audioUrl == null || audioUrl.trim().isEmpty()) {
-
-            currentAudioIndex++;
-
-            playNextIlokanoRecording();
-
-            return;
-        }
-
-        MediaPlayer player = new MediaPlayer();
-
-        pronunciationPlayer = player;
-
-        player.setOnPreparedListener(mp -> {
-
-            if (pronunciationPlayer != mp || !isAdded()) {
-
-                releasePlayer(mp);
-
-                return;
-            }
-
-            try {
-
-                mp.start();
-
-            } catch (IllegalStateException e) {
-
-                audioPlaybackHadError = true;
-
-                if (pronunciationPlayer == mp) {
-                    pronunciationPlayer = null;
-                }
-
-                releasePlayer(mp);
-
-                currentAudioIndex++;
-
-                playNextIlokanoRecording();
-            }
-        });
-
-        player.setOnCompletionListener(mp -> {
-
-            if (pronunciationPlayer == mp) {
-                pronunciationPlayer = null;
-            }
-
-            releasePlayer(mp);
-
-            currentAudioIndex++;
-
-            playNextIlokanoRecording();
-        });
-
-        player.setOnErrorListener((mp, what, extra) -> {
-
-            if (pronunciationPlayer == mp) {
-                pronunciationPlayer = null;
-            }
-
-            releasePlayer(mp);
-
-            audioPlaybackHadError = true;
-
-            currentAudioIndex++;
-
-            playNextIlokanoRecording();
-
-            return true;
-        });
-
-        try {
-
-            player.setDataSource(audioUrl.trim());
-
-            player.prepareAsync();
-
-        } catch (Exception e) {
-
-            Log.e(
-                    "TranslatorAudio",
-                    "Could not load Ilokano pronunciation: " + audioUrl,
-                    e
+            showMessage(
+                    "Speech is still initializing. Please try again.",
+                    false
             );
-
-            if (pronunciationPlayer == player) {
-                pronunciationPlayer = null;
-            }
-
-            releasePlayer(player);
-
-            audioPlaybackHadError = true;
-
-            currentAudioIndex++;
-
-            playNextIlokanoRecording();
-        }
-    }
-
-    private void releasePlayer(MediaPlayer player) {
-
-        if (player == null) {
-            return;
-        }
-
-        try {
-            player.setOnPreparedListener(null);
-            player.setOnCompletionListener(null);
-            player.setOnErrorListener(null);
-        } catch (Exception ignored) {
-        }
-
-        try {
-            player.release();
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void stopIlokanoAudio() {
-
-        MediaPlayer player = pronunciationPlayer;
-
-        pronunciationPlayer = null;
-        currentAudioIndex = 0;
-
-        if (player == null) {
-            return;
-        }
-
-        try {
-            player.setOnPreparedListener(null);
-            player.setOnCompletionListener(null);
-            player.setOnErrorListener(null);
-        } catch (Exception ignored) {
-        }
-
-        try {
-            player.stop();
-        } catch (IllegalStateException ignored) {
-        }
-
-        try {
-            player.release();
-        } catch (Exception ignored) {
         }
     }
 
@@ -1537,40 +1056,6 @@ public class TranslatorFragment extends Fragment {
         }
 
         return normalized.split("\\s+").length > 1;
-    }
-
-    @Nullable
-    private String getValidAudioUrl(@Nullable Word word) {
-
-        if (word == null) {
-            return null;
-        }
-
-        String audioUrl = word.getTtsUrl();
-
-        if (audioUrl == null || audioUrl.trim().isEmpty()) {
-            return null;
-        }
-
-        return audioUrl.trim();
-    }
-
-    @Nullable
-    private String getValidPhraseAudioUrl(
-            @Nullable Phrase phrase
-    ) {
-
-        if (phrase == null) {
-            return null;
-        }
-
-        String audioUrl = phrase.getTtsUrl();
-
-        if (audioUrl == null || audioUrl.trim().isEmpty()) {
-            return null;
-        }
-
-        return audioUrl.trim();
     }
 
     // ---------------------------------------------------------
@@ -1898,20 +1383,7 @@ public class TranslatorFragment extends Fragment {
 
         String output = getPhraseOutput(phrase);
 
-        if (output == null || output.trim().isEmpty()) {
-            return false;
-        }
-
-        if (isIlokanoOutputMode()) {
-
-            String audioUrl =
-                    getValidPhraseAudioUrl(phrase);
-
-            return audioUrl != null
-                    && !audioUrl.trim().isEmpty();
-        }
-
-        return true;
+        return output != null && !output.trim().isEmpty();
     }
 
     // ---------------------------------------------------------
@@ -1992,22 +1464,7 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
-        List<String> audioUrls = new ArrayList<>();
-
-        if (isIlokanoOutputMode()) {
-
-            String audioUrl =
-                    getValidPhraseAudioUrl(phrase);
-
-            if (audioUrl != null) {
-                audioUrls.add(audioUrl);
-            }
-        }
-
-        showTranslation(
-                capitalizeSentence(output),
-                audioUrls
-        );
+        showTranslation(capitalizeSentence(output));
     }
 
     private void continueToDictionary(String input) {
@@ -2056,9 +1513,6 @@ public class TranslatorFragment extends Fragment {
         final String[] translatedParts =
                 new String[totalWords];
 
-        final String[] audioUrls =
-                new String[totalWords];
-
         final int[] completed = {0};
 
         final boolean[] finalized = {false};
@@ -2080,7 +1534,6 @@ public class TranslatorFragment extends Fragment {
                 completeOnlineWord(
                         input,
                         translatedParts,
-                        audioUrls,
                         completed,
                         totalWords,
                         finalized
@@ -2190,12 +1643,6 @@ public class TranslatorFragment extends Fragment {
 
                                             break;
                                     }
-
-                                    if (isIlokanoOutputMode()) {
-
-                                        audioUrls[wordIndex] =
-                                                getValidAudioUrl(item);
-                                    }
                                 }
                             }
 
@@ -2204,7 +1651,6 @@ public class TranslatorFragment extends Fragment {
                             completeOnlineWord(
                                     input,
                                     translatedParts,
-                                    audioUrls,
                                     completed,
                                     totalWords,
                                     finalized
@@ -2224,7 +1670,6 @@ public class TranslatorFragment extends Fragment {
                             completeOnlineWord(
                                     input,
                                     translatedParts,
-                                    audioUrls,
                                     completed,
                                     totalWords,
                                     finalized
@@ -2242,7 +1687,6 @@ public class TranslatorFragment extends Fragment {
     private void completeOnlineWord(
             String input,
             String[] translatedParts,
-            String[] audioUrls,
             int[] completed,
             int totalWords,
             boolean[] finalized
@@ -2263,9 +1707,6 @@ public class TranslatorFragment extends Fragment {
         StringBuilder translatedSentence =
                 new StringBuilder();
 
-        List<String> recordedAudio =
-                new ArrayList<>();
-
         for (int i = 0; i < totalWords; i++) {
 
             String translatedPart = translatedParts[i];
@@ -2276,20 +1717,12 @@ public class TranslatorFragment extends Fragment {
                         .append(translatedPart)
                         .append(" ");
             }
-
-            if (isIlokanoOutputMode()
-                    && audioUrls[i] != null
-                    && !audioUrls[i].trim().isEmpty()) {
-
-                recordedAudio.add(audioUrls[i].trim());
-            }
         }
 
         showTranslation(
                 capitalizeSentence(
                         translatedSentence.toString().trim()
-                ),
-                recordedAudio
+                )
         );
     }
 
@@ -2323,9 +1756,6 @@ public class TranslatorFragment extends Fragment {
             String[] translatedParts =
                     new String[words.length];
 
-            String[] audioUrls =
-                    new String[words.length];
-
             for (int i = 0; i < words.length; i++) {
 
                 String originalWord = words[i];
@@ -2335,8 +1765,6 @@ public class TranslatorFragment extends Fragment {
                         .toLowerCase(Locale.ROOT);
 
                 String output = originalWord;
-
-                Word matchedWord = null;
 
                 if (!clean.isEmpty()) {
 
@@ -2434,29 +1862,16 @@ public class TranslatorFragment extends Fragment {
                         }
 
                         if (matched) {
-
-                            matchedWord = item;
-
                             break;
                         }
                     }
                 }
 
                 translatedParts[i] = output;
-
-                if (isIlokanoOutputMode()
-                        && matchedWord != null) {
-
-                    audioUrls[i] =
-                            getValidAudioUrl(matchedWord);
-                }
             }
 
             StringBuilder translatedSentence =
                     new StringBuilder();
-
-            List<String> recordedAudio =
-                    new ArrayList<>();
 
             for (int i = 0; i < translatedParts.length; i++) {
 
@@ -2465,13 +1880,6 @@ public class TranslatorFragment extends Fragment {
                     translatedSentence
                             .append(translatedParts[i])
                             .append(" ");
-                }
-
-                if (isIlokanoOutputMode()
-                        && audioUrls[i] != null
-                        && !audioUrls[i].trim().isEmpty()) {
-
-                    recordedAudio.add(audioUrls[i].trim());
                 }
             }
 
@@ -2490,45 +1898,23 @@ public class TranslatorFragment extends Fragment {
                             return;
                         }
 
-                        showTranslation(
-                                finalTranslation,
-                                recordedAudio
-                        );
+                        showTranslation(finalTranslation);
                     }
             );
         });
     }
 
     // ---------------------------------------------------------
-    // DISPLAY TRANSLATION AND STORE AUDIO URLS
+    // DISPLAY TRANSLATION
     // ---------------------------------------------------------
 
-    private void showTranslation(
-            String translation,
-            @Nullable List<String> audioUrls
-    ) {
+    private void showTranslation(String translation) {
 
         if (binding == null || !isAdded()) {
             return;
         }
 
         binding.translatedText.setText(translation);
-
-        currentIlokanoAudioUrls.clear();
-
-        if (isIlokanoOutputMode() && audioUrls != null) {
-
-            for (String audioUrl : audioUrls) {
-
-                if (audioUrl != null
-                        && !audioUrl.trim().isEmpty()) {
-
-                    currentIlokanoAudioUrls.add(
-                            audioUrl.trim()
-                    );
-                }
-            }
-        }
     }
 
     // ---------------------------------------------------------
@@ -2540,11 +1926,13 @@ public class TranslatorFragment extends Fragment {
 
         searchHandler.removeCallbacksAndMessages(null);
 
-        cancelCloudTtsSpeech();
+        // Dismiss any notification before destroying the view.
+        if (currentSnackbar != null) {
 
-        stopIlokanoAudio();
+            currentSnackbar.dismiss();
 
-        currentIlokanoAudioUrls.clear();
+            currentSnackbar = null;
+        }
 
         if (tts != null) {
 
@@ -2556,8 +1944,6 @@ public class TranslatorFragment extends Fragment {
 
             tts = null;
         }
-
-        firebaseFunctions = null;
 
         binding = null;
 

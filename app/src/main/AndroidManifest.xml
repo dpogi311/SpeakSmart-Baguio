@@ -3,9 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.speaksmartbaguio">
 
+    <!-- Network permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Google Play Services -->
     <queries>
         <package android:name="com.google.android.gms" />
     </queries>
@@ -13,37 +15,45 @@
     <application
         android:name=".SpeakSmartApplication"
         android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.IlokanoTranslator"
+        android:theme="@style/Theme.SpeakSmartBaguio"
         tools:targetApi="31">
 
+        <!-- Launcher -->
         <activity
             android:name=".SplashActivity"
             android:exported="true">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
 
+        </activity>
+        <!-- First-Time User Guide -->
+        <activity
+            android:name=".FirstTimeGuideActivity"
+            android:exported="false" />
+        <!-- Phrase details -->
         <activity
             android:name=".PhraseDetailActivity"
             android:exported="false" />
 
+        <!-- Word details -->
         <activity
             android:name=".WordDetailActivity"
             android:exported="false"
             android:parentActivityName=".HomeActivity" />
 
+        <!-- Home -->
         <activity
             android:name=".HomeActivity"
             android:exported="true" />
 
+        <!-- Main application -->
         <activity
             android:name=".MainActivity"
             android:exported="true" />

@@ -85,9 +85,12 @@ dependencies {
     implementation("com.github.ybq:Android-SpinKit:1.4.0")
 
     implementation("com.android.volley:volley:1.2.1")
+    implementation("com.google.android.material:material:<your-compatible-version>")
 
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.squareup.okio:okio:3.6.0")
     implementation("org.json:json:20230227")
+
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
 }
 
