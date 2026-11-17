@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/guidePageTwo"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:paddingTop="24dp"
+    android:paddingBottom="24dp">
+
+    <!-- TRANSLATOR ILLUSTRATION CARD -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="230dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#112429"
+        android:padding="20dp">
+
+        <ImageView
+            android:id="@+id/ivTranslatorIllustration"
+            android:layout_width="220dp"
+            android:layout_height="150dp"
+            android:src="@drawable/translator_illustration"
+            android:scaleType="fitCenter"
+            android:contentDescription="English to Ilokano Translator Illustration" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="TRANSLATOR"
+            android:textColor="#FFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.12" />
+
+    </LinearLayout>
+
+    <!-- PAGE LABEL -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="36dp"
+        android:text="BREAK THE LANGUAGE BARRIER"
+        android:textColor="#08D4C2"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.12" />
+
+    <!-- PAGE TITLE -->
+    <TextView
+        android:id="@+id/tvGuideTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center"
+        android:text="Translate with Ease"
+        android:textColor="#FFFFFF"
+        android:textSize="27sp"
+        android:textStyle="bold"
+        android:lineSpacingExtra="4dp" />
+
+    <!-- PAGE DESCRIPTION -->
+    <TextView
+        android:id="@+id/tvGuideDescription"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:text="Translate between English, Tagalog, and Benguet Ilokano. Understand words and phrases with a simple and convenient translation experience."
+        android:textColor="#B1C2C5"
+        android:textSize="15sp"
+        android:lineSpacingExtra="7dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp" />
+
+</LinearLayout>

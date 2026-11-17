@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/app_background">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewDictionary"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingBottom="24dp"
+        android:scrollbars="none"
+        android:overScrollMode="ifContentScrolls"
+        android:nestedScrollingEnabled="true" />
+
+    <com.example.speaksmartbaguio.DictionaryFastScroller
+        android:id="@+id/dictionaryFastScroller"
+        android:layout_width="32dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:contentDescription="Draggable dictionary scrollbar"
+        android:importantForAccessibility="yes" />
+
+</FrameLayout>

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:paddingTop="30dp"
+    android:paddingBottom="20dp"
+    android:background="@color/app_background">
+
+    <!-- SUBTLE DIVIDER -->
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginBottom="20dp"
+        android:background="@color/divider_color" />
+
+    <!-- APP LOGO -->
+
+    <ImageView
+        android:id="@+id/footerLogo"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_gravity="center_horizontal"
+        android:contentDescription="Speak Smart Baguio Logo"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_logo" />
+
+    <!-- APP NAME -->
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:gravity="center"
+        android:text="SPEAK SMART BAGUIO"
+        android:textColor="@color/cyan_primary"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.08" />
+
+    <!-- APP DESCRIPTION -->
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="9dp"
+        android:gravity="center"
+        android:text="Language learning application"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:lineSpacingExtra="2dp" />
+
+    <!-- INSTITUTION -->
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:gravity="center"
+        android:text="Blue Phenix Skills Training Center Corp."
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:lineSpacingExtra="2dp" />
+
+    <!-- TAGLINE -->
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:text="LEARN  •  UNDERSTAND  •  CONNECT"
+        android:textColor="@color/cyan_secondary"
+        android:textSize="10sp"
+        android:letterSpacing="0.08" />
+
+    <!-- CLOSING MESSAGE -->
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:text="Made for learning, sharing, and preserving language."
+        android:textColor="@color/text_secondary"
+        android:textSize="11sp"
+        android:lineSpacingExtra="2dp" />
+
+</LinearLayout>
