@@ -45,7 +45,9 @@ import com.example.speaksmartbaguio.repository.PhraseRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.example.speaksmartbaguio.utils.NetworkUtil;
 import com.example.speaksmartbaguio.utils.SettingsMenuHelper;
-
+import android.text.style.BackgroundColorSpan;
+import android.text.style.RelativeSizeSpan;
+import android.text.style.StyleSpan;
 import com.google.android.material.snackbar.BaseTransientBottomBar;
 import com.google.android.material.snackbar.Snackbar;
 
@@ -97,6 +99,8 @@ public class TranslatorFragment extends Fragment {
     private Runnable searchRunnable;
 
     private String latestInput = "";
+    // Phrasebook matches for the current translation request.
+    private List<Phrase> pendingPhraseMatches = new ArrayList<>();
 
     private String translationMode =
             MODE_ENGLISH_TO_ILOKANO;
@@ -1105,13 +1109,24 @@ public class TranslatorFragment extends Fragment {
             showMessage("Nothing to speak yet.", false);
             return;
         }
-
+// Remove module headings from speech.
+        text = text.replaceAll(
+                "(?im)^\\s*(Dictionary\\s*\\(words\\)|Phrasebook\\s*\\(phrases\\))\\s*$",
+                ""
+        );
         // Remove POS labels.
         text = text.replaceAll(
                 "(?i)\\s*\\(?\\b(noun|verb|adjective|adverb|pronoun|preposition|conjunction|interjection|determiner|article)\\b\\)?",
                 ""
         );
+// Remove section headings from speech.
+        text = text.replaceAll(
+                "(?im)^\\s*(Dictionary\\s*\\(words\\)|Phrasebook\\s*\\(phrases\\))\\s*$",
+                ""
+        );
 
+// Remove the visual header accent marker.
+        text = text.replace("▌", "");
         // Remove bullet symbols and preserve longer pauses between alternatives.
         text = text.replace("•", "")
                 .replaceAll("[ \\t]+", " ")
@@ -1241,11 +1256,15 @@ public class TranslatorFragment extends Fragment {
     // PHRASEBOOK-FIRST TRANSLATION
     // ---------------------------------------------------------
 
+
     private void translateTextWordByWord(String input) {
 
         if (!isCurrentInput(input) || input.trim().isEmpty()) {
             return;
         }
+
+        // Reset Phrasebook results for every new input.
+        pendingPhraseMatches = new ArrayList<>();
 
         if (!isMultiwordInput(input)) {
             translateDictionaryWordByWord(input);
@@ -1264,23 +1283,14 @@ public class TranslatorFragment extends Fragment {
                     return;
                 }
 
-                List<Phrase> suitable =
+                pendingPhraseMatches =
                         getSuitablePhrases(phrases);
 
-                if (!suitable.isEmpty()) {
-
-                    displayPhraseTranslations(
-                            input,
-                            suitable
-                    );
-
-                } else {
-
-                    translateOffline(input);
-                }
+                continueToDictionary(input);
             });
         }
     }
+
 
     private boolean isCurrentInput(String input) {
 
@@ -1320,7 +1330,7 @@ public class TranslatorFragment extends Fragment {
         apiService.getPhrasebook(
                 page,
                 100,
-                input,
+                "",
                 new ApiService.ApiCallback<Phrase>() {
 
                     @Override
@@ -1351,7 +1361,7 @@ public class TranslatorFragment extends Fragment {
                         }
 
                         List<Phrase> exactMatches =
-                                findExactPhraseMatches(
+                                findBestPhraseMatches(
                                         input,
                                         collected
                                 );
@@ -1461,7 +1471,7 @@ public class TranslatorFragment extends Fragment {
                             EntityMapper.toPhraseList(entities);
 
                     List<Phrase> exactMatches =
-                            findExactPhraseMatches(
+                            findBestPhraseMatches(
                                     input,
                                     phrases
                             );
@@ -1482,7 +1492,7 @@ public class TranslatorFragment extends Fragment {
                                         );
 
                                 callback.onResult(
-                                        findExactPhraseMatches(
+                                        findBestPhraseMatches(
                                                 input,
                                                 allPhrases
                                         )
@@ -1493,103 +1503,195 @@ public class TranslatorFragment extends Fragment {
         );
     }
 
-    // ---------------------------------------------------------
-    // FIND ALL EXACT PHRASEBOOK MATCHES
-    // ---------------------------------------------------------
 
-    private List<Phrase> findExactPhraseMatches(
+// ---------------------------------------------------------
+// FIND EXACT OR NEAREST PHRASEBOOK MATCHES
+// ---------------------------------------------------------
+
+    private List<Phrase> findBestPhraseMatches(
             String input,
             @Nullable List<Phrase> phrases
     ) {
 
-        List<Phrase> matches = new ArrayList<>();
+        List<Phrase> exactMatches = new ArrayList<>();
 
-        if (input == null
-                || phrases == null
-                || phrases.isEmpty()) {
-
-            return matches;
+        if (input == null || phrases == null || phrases.isEmpty()) {
+            return exactMatches;
         }
 
-        String normalizedInput =
-                normalizeForExactMatch(input);
+        String normalizedInput = normalizeForExactMatch(input);
 
         if (normalizedInput.isEmpty()) {
-            return matches;
+            return exactMatches;
         }
 
+        // PRIORITY 1: Exact matches
         for (Phrase phrase : phrases) {
 
             if (phrase == null) {
                 continue;
             }
 
-            if (phraseMatchesInput(
-                    normalizedInput,
-                    phrase
-            )) {
-
-                matches.add(phrase);
+            if (getPhraseMatchScore(normalizedInput, phrase) >= 1.0) {
+                exactMatches.add(phrase);
             }
         }
 
-        return matches;
+        if (!exactMatches.isEmpty()) {
+            return exactMatches;
+        }
+
+        // PRIORITY 2: Find the nearest available phrase
+        double highestScore = 0.0;
+
+        List<Phrase> nearestMatches = new ArrayList<>();
+
+        for (Phrase phrase : phrases) {
+
+            if (phrase == null || !isSuitablePhrase(phrase)) {
+                continue;
+            }
+
+            double score = getPhraseMatchScore(
+                    normalizedInput,
+                    phrase
+            );
+
+            if (score > highestScore) {
+
+                highestScore = score;
+
+                nearestMatches.clear();
+                nearestMatches.add(phrase);
+
+            } else if (score > 0.0
+                    && Math.abs(score - highestScore) < 0.0001) {
+
+                nearestMatches.add(phrase);
+            }
+        }
+
+        // Reject weak or unrelated matches.
+        if (highestScore < 0.72) {
+            return new ArrayList<>();
+        }
+
+        return nearestMatches;
     }
 
-    private boolean phraseMatchesInput(
+
+// ---------------------------------------------------------
+// GET THE BEST MATCH SCORE FOR A PHRASE
+// ---------------------------------------------------------
+
+    private double getPhraseMatchScore(
             String normalizedInput,
             Phrase phrase
     ) {
+
+        double bestScore = 0.0;
 
         switch (translationMode) {
 
             case MODE_ENGLISH_TO_ILOKANO:
 
-                return isExactNormalizedMatch(
-                        normalizedInput,
-                        phrase.getEnglishSentence()
-                ) || isExactNormalizedMatch(
-                        normalizedInput,
-                        phrase.getEnglishTranslation()
+                bestScore = Math.max(
+                        calculatePhraseSimilarity(
+                                normalizedInput,
+                                phrase.getEnglishSentence()
+                        ),
+                        calculatePhraseSimilarity(
+                                normalizedInput,
+                                phrase.getEnglishTranslation()
+                        )
                 );
+
+                break;
 
             case MODE_TAGALOG_TO_ILOKANO:
 
-                return isExactNormalizedMatch(
+                bestScore = calculatePhraseSimilarity(
                         normalizedInput,
                         phrase.getTagalogTranslation()
                 );
 
+                break;
+
             case MODE_ILOKANO_TO_ENGLISH:
             case MODE_ILOKANO_TO_TAGALOG:
 
-                return isExactNormalizedMatch(
-                        normalizedInput,
-                        phrase.getIlokanoSentence()
-                ) || isExactNormalizedMatch(
-                        normalizedInput,
-                        phrase.getIlokanoWord()
+                bestScore = Math.max(
+                        calculatePhraseSimilarity(
+                                normalizedInput,
+                                phrase.getIlokanoSentence()
+                        ),
+                        calculatePhraseSimilarity(
+                                normalizedInput,
+                                phrase.getIlokanoWord()
+                        )
                 );
 
-            default:
-
-                return false;
+                break;
         }
+
+        return bestScore;
     }
 
-    private boolean isExactNormalizedMatch(
+
+// ---------------------------------------------------------
+// CALCULATE PHRASE SIMILARITY
+// ---------------------------------------------------------
+
+    private double calculatePhraseSimilarity(
             String normalizedInput,
             String candidate
     ) {
 
-        if (candidate == null || candidate.trim().isEmpty()) {
-            return false;
+        String normalizedCandidate =
+                normalizeForExactMatch(candidate);
+
+        if (normalizedInput.isEmpty()
+                || normalizedCandidate.isEmpty()) {
+            return 0.0;
         }
 
-        return normalizedInput.equals(
-                normalizeForExactMatch(candidate)
-        );
+        // Exact match always receives the highest score.
+        if (normalizedInput.equals(normalizedCandidate)) {
+            return 1.0;
+        }
+
+        String[] inputWords = normalizedInput.split("\\s+");
+        String[] candidateWords = normalizedCandidate.split("\\s+");
+
+        boolean[] matchedCandidateWords =
+                new boolean[candidateWords.length];
+
+        int matchedWords = 0;
+
+        // Match words without counting the same candidate word twice.
+        for (String inputWord : inputWords) {
+
+            for (int i = 0; i < candidateWords.length; i++) {
+
+                if (matchedCandidateWords[i]) {
+                    continue;
+                }
+
+                if (inputWord.equals(candidateWords[i])) {
+
+                    matchedCandidateWords[i] = true;
+                    matchedWords++;
+
+                    break;
+                }
+            }
+        }
+
+        // Dice similarity: considers both missing and extra words.
+        return (2.0 * matchedWords)
+                / (inputWords.length + candidateWords.length);
     }
+
 
     // ---------------------------------------------------------
     // PHRASE SUITABILITY
@@ -1686,6 +1788,7 @@ public class TranslatorFragment extends Fragment {
     // DISPLAY ALL MATCHED PHRASES
     // ---------------------------------------------------------
 
+
     private void displayPhraseTranslations(
             String input,
             List<Phrase> phrases
@@ -1695,31 +1798,12 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
-        LinkedHashSet<String> uniqueOutputs =
-                new LinkedHashSet<>();
+        pendingPhraseMatches =
+                getSuitablePhrases(phrases);
 
-        for (Phrase phrase : phrases) {
-
-            String output = getPhraseOutput(phrase);
-
-            if (output != null && !output.trim().isEmpty()) {
-                uniqueOutputs.add(output.trim());
-            }
-        }
-
-        if (uniqueOutputs.isEmpty()) {
-
-            continueToDictionary(input);
-
-            return;
-        }
-
-        showTranslation(
-                formatAlternativeList(
-                        new ArrayList<>(uniqueOutputs)
-                )
-        );
+        continueToDictionary(input);
     }
+
 
     private void continueToDictionary(String input) {
 
@@ -1811,7 +1895,9 @@ public class TranslatorFragment extends Fragment {
                                 getDictionaryAlternatives(matches);
 
                         translatedParts[wordIndex] =
-                                formatWordAlternatives(
+                                alternatives.isEmpty()
+                                        ? ""
+                                        : formatWordAlternatives(
                                         originalWord,
                                         alternatives,
                                         totalWords == 1
@@ -2193,6 +2279,7 @@ public class TranslatorFragment extends Fragment {
     // COMPLETE ONLINE WORD LOOKUPS
     // ---------------------------------------------------------
 
+
     private void completeOnlineWord(
             String input,
             String[] translatedParts,
@@ -2210,7 +2297,7 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
-        StringBuilder translatedSentence =
+        StringBuilder dictionaryResults =
                 new StringBuilder();
 
         for (String translatedPart : translatedParts) {
@@ -2218,20 +2305,21 @@ public class TranslatorFragment extends Fragment {
             if (translatedPart != null
                     && !translatedPart.trim().isEmpty()) {
 
-                if (translatedSentence.length() > 0) {
-                    translatedSentence.append("\n\n");
+                if (dictionaryResults.length() > 0) {
+                    dictionaryResults.append("\n\n");
                 }
 
-                translatedSentence.append(translatedPart);
+                dictionaryResults.append(translatedPart);
             }
         }
 
         showTranslation(
-                capitalizeSentence(
-                        translatedSentence.toString().trim()
+                buildGroupedTranslation(
+                        dictionaryResults.toString()
                 )
         );
     }
+
 
     // ---------------------------------------------------------
     // OFFLINE DICTIONARY TRANSLATION
@@ -2291,7 +2379,9 @@ public class TranslatorFragment extends Fragment {
                         getDictionaryAlternatives(matches);
 
                 translatedParts[i] =
-                        formatWordAlternatives(
+                        alternatives.isEmpty()
+                                ? ""
+                                : formatWordAlternatives(
                                 originalWord,
                                 alternatives,
                                 words.length == 1
@@ -2313,9 +2403,10 @@ public class TranslatorFragment extends Fragment {
                 }
             }
 
-            String finalTranslation = capitalizeSentence(
-                    translatedSentence.toString().trim()
-            );
+            String finalTranslation =
+                    buildGroupedTranslation(
+                            translatedSentence.toString().trim()
+                    );
 
             if (!isAdded()) {
                 return;
@@ -2336,6 +2427,7 @@ public class TranslatorFragment extends Fragment {
     // BUILD STYLED TRANSLATION WITH TEAL POS PILLS
     // ---------------------------------------------------------
 
+
     private CharSequence buildStyledTranslation(String translation) {
 
         if (translation == null || translation.isEmpty()) {
@@ -2346,6 +2438,10 @@ public class TranslatorFragment extends Fragment {
                 new SpannableStringBuilder();
 
         int currentIndex = 0;
+
+        // -----------------------------------------------------
+        // PROCESS EXISTING POS MARKERS
+        // -----------------------------------------------------
 
         while (currentIndex < translation.length()) {
 
@@ -2363,7 +2459,6 @@ public class TranslatorFragment extends Fragment {
                 break;
             }
 
-            // Add ordinary translation text before the POS.
             styled.append(
                     translation.substring(
                             currentIndex,
@@ -2412,7 +2507,180 @@ public class TranslatorFragment extends Fragment {
             currentIndex = markerEnd + 1;
         }
 
+        // -----------------------------------------------------
+        // STYLE DICTIONARY AND PHRASEBOOK SECTION HEADERS
+        // -----------------------------------------------------
+
+        final String[] headers = {
+                "Dictionary (words)",
+                "Phrasebook (phrases)"
+        };
+
+        // Process from bottom to top so inserted markers
+        // do not affect the positions of earlier headers.
+        for (int i = styled.length() - 1; i >= 0; i--) {
+
+            int lineStart = i;
+
+            while (lineStart > 0
+                    && styled.charAt(lineStart - 1) != '\n') {
+                lineStart--;
+            }
+
+            int lineEnd = i;
+
+            while (lineEnd < styled.length()
+                    && styled.charAt(lineEnd) != '\n') {
+                lineEnd++;
+            }
+
+            String line = styled.subSequence(
+                    lineStart,
+                    lineEnd
+            ).toString().trim();
+
+            boolean isHeader = false;
+
+            for (String header : headers) {
+
+                if (line.equalsIgnoreCase(header)) {
+                    isHeader = true;
+                    break;
+                }
+            }
+
+            if (!isHeader) {
+                i = lineStart;
+                continue;
+            }
+
+            // Find the actual beginning of the header text.
+            int titleStart = lineStart;
+
+            while (titleStart < lineEnd
+                    && Character.isWhitespace(
+                    styled.charAt(titleStart)
+            )) {
+                titleStart++;
+            }
+
+            // Add a teal accent marker.
+            styled.insert(titleStart, "▌ ");
+
+            int markerStart = titleStart;
+            int titleTextStart = titleStart + 2;
+            int titleEnd = titleTextStart + line.length();
+
+            // Teal accent marker.
+            styled.setSpan(
+                    new ForegroundColorSpan(TEAL_COLOR),
+                    markerStart,
+                    titleTextStart,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+
+            // Header text styling.
+            styled.setSpan(
+                    new ForegroundColorSpan(TEAL_COLOR),
+                    titleTextStart,
+                    titleEnd,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+
+            styled.setSpan(
+                    new StyleSpan(Typeface.BOLD),
+                    titleTextStart,
+                    titleEnd,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+
+            styled.setSpan(
+                    new RelativeSizeSpan(1.12f),
+                    titleTextStart,
+                    titleEnd,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+
+            // Subtle teal background behind the complete header.
+            styled.setSpan(
+                    new BackgroundColorSpan(
+                            Color.argb(28, 13, 163, 150)
+                    ),
+                    markerStart,
+                    titleEnd,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+
+            i = lineStart;
+        }
+
         return styled;
+    }
+
+
+    private String buildGroupedTranslation(
+            String dictionaryResults
+    ) {
+
+        StringBuilder result = new StringBuilder();
+
+        // DICTIONARY SECTION
+        if (dictionaryResults != null
+                && !dictionaryResults.trim().isEmpty()) {
+
+            result.append("Dictionary (words)\n\n");
+            result.append(dictionaryResults.trim());
+        }
+
+        // PHRASEBOOK SECTION
+        LinkedHashSet<String> uniquePhrases =
+                new LinkedHashSet<>();
+
+        if (pendingPhraseMatches != null) {
+
+            for (Phrase phrase : pendingPhraseMatches) {
+
+                String output = getPhraseOutput(phrase);
+
+                if (output != null && !output.trim().isEmpty()) {
+                    uniquePhrases.add(
+                            capitalizeSentence(output.trim())
+                    );
+                }
+            }
+        }
+
+        if (!uniquePhrases.isEmpty()) {
+
+            if (result.length() > 0) {
+                result.append("\n\n");
+            }
+
+            result.append("Phrasebook (phrases)\n\n");
+
+            int index = 0;
+
+            for (String phrase : uniquePhrases) {
+
+                if (index > 0) {
+                    result.append("\n\n");
+                }
+
+                if (uniquePhrases.size() > 1) {
+                    result.append("•  ");
+                }
+
+                result.append(phrase);
+
+                index++;
+            }
+        }
+
+        if (result.length() == 0) {
+            return "No translation found.";
+        }
+
+        return result.toString();
     }
 
     // ---------------------------------------------------------
