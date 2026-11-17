@@ -31,6 +31,7 @@ public class ApiService {
         client = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(90, TimeUnit.SECONDS)
                 .build();
 
         baseUrl = BuildConfig.API_BASE_URL;
@@ -136,9 +137,20 @@ public class ApiService {
         );
     }
 
+
     public void searchDictionaryWord(
             String field,
             String value,
+            ApiCallback<Word> callback
+    ) {
+        searchDictionaryWord(field, value, 1, 100, callback);
+    }
+
+    public void searchDictionaryWord(
+            String field,
+            String value,
+            int page,
+            int limit,
             ApiCallback<Word> callback
     ) {
         HttpUrl.Builder urlBuilder =
@@ -149,19 +161,20 @@ public class ApiService {
                 "*" + value.toLowerCase(java.util.Locale.ROOT) + "*"
         );
 
-        urlBuilder.addQueryParameter("page", "1");
-        urlBuilder.addQueryParameter("limit", "1");
+        urlBuilder.addQueryParameter("page", String.valueOf(page));
+        urlBuilder.addQueryParameter("limit", String.valueOf(limit));
 
         Log.d("DICT_URL", urlBuilder.build().toString());
 
         executeRequest(
                 urlBuilder.build(),
-                1,
-                1,
+                page,
+                limit,
                 callback,
                 this::parseWordList
         );
     }
+
 
     // =========================================================
     // PHRASEBOOK

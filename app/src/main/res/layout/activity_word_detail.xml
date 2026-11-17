@@ -128,10 +128,10 @@
                 </LinearLayout>
 
                 <View
-                    android:layout_width="48dp"
-                    android:layout_height="3dp"
-                    android:layout_marginTop="18dp"
-                    android:background="@color/cyan_primary" />
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@color/dropdown_underline_color" />
 
                 <!-- PART OF SPEECH -->
                 <TextView
@@ -205,7 +205,7 @@
                     <View
                         android:layout_width="4dp"
                         android:layout_height="20dp"
-                        android:background="@color/cyan_primary" />
+                        android:background="@drawable/bg_teal_accent" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -259,7 +259,7 @@
                     <View
                         android:layout_width="4dp"
                         android:layout_height="20dp"
-                        android:background="@color/cyan_primary" />
+                        android:background="@drawable/bg_teal_accent" />
 
                     <TextView
                         android:layout_width="wrap_content"

@@ -5,7 +5,11 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
@@ -15,9 +19,11 @@ import android.speech.tts.TextToSpeech;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
+import android.text.style.ReplacementSpan;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -27,9 +33,9 @@ import android.widget.ArrayAdapter;
 import android.widget.Filter;
 import android.widget.TextView;
 
-import androidx.core.content.ContextCompat;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.example.speaksmartbaguio.databinding.FragmentTranslatorBinding;
@@ -40,11 +46,12 @@ import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.example.speaksmartbaguio.utils.NetworkUtil;
 import com.example.speaksmartbaguio.utils.SettingsMenuHelper;
 
-import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.snackbar.BaseTransientBottomBar;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 
@@ -58,6 +65,10 @@ public class TranslatorFragment extends Fragment {
 
     private static final int TEAL_COLOR = Color.rgb(13, 163, 150);
     private static final int SNACKBAR_BACKGROUND = Color.rgb(25, 30, 30);
+
+    // Internal markers used to identify POS text before styling.
+    private static final char POS_START_MARKER = '\uFFF0';
+    private static final char POS_END_MARKER = '\uFFF1';
 
     private static final String MODE_ENGLISH_TO_ILOKANO =
             "English  ⇄  Ilokano";
@@ -89,6 +100,176 @@ public class TranslatorFragment extends Fragment {
 
     private String translationMode =
             MODE_ENGLISH_TO_ILOKANO;
+
+    // ---------------------------------------------------------
+    // TRANSLATION ALTERNATIVE MODEL
+    // ---------------------------------------------------------
+
+    private static class TranslationAlternative {
+
+        private final String text;
+        private final String partOfSpeech;
+
+        TranslationAlternative(
+                String text,
+                String partOfSpeech
+        ) {
+            this.text = text;
+            this.partOfSpeech = partOfSpeech;
+        }
+    }
+
+    // ---------------------------------------------------------
+    // TEAL POS PILL SPAN
+    // ---------------------------------------------------------
+
+    private static class TealPillSpan extends ReplacementSpan {
+
+        private final int backgroundColor;
+        private final int textColor;
+        private final float horizontalPadding;
+        private final float verticalPadding;
+        private final float cornerRadius;
+
+        private final Paint backgroundPaint = new Paint(
+                Paint.ANTI_ALIAS_FLAG
+        );
+
+        private final Paint textPaint = new Paint(
+                Paint.ANTI_ALIAS_FLAG
+        );
+
+        TealPillSpan(Context context) {
+
+            float density = context.getResources()
+                    .getDisplayMetrics()
+                    .density;
+
+            backgroundColor = TEAL_COLOR;
+            textColor = Color.WHITE;
+
+            horizontalPadding = 7f * density;
+            verticalPadding = 3f * density;
+            cornerRadius = 10f * density;
+
+            textPaint.setColor(textColor);
+            textPaint.setTextSize(11f * density);
+            textPaint.setTypeface(
+                    Typeface.create(
+                            "sans-serif-medium",
+                            Typeface.NORMAL
+                    )
+            );
+
+            textPaint.setAntiAlias(true);
+
+            backgroundPaint.setColor(backgroundColor);
+            backgroundPaint.setStyle(Paint.Style.FILL);
+            backgroundPaint.setAntiAlias(true);
+        }
+
+        @Override
+        public int getSize(
+                @NonNull Paint paint,
+                CharSequence text,
+                int start,
+                int end,
+                @Nullable Paint.FontMetricsInt fm
+        ) {
+
+            float textWidth = textPaint.measureText(
+                    text,
+                    start,
+                    end
+            );
+
+            if (fm != null) {
+
+                Paint.FontMetricsInt pillMetrics =
+                        textPaint.getFontMetricsInt();
+
+                fm.ascent = Math.min(
+                        fm.ascent,
+                        pillMetrics.ascent
+                );
+
+                fm.descent = Math.max(
+                        fm.descent,
+                        pillMetrics.descent
+                );
+
+                fm.ascent -= (int) verticalPadding;
+                fm.descent += (int) verticalPadding;
+            }
+
+            return (int) Math.ceil(
+                    textWidth + (horizontalPadding * 2)
+            );
+        }
+
+        @Override
+        public void draw(
+                @NonNull Canvas canvas,
+                CharSequence text,
+                int start,
+                int end,
+                float x,
+                int top,
+                int y,
+                int bottom,
+                @NonNull Paint paint
+        ) {
+
+            float textWidth = textPaint.measureText(
+                    text,
+                    start,
+                    end
+            );
+
+            Paint.FontMetrics metrics =
+                    textPaint.getFontMetrics();
+
+            float pillWidth =
+                    textWidth + (horizontalPadding * 2);
+
+            float pillHeight =
+                    (metrics.descent - metrics.ascent)
+                            + (verticalPadding * 2);
+
+            float pillTop =
+                    y + metrics.ascent - verticalPadding;
+
+            float pillBottom =
+                    pillTop + pillHeight;
+
+            RectF pillBounds = new RectF(
+                    x,
+                    pillTop,
+                    x + pillWidth,
+                    pillBottom
+            );
+
+            canvas.drawRoundRect(
+                    pillBounds,
+                    cornerRadius,
+                    cornerRadius,
+                    backgroundPaint
+            );
+
+            float textX = x + horizontalPadding;
+
+            float textY = y;
+
+            canvas.drawText(
+                    text,
+                    start,
+                    end,
+                    textX,
+                    textY,
+                    textPaint
+            );
+        }
+    }
 
     // ---------------------------------------------------------
     // FRAGMENT LIFECYCLE
@@ -191,11 +372,9 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
-        // Replace the previous notification.
         if (currentSnackbar != null) {
 
             currentSnackbar.dismiss();
-
             currentSnackbar = null;
         }
 
@@ -211,22 +390,14 @@ public class TranslatorFragment extends Fragment {
                 .getDisplayMetrics()
                 .density;
 
-        // Rounded dark background.
         GradientDrawable background = new GradientDrawable();
 
         background.setColor(SNACKBAR_BACKGROUND);
-
-        background.setCornerRadius(
-                18f * density
-        );
+        background.setCornerRadius(18f * density);
 
         snackbarView.setBackground(background);
+        snackbarView.setElevation(12f * density);
 
-        snackbarView.setElevation(
-                12f * density
-        );
-
-        // Style the notification message.
         TextView messageView = snackbarView.findViewById(
                 com.google.android.material.R.id.snackbar_text
         );
@@ -234,15 +405,13 @@ public class TranslatorFragment extends Fragment {
         if (messageView != null) {
 
             messageView.setTextColor(Color.WHITE);
-
             messageView.setTextSize(14f);
-
             messageView.setMaxLines(3);
 
             messageView.setTypeface(
-                    android.graphics.Typeface.create(
+                    Typeface.create(
                             "sans-serif-medium",
-                            android.graphics.Typeface.NORMAL
+                            Typeface.NORMAL
                     )
             );
 
@@ -251,15 +420,12 @@ public class TranslatorFragment extends Fragment {
             );
         }
 
-        // Teal action color.
         snackbar.setActionTextColor(TEAL_COLOR);
 
-        // Smooth slide animation.
         snackbar.setAnimationMode(
                 BaseTransientBottomBar.ANIMATION_MODE_SLIDE
         );
 
-        // Error messages stay slightly longer.
         snackbar.setDuration(
                 isError ? 3000 : 2000
         );
@@ -366,14 +532,15 @@ public class TranslatorFragment extends Fragment {
         textView.setTextSize(15f);
 
         textView.setTypeface(
-                android.graphics.Typeface.DEFAULT,
-                android.graphics.Typeface.BOLD
+                Typeface.DEFAULT,
+                Typeface.BOLD
         );
 
         textView.setGravity(Gravity.CENTER_VERTICAL);
 
         float density = context.getResources()
-                .getDisplayMetrics().density;
+                .getDisplayMetrics()
+                .density;
 
         int horizontalPadding = (int) (16 * density);
         int verticalPadding = (int) (12 * density);
@@ -921,9 +1088,7 @@ public class TranslatorFragment extends Fragment {
         }
     }
 
-    // ---------------------------------------------------------
-    // SPEAKER BUTTON
-    // ---------------------------------------------------------
+
 
     private void speakTranslation() {
 
@@ -937,17 +1102,31 @@ public class TranslatorFragment extends Fragment {
                 .trim();
 
         if (text.isEmpty()) {
+            showMessage("Nothing to speak yet.", false);
+            return;
+        }
 
-            showMessage(
-                    "Nothing to speak yet.",
-                    false
-            );
+        // Remove POS labels.
+        text = text.replaceAll(
+                "(?i)\\s*\\(?\\b(noun|verb|adjective|adverb|pronoun|preposition|conjunction|interjection|determiner|article)\\b\\)?",
+                ""
+        );
 
+        // Remove bullet symbols and preserve longer pauses between alternatives.
+        text = text.replace("•", "")
+                .replaceAll("[ \\t]+", " ")
+                .replaceAll(" *\\n+ *", ".......... ")
+                .trim();
+
+        if (text.isEmpty()) {
+            showMessage("Nothing to speak yet.", false);
             return;
         }
 
         speakWithAndroidTts(text);
     }
+
+
 
     // ---------------------------------------------------------
     // ANDROID TEXT-TO-SPEECH PLAYBACK
@@ -1064,18 +1243,12 @@ public class TranslatorFragment extends Fragment {
 
     private void translateTextWordByWord(String input) {
 
-        if (!isAdded() || binding == null) {
-            return;
-        }
-
-        if (input == null || input.trim().isEmpty()) {
+        if (!isCurrentInput(input) || input.trim().isEmpty()) {
             return;
         }
 
         if (!isMultiwordInput(input)) {
-
             translateDictionaryWordByWord(input);
-
             return;
         }
 
@@ -1085,27 +1258,27 @@ public class TranslatorFragment extends Fragment {
 
         } else {
 
-            searchOfflinePhrasebook(
-                    input,
-                    phrase -> {
+            searchOfflinePhrasebook(input, phrases -> {
 
-                        if (!isCurrentInput(input)) {
-                            return;
-                        }
+                if (!isCurrentInput(input)) {
+                    return;
+                }
 
-                        if (isSuitablePhrase(phrase)) {
+                List<Phrase> suitable =
+                        getSuitablePhrases(phrases);
 
-                            displayPhraseTranslation(
-                                    input,
-                                    phrase
-                            );
+                if (!suitable.isEmpty()) {
 
-                        } else {
+                    displayPhraseTranslations(
+                            input,
+                            suitable
+                    );
 
-                            translateOffline(input);
-                        }
-                    }
-            );
+                } else {
+
+                    translateOffline(input);
+                }
+            });
         }
     }
 
@@ -1127,8 +1300,25 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
-        apiService.getPhrasebook(
+        fetchPhrasebookPages(
+                input,
                 1,
+                new ArrayList<>()
+        );
+    }
+
+    private void fetchPhrasebookPages(
+            String input,
+            int page,
+            List<Phrase> collected
+    ) {
+
+        if (!isCurrentInput(input)) {
+            return;
+        }
+
+        apiService.getPhrasebook(
+                page,
                 100,
                 input,
                 new ApiService.ApiCallback<Phrase>() {
@@ -1143,31 +1333,57 @@ public class TranslatorFragment extends Fragment {
                             return;
                         }
 
-                        Phrase exactMatch =
-                                findExactPhraseMatch(input, results);
+                        if (results != null && !results.isEmpty()) {
+                            collected.addAll(results);
+                        }
 
-                        if (isSuitablePhrase(exactMatch)) {
+                        if (hasMore
+                                && results != null
+                                && !results.isEmpty()) {
 
-                            displayPhraseTranslation(
+                            fetchPhrasebookPages(
                                     input,
-                                    exactMatch
+                                    page + 1,
+                                    collected
+                            );
+
+                            return;
+                        }
+
+                        List<Phrase> exactMatches =
+                                findExactPhraseMatches(
+                                        input,
+                                        collected
+                                );
+
+                        List<Phrase> suitable =
+                                getSuitablePhrases(exactMatches);
+
+                        if (!suitable.isEmpty()) {
+
+                            displayPhraseTranslations(
+                                    input,
+                                    suitable
                             );
 
                         } else {
 
                             searchOfflinePhrasebook(
                                     input,
-                                    phrase -> {
+                                    phrases -> {
 
                                         if (!isCurrentInput(input)) {
                                             return;
                                         }
 
-                                        if (isSuitablePhrase(phrase)) {
+                                        List<Phrase> offlineMatches =
+                                                getSuitablePhrases(phrases);
 
-                                            displayPhraseTranslation(
+                                        if (!offlineMatches.isEmpty()) {
+
+                                            displayPhraseTranslations(
                                                     input,
-                                                    phrase
+                                                    offlineMatches
                                             );
 
                                         } else {
@@ -1190,17 +1406,20 @@ public class TranslatorFragment extends Fragment {
 
                         searchOfflinePhrasebook(
                                 input,
-                                phrase -> {
+                                phrases -> {
 
                                     if (!isCurrentInput(input)) {
                                         return;
                                     }
 
-                                    if (isSuitablePhrase(phrase)) {
+                                    List<Phrase> suitable =
+                                            getSuitablePhrases(phrases);
 
-                                        displayPhraseTranslation(
+                                    if (!suitable.isEmpty()) {
+
+                                        displayPhraseTranslations(
                                                 input,
-                                                phrase
+                                                suitable
                                         );
 
                                     } else {
@@ -1219,7 +1438,7 @@ public class TranslatorFragment extends Fragment {
     // ---------------------------------------------------------
 
     private interface PhraseLookupCallback {
-        void onResult(@Nullable Phrase phrase);
+        void onResult(@Nullable List<Phrase> phrases);
     }
 
     private void searchOfflinePhrasebook(
@@ -1229,7 +1448,7 @@ public class TranslatorFragment extends Fragment {
 
         if (phraseRepository == null) {
 
-            callback.onResult(null);
+            callback.onResult(new ArrayList<>());
 
             return;
         }
@@ -1241,12 +1460,15 @@ public class TranslatorFragment extends Fragment {
                     List<Phrase> phrases =
                             EntityMapper.toPhraseList(entities);
 
-                    Phrase exactMatch =
-                            findExactPhraseMatch(input, phrases);
+                    List<Phrase> exactMatches =
+                            findExactPhraseMatches(
+                                    input,
+                                    phrases
+                            );
 
-                    if (exactMatch != null) {
+                    if (!exactMatches.isEmpty()) {
 
-                        callback.onResult(exactMatch);
+                        callback.onResult(exactMatches);
 
                         return;
                     }
@@ -1259,14 +1481,11 @@ public class TranslatorFragment extends Fragment {
                                                 allEntities
                                         );
 
-                                Phrase fullCollectionMatch =
-                                        findExactPhraseMatch(
+                                callback.onResult(
+                                        findExactPhraseMatches(
                                                 input,
                                                 allPhrases
-                                        );
-
-                                callback.onResult(
-                                        fullCollectionMatch
+                                        )
                                 );
                             }
                     );
@@ -1275,27 +1494,28 @@ public class TranslatorFragment extends Fragment {
     }
 
     // ---------------------------------------------------------
-    // EXACT PHRASEBOOK MATCH
+    // FIND ALL EXACT PHRASEBOOK MATCHES
     // ---------------------------------------------------------
 
-    @Nullable
-    private Phrase findExactPhraseMatch(
+    private List<Phrase> findExactPhraseMatches(
             String input,
             @Nullable List<Phrase> phrases
     ) {
+
+        List<Phrase> matches = new ArrayList<>();
 
         if (input == null
                 || phrases == null
                 || phrases.isEmpty()) {
 
-            return null;
+            return matches;
         }
 
         String normalizedInput =
                 normalizeForExactMatch(input);
 
         if (normalizedInput.isEmpty()) {
-            return null;
+            return matches;
         }
 
         for (Phrase phrase : phrases) {
@@ -1309,11 +1529,11 @@ public class TranslatorFragment extends Fragment {
                     phrase
             )) {
 
-                return phrase;
+                matches.add(phrase);
             }
         }
 
-        return null;
+        return matches;
     }
 
     private boolean phraseMatchesInput(
@@ -1386,6 +1606,26 @@ public class TranslatorFragment extends Fragment {
         return output != null && !output.trim().isEmpty();
     }
 
+    private List<Phrase> getSuitablePhrases(
+            @Nullable List<Phrase> phrases
+    ) {
+
+        List<Phrase> suitable = new ArrayList<>();
+
+        if (phrases == null) {
+            return suitable;
+        }
+
+        for (Phrase phrase : phrases) {
+
+            if (isSuitablePhrase(phrase)) {
+                suitable.add(phrase);
+            }
+        }
+
+        return suitable;
+    }
+
     // ---------------------------------------------------------
     // GET PHRASE TRANSLATION
     // ---------------------------------------------------------
@@ -1443,28 +1683,42 @@ public class TranslatorFragment extends Fragment {
     }
 
     // ---------------------------------------------------------
-    // DISPLAY A MATCHED PHRASE
+    // DISPLAY ALL MATCHED PHRASES
     // ---------------------------------------------------------
 
-    private void displayPhraseTranslation(
+    private void displayPhraseTranslations(
             String input,
-            Phrase phrase
+            List<Phrase> phrases
     ) {
 
         if (!isCurrentInput(input)) {
             return;
         }
 
-        String output = getPhraseOutput(phrase);
+        LinkedHashSet<String> uniqueOutputs =
+                new LinkedHashSet<>();
 
-        if (output == null || output.trim().isEmpty()) {
+        for (Phrase phrase : phrases) {
+
+            String output = getPhraseOutput(phrase);
+
+            if (output != null && !output.trim().isEmpty()) {
+                uniqueOutputs.add(output.trim());
+            }
+        }
+
+        if (uniqueOutputs.isEmpty()) {
 
             continueToDictionary(input);
 
             return;
         }
 
-        showTranslation(capitalizeSentence(output));
+        showTranslation(
+                formatAlternativeList(
+                        new ArrayList<>(uniqueOutputs)
+                )
+        );
     }
 
     private void continueToDictionary(String input) {
@@ -1489,7 +1743,7 @@ public class TranslatorFragment extends Fragment {
 
     private void translateDictionaryWordByWord(String input) {
 
-        if (!isAdded() || binding == null) {
+        if (!isCurrentInput(input)) {
             return;
         }
 
@@ -1508,20 +1762,18 @@ public class TranslatorFragment extends Fragment {
 
         String[] words = trimmedInput.split("\\s+");
 
-        final int totalWords = words.length;
-
         final String[] translatedParts =
-                new String[totalWords];
+                new String[words.length];
 
         final int[] completed = {0};
 
-        final boolean[] finalized = {false};
+        final int totalWords = words.length;
 
-        for (int index = 0; index < totalWords; index++) {
+        for (int i = 0; i < totalWords; i++) {
 
-            final int wordIndex = index;
+            final int wordIndex = i;
 
-            final String originalWord = words[index];
+            final String originalWord = words[i];
 
             String cleanedWord = originalWord
                     .replaceAll("[^\\p{L}\\p{N}]", "")
@@ -1535,161 +1787,417 @@ public class TranslatorFragment extends Fragment {
                         input,
                         translatedParts,
                         completed,
-                        totalWords,
-                        finalized
+                        totalWords
                 );
 
                 continue;
             }
 
-            String fieldSearch;
+            String fieldSearch = getDictionarySearchField();
 
-            switch (translationMode) {
-
-                case MODE_ENGLISH_TO_ILOKANO:
-                    fieldSearch = "englishTranslation";
-                    break;
-
-                case MODE_ILOKANO_TO_ENGLISH:
-                    fieldSearch = "ilokanoWord";
-                    break;
-
-                case MODE_TAGALOG_TO_ILOKANO:
-                    fieldSearch = "tagalogTranslation";
-                    break;
-
-                case MODE_ILOKANO_TO_TAGALOG:
-                    fieldSearch = "ilokanoWord";
-                    break;
-
-                default:
-                    fieldSearch = "englishTranslation";
-                    break;
-            }
-
-            final String originalForCallback = originalWord;
-
-            apiService.searchDictionaryWord(
-                    fieldSearch,
+            fetchAllDictionaryMatches(
+                    input,
                     cleanedWord,
-                    new ApiService.ApiCallback<Word>() {
+                    fieldSearch,
+                    1,
+                    new ArrayList<>(),
+                    matches -> {
 
-                        @Override
-                        public void onSuccess(
-                                List<Word> results,
-                                boolean hasMore
-                        ) {
-
-                            if (!isCurrentInput(input)) {
-                                return;
-                            }
-
-                            String translated =
-                                    originalForCallback;
-
-                            if (results != null && !results.isEmpty()) {
-
-                                Word item = results.get(0);
-
-                                if (item != null) {
-
-                                    switch (translationMode) {
-
-                                        case MODE_ENGLISH_TO_ILOKANO:
-
-                                            if (item.getIlokanoWord() != null
-                                                    && !item.getIlokanoWord()
-                                                    .trim().isEmpty()) {
-
-                                                translated =
-                                                        item.getIlokanoWord();
-                                            }
-
-                                            break;
-
-                                        case MODE_ILOKANO_TO_ENGLISH:
-
-                                            if (item.getEnglishTranslation() != null
-                                                    && !item.getEnglishTranslation()
-                                                    .trim().isEmpty()) {
-
-                                                translated =
-                                                        item.getEnglishTranslation();
-                                            }
-
-                                            break;
-
-                                        case MODE_TAGALOG_TO_ILOKANO:
-
-                                            if (item.getIlokanoWord() != null
-                                                    && !item.getIlokanoWord()
-                                                    .trim().isEmpty()) {
-
-                                                translated =
-                                                        item.getIlokanoWord();
-                                            }
-
-                                            break;
-
-                                        case MODE_ILOKANO_TO_TAGALOG:
-
-                                            if (item.getTagalogTranslation() != null
-                                                    && !item.getTagalogTranslation()
-                                                    .trim().isEmpty()) {
-
-                                                translated =
-                                                        item.getTagalogTranslation();
-                                            }
-
-                                            break;
-                                    }
-                                }
-                            }
-
-                            translatedParts[wordIndex] = translated;
-
-                            completeOnlineWord(
-                                    input,
-                                    translatedParts,
-                                    completed,
-                                    totalWords,
-                                    finalized
-                            );
+                        if (!isCurrentInput(input)) {
+                            return;
                         }
 
-                        @Override
-                        public void onError(String error) {
+                        List<TranslationAlternative> alternatives =
+                                getDictionaryAlternatives(matches);
 
-                            if (!isCurrentInput(input)) {
-                                return;
-                            }
+                        translatedParts[wordIndex] =
+                                formatWordAlternatives(
+                                        originalWord,
+                                        alternatives,
+                                        totalWords == 1
+                                );
 
-                            translatedParts[wordIndex] =
-                                    originalForCallback;
-
-                            completeOnlineWord(
-                                    input,
-                                    translatedParts,
-                                    completed,
-                                    totalWords,
-                                    finalized
-                            );
-                        }
+                        completeOnlineWord(
+                                input,
+                                translatedParts,
+                                completed,
+                                totalWords
+                        );
                     }
             );
         }
     }
 
     // ---------------------------------------------------------
-    // COMPLETE ONLINE WORD LOOKUP
+    // DICTIONARY SEARCH FIELD
+    // ---------------------------------------------------------
+
+    private String getDictionarySearchField() {
+
+        switch (translationMode) {
+
+            case MODE_ENGLISH_TO_ILOKANO:
+                return "englishTranslation";
+
+            case MODE_ILOKANO_TO_ENGLISH:
+            case MODE_ILOKANO_TO_TAGALOG:
+                return "ilokanoWord";
+
+            case MODE_TAGALOG_TO_ILOKANO:
+                return "tagalogTranslation";
+
+            default:
+                return "englishTranslation";
+        }
+    }
+
+    // ---------------------------------------------------------
+    // FETCH ALL DICTIONARY PAGES
+    // ---------------------------------------------------------
+
+    private interface DictionaryLookupCallback {
+        void onResult(List<Word> words);
+    }
+
+    private void fetchAllDictionaryMatches(
+            String input,
+            String searchValue,
+            String field,
+            int page,
+            List<Word> collected,
+            DictionaryLookupCallback callback
+    ) {
+
+        if (!isCurrentInput(input)) {
+            return;
+        }
+
+        apiService.searchDictionaryWord(
+                field,
+                searchValue,
+                page,
+                100,
+                new ApiService.ApiCallback<Word>() {
+
+                    @Override
+                    public void onSuccess(
+                            List<Word> results,
+                            boolean hasMore
+                    ) {
+
+                        if (!isCurrentInput(input)) {
+                            return;
+                        }
+
+                        if (results != null && !results.isEmpty()) {
+                            collected.addAll(results);
+                        }
+
+                        if (hasMore
+                                && results != null
+                                && !results.isEmpty()) {
+
+                            fetchAllDictionaryMatches(
+                                    input,
+                                    searchValue,
+                                    field,
+                                    page + 1,
+                                    collected,
+                                    callback
+                            );
+
+                        } else {
+
+                            callback.onResult(
+                                    filterExactDictionaryMatches(
+                                            searchValue,
+                                            field,
+                                            collected
+                                    )
+                            );
+                        }
+                    }
+
+                    @Override
+                    public void onError(String error) {
+
+                        if (!isCurrentInput(input)) {
+                            return;
+                        }
+
+                        Log.e(
+                                TAG,
+                                "Dictionary search failed for: "
+                                        + searchValue
+                                        + " - "
+                                        + error
+                        );
+
+                        callback.onResult(
+                                filterExactDictionaryMatches(
+                                        searchValue,
+                                        field,
+                                        collected
+                                )
+                        );
+                    }
+                }
+        );
+    }
+
+    // ---------------------------------------------------------
+    // FILTER EXACT DICTIONARY MATCHES
+    // ---------------------------------------------------------
+
+    private List<Word> filterExactDictionaryMatches(
+            String searchValue,
+            String field,
+            List<Word> words
+    ) {
+
+        List<Word> exactMatches = new ArrayList<>();
+
+        if (words == null) {
+            return exactMatches;
+        }
+
+        String normalizedSearch =
+                normalizeForExactMatch(searchValue);
+
+        for (Word word : words) {
+
+            if (word == null) {
+                continue;
+            }
+
+            String candidate;
+
+            switch (field) {
+
+                case "englishTranslation":
+                    candidate = word.getEnglishTranslation();
+                    break;
+
+                case "ilokanoWord":
+                    candidate = word.getIlokanoWord();
+                    break;
+
+                case "tagalogTranslation":
+                    candidate = word.getTagalogTranslation();
+                    break;
+
+                default:
+                    candidate = "";
+                    break;
+            }
+
+            if (normalizedSearch.equals(
+                    normalizeForExactMatch(candidate)
+            )) {
+
+                exactMatches.add(word);
+            }
+        }
+
+        return exactMatches;
+    }
+
+    // ---------------------------------------------------------
+    // GET DISTINCT TRANSLATIONS WITH PART OF SPEECH
+    // ---------------------------------------------------------
+
+    private List<TranslationAlternative> getDictionaryAlternatives(
+            List<Word> matches
+    ) {
+
+        List<TranslationAlternative> alternatives =
+                new ArrayList<>();
+
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+
+        if (matches == null) {
+            return alternatives;
+        }
+
+        for (Word word : matches) {
+
+            if (word == null) {
+                continue;
+            }
+
+            String output = null;
+
+            switch (translationMode) {
+
+                case MODE_ENGLISH_TO_ILOKANO:
+                case MODE_TAGALOG_TO_ILOKANO:
+
+                    output = word.getIlokanoWord();
+                    break;
+
+                case MODE_ILOKANO_TO_ENGLISH:
+
+                    output = word.getEnglishTranslation();
+                    break;
+
+                case MODE_ILOKANO_TO_TAGALOG:
+
+                    output = word.getTagalogTranslation();
+                    break;
+            }
+
+            if (output == null || output.trim().isEmpty()) {
+                continue;
+            }
+
+            output = output.trim();
+
+            String pos = word.getPartOfSpeech();
+
+            if (pos == null) {
+                pos = "";
+            }
+
+            pos = pos.trim();
+
+            String uniqueKey =
+                    normalizeForExactMatch(output)
+                            + "|"
+                            + pos.toLowerCase(Locale.ROOT);
+
+            if (seen.add(uniqueKey)) {
+
+                alternatives.add(
+                        new TranslationAlternative(
+                                output,
+                                pos
+                        )
+                );
+            }
+        }
+
+        return alternatives;
+    }
+
+    // ---------------------------------------------------------
+    // FORMAT POS MARKER
+    // ---------------------------------------------------------
+
+    private String appendPosMarker(
+            String translation,
+            String partOfSpeech
+    ) {
+
+        if (partOfSpeech == null
+                || partOfSpeech.trim().isEmpty()) {
+
+            return translation;
+        }
+
+        return translation
+                + " "
+                + POS_START_MARKER
+                + partOfSpeech.trim()
+                + POS_END_MARKER;
+    }
+
+    // ---------------------------------------------------------
+    // FORMAT DICTIONARY WORD ALTERNATIVES WITH POS
+    // ---------------------------------------------------------
+
+    private String formatWordAlternatives(
+            String originalWord,
+            List<TranslationAlternative> alternatives,
+            boolean singleWord
+    ) {
+
+        if (alternatives == null || alternatives.isEmpty()) {
+            return originalWord;
+        }
+
+        if (alternatives.size() == 1) {
+
+            TranslationAlternative alternative =
+                    alternatives.get(0);
+
+            return appendPosMarker(
+                    capitalizeSentence(alternative.text),
+                    alternative.partOfSpeech
+            );
+        }
+
+        StringBuilder result = new StringBuilder();
+
+        if (!singleWord) {
+
+            result.append(originalWord)
+                    .append(":\n");
+        }
+
+        for (int i = 0; i < alternatives.size(); i++) {
+
+            TranslationAlternative alternative =
+                    alternatives.get(i);
+
+            if (i > 0) {
+                result.append("\n\n");
+            }
+
+            result.append("•  ");
+
+            result.append(
+                    appendPosMarker(
+                            capitalizeSentence(alternative.text),
+                            alternative.partOfSpeech
+                    )
+            );
+        }
+
+        return result.toString();
+    }
+
+    // ---------------------------------------------------------
+    // FORMAT PHRASEBOOK ALTERNATIVES
+    // ---------------------------------------------------------
+
+    private String formatAlternativeList(List<String> alternatives) {
+
+        if (alternatives == null || alternatives.isEmpty()) {
+            return "";
+        }
+
+        if (alternatives.size() == 1) {
+            return capitalizeSentence(alternatives.get(0));
+        }
+
+        StringBuilder result = new StringBuilder();
+
+        for (String alternative : alternatives) {
+
+            if (alternative == null || alternative.trim().isEmpty()) {
+                continue;
+            }
+
+            if (result.length() > 0) {
+                result.append("\n\n");
+            }
+
+            result.append("•  ")
+                    .append(capitalizeSentence(alternative.trim()));
+        }
+
+        return result.toString();
+    }
+
+    // ---------------------------------------------------------
+    // COMPLETE ONLINE WORD LOOKUPS
     // ---------------------------------------------------------
 
     private void completeOnlineWord(
             String input,
             String[] translatedParts,
             int[] completed,
-            int totalWords,
-            boolean[] finalized
+            int totalWords
     ) {
 
         if (!isCurrentInput(input)) {
@@ -1698,24 +2206,23 @@ public class TranslatorFragment extends Fragment {
 
         completed[0]++;
 
-        if (completed[0] < totalWords || finalized[0]) {
+        if (completed[0] < totalWords) {
             return;
         }
-
-        finalized[0] = true;
 
         StringBuilder translatedSentence =
                 new StringBuilder();
 
-        for (int i = 0; i < totalWords; i++) {
+        for (String translatedPart : translatedParts) {
 
-            String translatedPart = translatedParts[i];
+            if (translatedPart != null
+                    && !translatedPart.trim().isEmpty()) {
 
-            if (translatedPart != null) {
+                if (translatedSentence.length() > 0) {
+                    translatedSentence.append("\n\n");
+                }
 
-                translatedSentence
-                        .append(translatedPart)
-                        .append(" ");
+                translatedSentence.append(translatedPart);
             }
         }
 
@@ -1732,7 +2239,7 @@ public class TranslatorFragment extends Fragment {
 
     private void translateOffline(String input) {
 
-        if (!isAdded() || binding == null) {
+        if (!isCurrentInput(input)) {
             return;
         }
 
@@ -1756,6 +2263,8 @@ public class TranslatorFragment extends Fragment {
             String[] translatedParts =
                     new String[words.length];
 
+            String searchField = getDictionarySearchField();
+
             for (int i = 0; i < words.length; i++) {
 
                 String originalWord = words[i];
@@ -1764,122 +2273,43 @@ public class TranslatorFragment extends Fragment {
                         .replaceAll("[^\\p{L}\\p{N}]", "")
                         .toLowerCase(Locale.ROOT);
 
-                String output = originalWord;
+                if (clean.isEmpty()) {
 
-                if (!clean.isEmpty()) {
+                    translatedParts[i] = originalWord;
 
-                    for (Word item : dictionary) {
-
-                        if (item == null) {
-                            continue;
-                        }
-
-                        boolean matched = false;
-
-                        switch (translationMode) {
-
-                            case MODE_ENGLISH_TO_ILOKANO:
-
-                                if (normalizeForExactMatch(
-                                        item.getEnglishTranslation()
-                                ).equals(
-                                        normalizeForExactMatch(clean)
-                                )) {
-
-                                    matched = true;
-
-                                    if (item.getIlokanoWord() != null
-                                            && !item.getIlokanoWord()
-                                            .trim().isEmpty()) {
-
-                                        output = item.getIlokanoWord();
-                                    }
-                                }
-
-                                break;
-
-                            case MODE_ILOKANO_TO_ENGLISH:
-
-                                if (normalizeForExactMatch(
-                                        item.getIlokanoWord()
-                                ).equals(
-                                        normalizeForExactMatch(clean)
-                                )) {
-
-                                    matched = true;
-
-                                    if (item.getEnglishTranslation() != null
-                                            && !item.getEnglishTranslation()
-                                            .trim().isEmpty()) {
-
-                                        output =
-                                                item.getEnglishTranslation();
-                                    }
-                                }
-
-                                break;
-
-                            case MODE_TAGALOG_TO_ILOKANO:
-
-                                if (normalizeForExactMatch(
-                                        item.getTagalogTranslation()
-                                ).equals(
-                                        normalizeForExactMatch(clean)
-                                )) {
-
-                                    matched = true;
-
-                                    if (item.getIlokanoWord() != null
-                                            && !item.getIlokanoWord()
-                                            .trim().isEmpty()) {
-
-                                        output = item.getIlokanoWord();
-                                    }
-                                }
-
-                                break;
-
-                            case MODE_ILOKANO_TO_TAGALOG:
-
-                                if (normalizeForExactMatch(
-                                        item.getIlokanoWord()
-                                ).equals(
-                                        normalizeForExactMatch(clean)
-                                )) {
-
-                                    matched = true;
-
-                                    if (item.getTagalogTranslation() != null
-                                            && !item.getTagalogTranslation()
-                                            .trim().isEmpty()) {
-
-                                        output =
-                                                item.getTagalogTranslation();
-                                    }
-                                }
-
-                                break;
-                        }
-
-                        if (matched) {
-                            break;
-                        }
-                    }
+                    continue;
                 }
 
-                translatedParts[i] = output;
+                List<Word> matches =
+                        filterExactDictionaryMatches(
+                                clean,
+                                searchField,
+                                dictionary
+                        );
+
+                List<TranslationAlternative> alternatives =
+                        getDictionaryAlternatives(matches);
+
+                translatedParts[i] =
+                        formatWordAlternatives(
+                                originalWord,
+                                alternatives,
+                                words.length == 1
+                        );
             }
 
             StringBuilder translatedSentence =
                     new StringBuilder();
 
-            for (int i = 0; i < translatedParts.length; i++) {
+            for (String part : translatedParts) {
 
-                if (translatedParts[i] != null) {
+                if (part != null && !part.trim().isEmpty()) {
 
-                    translatedSentence
-                            .append(translatedParts[i])
-                            .append(" ");
+                    if (translatedSentence.length() > 0) {
+                        translatedSentence.append("\n\n");
+                    }
+
+                    translatedSentence.append(part);
                 }
             }
 
@@ -1891,17 +2321,98 @@ public class TranslatorFragment extends Fragment {
                 return;
             }
 
-            requireActivity().runOnUiThread(
-                    () -> {
+            requireActivity().runOnUiThread(() -> {
 
-                        if (!isCurrentInput(input)) {
-                            return;
-                        }
+                if (!isCurrentInput(input)) {
+                    return;
+                }
 
-                        showTranslation(finalTranslation);
-                    }
-            );
+                showTranslation(finalTranslation);
+            });
         });
+    }
+
+    // ---------------------------------------------------------
+    // BUILD STYLED TRANSLATION WITH TEAL POS PILLS
+    // ---------------------------------------------------------
+
+    private CharSequence buildStyledTranslation(String translation) {
+
+        if (translation == null || translation.isEmpty()) {
+            return "";
+        }
+
+        SpannableStringBuilder styled =
+                new SpannableStringBuilder();
+
+        int currentIndex = 0;
+
+        while (currentIndex < translation.length()) {
+
+            int markerStart = translation.indexOf(
+                    POS_START_MARKER,
+                    currentIndex
+            );
+
+            if (markerStart < 0) {
+
+                styled.append(
+                        translation.substring(currentIndex)
+                );
+
+                break;
+            }
+
+            // Add ordinary translation text before the POS.
+            styled.append(
+                    translation.substring(
+                            currentIndex,
+                            markerStart
+                    )
+            );
+
+            int markerEnd = translation.indexOf(
+                    POS_END_MARKER,
+                    markerStart + 1
+            );
+
+            if (markerEnd < 0) {
+
+                styled.append(
+                        translation.substring(markerStart)
+                );
+
+                break;
+            }
+
+            String pos = translation.substring(
+                    markerStart + 1,
+                    markerEnd
+            );
+
+            if (!pos.trim().isEmpty()) {
+
+                int spanStart = styled.length();
+
+                styled.append(pos);
+
+                int spanEnd = styled.length();
+
+                if (isAdded()) {
+
+                    styled.setSpan(
+                            new TealPillSpan(requireContext()),
+                            spanStart,
+                            spanEnd,
+                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                    );
+                }
+            }
+
+            currentIndex = markerEnd + 1;
+        }
+
+        return styled;
     }
 
     // ---------------------------------------------------------
@@ -1914,7 +2425,9 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
-        binding.translatedText.setText(translation);
+        binding.translatedText.setText(
+                buildStyledTranslation(translation)
+        );
     }
 
     // ---------------------------------------------------------
@@ -1926,7 +2439,6 @@ public class TranslatorFragment extends Fragment {
 
         searchHandler.removeCallbacksAndMessages(null);
 
-        // Dismiss any notification before destroying the view.
         if (currentSnackbar != null) {
 
             currentSnackbar.dismiss();

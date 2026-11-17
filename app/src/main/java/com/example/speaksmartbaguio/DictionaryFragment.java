@@ -14,7 +14,7 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Filter;
 import android.widget.Toast;
-
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -285,14 +285,10 @@ public class DictionaryFragment extends Fragment {
         setupSearch();
 
         updateSortRadioButtons();
+
+        // Capture incoming search only.
+        // Do not notify the adapter during header binding.
         handleIncomingSearch();
-
-        if (!pendingSearchQuery.isEmpty()) {
-
-            dictionaryAdapter.setSearchQuery(
-                    pendingSearchQuery
-            );
-        }
 
         scheduleInitialLoad();
     }
@@ -316,6 +312,12 @@ public class DictionaryFragment extends Fragment {
                 return;
             }
 
+            // Apply incoming search after RecyclerView layout.
+            dictionaryAdapter.setSearchQuery(
+                    pendingSearchQuery
+            );
+
+            // Preserve existing local-first and online loading.
             loadWords(true);
         });
     }
@@ -339,10 +341,6 @@ public class DictionaryFragment extends Fragment {
         }
 
         pendingSearchQuery = query.trim();
-
-        dictionaryAdapter.setSearchQuery(
-                pendingSearchQuery
-        );
 
         isApplyingIncomingSearch = true;
 
@@ -737,40 +735,35 @@ public class DictionaryFragment extends Fragment {
                     }
 
                     @Override
-                    public void onTextChanged(
-                            CharSequence s,
-                            int start,
-                            int before,
-                            int count
-                    ) {
+                    public void onTextChanged(CharSequence s, int start, int before, int count) {
+                        if (isApplyingIncomingSearch) return;
 
-                        if (isApplyingIncomingSearch) {
-                            return;
-                        }
+                        final String query = s == null ? "" : s.toString().trim();
 
-                        final String query =
-                                s == null
-                                        ? ""
-                                        : s.toString().trim();
+                        Log.d("DictionarySearch",
+                                "Text changed: " + query
+                                        + " | Focus: " + headerBinding.searchBar.hasFocus());
 
                         searchHandler.removeCallbacksAndMessages(null);
 
                         searchHandler.postDelayed(() -> {
+                            if (!isAdded() || binding == null || headerBinding == null) return;
 
-                            if (!isAdded()
-                                    || binding == null
-                                    || headerBinding == null) {
-                                return;
-                            }
+                            Log.d("DictionarySearch",
+                                    "Before filtering: "
+                                            + headerBinding.searchBar.hasFocus());
 
                             pendingSearchQuery = query;
 
                             if (dictionaryAdapter != null) {
-
                                 dictionaryAdapter.setSearchQuery(query);
                             }
 
                             loadWords(true);
+
+                            Log.d("DictionarySearch",
+                                    "After loadWords: "
+                                            + headerBinding.searchBar.hasFocus());
 
                         }, SEARCH_DELAY);
                     }
@@ -779,7 +772,9 @@ public class DictionaryFragment extends Fragment {
                     public void afterTextChanged(Editable s) {
                     }
                 }
-        );
+        );headerBinding.searchBar.setOnFocusChangeListener((view, hasFocus) -> {
+            Log.d("DictionarySearch", "Search focus changed: " + hasFocus);
+        });
     }
 
     // =========================================================

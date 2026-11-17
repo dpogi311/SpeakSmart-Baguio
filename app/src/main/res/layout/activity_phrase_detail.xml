@@ -94,8 +94,8 @@
                     android:textStyle="bold"
                     android:letterSpacing="0.12" />
 
-
                 <!-- MAIN ILOKANO PHRASE AND SPEAKER BUTTON -->
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -135,12 +135,15 @@
 
                 </LinearLayout>
 
+                <!-- DIVIDER -->
 
                 <View
-                    android:layout_width="48dp"
-                    android:layout_height="3dp"
-                    android:layout_marginTop="18dp"
-                    android:background="@color/cyan_secondary" />
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@color/dropdown_underline_color" />
+
+                <!-- PART OF SPEECH -->
 
                 <TextView
                     android:id="@+id/tvPartOfSpeech"
@@ -155,6 +158,8 @@
                     android:textColor="@color/cyan_secondary"
                     android:textSize="13sp"
                     android:textStyle="bold" />
+
+                <!-- CATEGORY -->
 
                 <TextView
                     android:id="@+id/tvCategory"
@@ -214,14 +219,32 @@
                 android:orientation="vertical"
                 android:padding="20dp">
 
-                <TextView
+                <!-- ENGLISH HEADING -->
+
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="ENGLISH"
-                    android:textColor="@color/cyan_secondary"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.12" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <View
+                        android:layout_width="4dp"
+                        android:layout_height="20dp"
+                        android:background="@drawable/bg_teal_accent" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="ENGLISH"
+                        android:textColor="@color/cyan_secondary"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.12" />
+
+                </LinearLayout>
+
+                <!-- ENGLISH TRANSLATION -->
 
                 <TextView
                     android:id="@+id/tvEnglish"
@@ -256,14 +279,32 @@
                 android:orientation="vertical"
                 android:padding="20dp">
 
-                <TextView
+                <!-- TAGALOG HEADING -->
+
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="TAGALOG"
-                    android:textColor="@color/cyan_secondary"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.12" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <View
+                        android:layout_width="4dp"
+                        android:layout_height="20dp"
+                        android:background="@drawable/bg_teal_accent" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="TAGALOG"
+                        android:textColor="@color/cyan_secondary"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.12" />
+
+                </LinearLayout>
+
+                <!-- TAGALOG TRANSLATION -->
 
                 <TextView
                     android:id="@+id/tvTagalog"

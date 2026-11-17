@@ -87,7 +87,7 @@
             android:textStyle="bold"
             android:letterSpacing="0.12" />
 
-        <!-- PHRASEBOOK-STYLE LANGUAGE DROPDOWN -->
+        <!-- LANGUAGE DROPDOWN -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/languageDropdownLayout"
             style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox.ExposedDropdownMenu"
@@ -176,7 +176,7 @@
                 android:autofillHints="none" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- VOICE ACTIONS HEADING -->
+        <!-- VOICE TOOLS HEADING -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -293,50 +293,76 @@
             </LinearLayout>
         </LinearLayout>
 
+
         <!-- ORIGINAL TEXT CARD -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
             app:cardBackgroundColor="@color/app_surface"
-            app:cardCornerRadius="18dp"
+            app:cardCornerRadius="22dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/cyan_primary"
+            app:strokeColor="@color/dropdown_underline_color"
             app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="20dp">
 
-                <TextView
-                    android:id="@+id/originalTextLabel"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="20dp"
-                    android:gravity="start|center_vertical"
-                    android:text="Original Text"
-                    android:textColor="@color/cyan_primary"
-                    android:textStyle="bold"
-                    android:textSize="14sp"
-                    android:accessibilityLiveRegion="polite" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <View
+                        android:layout_width="7dp"
+                        android:layout_height="7dp"
+                        android:background="@color/cyan_secondary" />
+
+                    <TextView
+                        android:id="@+id/originalTextLabel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:minHeight="22dp"
+                        android:gravity="center_vertical"
+                        android:text="Original Text"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.06"
+                        android:accessibilityLiveRegion="polite" />
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@color/dropdown_underline_color" />
 
                 <TextView
                     android:id="@+id/originalText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="48dp"
-                    android:layout_marginTop="10dp"
-                    android:paddingTop="4dp"
+                    android:minHeight="64dp"
+                    android:layout_marginTop="14dp"
+                    android:gravity="center_vertical"
                     android:text=""
                     android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:lineSpacingExtra="4dp"
+                    android:textSize="19sp"
+                    android:textStyle="bold"
+                    android:lineSpacingExtra="6dp"
+                    android:fontFamily="sans"
                     android:textIsSelectable="true" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+
 
         <!-- TRANSLATED TEXT CARD -->
         <com.google.android.material.card.MaterialCardView
@@ -345,40 +371,64 @@
             android:layout_marginTop="16dp"
             android:layout_marginBottom="8dp"
             app:cardBackgroundColor="@color/app_surface"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="0dp"
+            app:cardCornerRadius="22dp"
+            app:cardElevation="2dp"
             app:strokeColor="@color/cyan_primary"
-            app:strokeWidth="1dp">
+            app:strokeWidth="1.5dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="20dp">
 
-                <TextView
-                    android:id="@+id/translatedTextLabel"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="20dp"
-                    android:gravity="start|center_vertical"
-                    android:text="Translated Text"
-                    android:textColor="@color/cyan_primary"
-                    android:textStyle="bold"
-                    android:textSize="14sp"
-                    android:accessibilityLiveRegion="polite" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <View
+                        android:layout_width="7dp"
+                        android:layout_height="7dp"
+                        android:background="@color/cyan_primary" />
+
+                    <TextView
+                        android:id="@+id/translatedTextLabel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:minHeight="22dp"
+                        android:gravity="center_vertical"
+                        android:text="Translated Text (Results)"
+                        android:textColor="@color/cyan_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.06"
+                        android:accessibilityLiveRegion="polite" />
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@color/dropdown_underline_color" />
 
                 <TextView
                     android:id="@+id/translatedText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="48dp"
-                    android:layout_marginTop="10dp"
-                    android:paddingTop="4dp"
+                    android:minHeight="64dp"
+                    android:layout_marginTop="14dp"
+                    android:gravity="center_vertical"
                     android:text=""
                     android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:lineSpacingExtra="4dp"
+                    android:textSize="19sp"
+                    android:textStyle="bold"
+                    android:lineSpacingExtra="6dp"
+                    android:fontFamily="sans"
                     android:textIsSelectable="true" />
 
             </LinearLayout>

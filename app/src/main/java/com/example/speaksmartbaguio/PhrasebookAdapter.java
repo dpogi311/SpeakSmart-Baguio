@@ -16,7 +16,7 @@ import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
-
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -158,7 +158,10 @@ public class PhrasebookAdapter
 
             searchQuery = newQuery;
 
-            notifyDataSetChanged();
+            // Refresh phrase rows only, not the header or footer.
+            if (!items.isEmpty()) {
+                notifyItemRangeChanged(0, items.size());
+            }
         });
     }
 
@@ -181,7 +184,10 @@ public class PhrasebookAdapter
 
             selectedLanguage = newLanguage;
 
-            notifyDataSetChanged();
+            // Only phrase cards need to display the new translation.
+            if (!items.isEmpty()) {
+                notifyItemRangeChanged(0, items.size());
+            }
         });
     }
 
@@ -678,12 +684,124 @@ public class PhrasebookAdapter
 
         runWhenRecyclerViewIsReady(() -> {
 
+            List<Phrase> oldList = new ArrayList<>(items);
+
+            DiffUtil.DiffResult diffResult =
+                    DiffUtil.calculateDiff(
+                            new DiffUtil.Callback() {
+
+                                @Override
+                                public int getOldListSize() {
+                                    return oldList.size();
+                                }
+
+                                @Override
+                                public int getNewListSize() {
+                                    return safeList.size();
+                                }
+
+                                @Override
+                                public boolean areItemsTheSame(
+                                        int oldItemPosition,
+                                        int newItemPosition
+                                ) {
+
+                                    Phrase oldPhrase =
+                                            oldList.get(oldItemPosition);
+
+                                    Phrase newPhrase =
+                                            safeList.get(newItemPosition);
+
+                                    return getPhraseIdentity(oldPhrase)
+                                            .equals(getPhraseIdentity(newPhrase));
+                                }
+
+                                @Override
+                                public boolean areContentsTheSame(
+                                        int oldItemPosition,
+                                        int newItemPosition
+                                ) {
+
+                                    Phrase oldPhrase =
+                                            oldList.get(oldItemPosition);
+
+                                    Phrase newPhrase =
+                                            safeList.get(newItemPosition);
+
+                                    return arePhraseContentsEqual(
+                                            oldPhrase,
+                                            newPhrase
+                                    );
+                                }
+                            },
+                            true
+                    );
+
             items = safeList;
 
-            notifyDataSetChanged();
+            diffResult.dispatchUpdatesTo(this);
+
+            // Refresh only the footer after the list changes.
+            int footerPosition = items.size();
+
+            notifyItemChanged(footerPosition);
         });
     }
+    private String getPhraseIdentity(Phrase phrase) {
 
+        if (phrase == null) {
+            return "";
+        }
+
+        String id = String.valueOf(phrase.getId());
+
+        if (!id.isEmpty()
+                && !"null".equals(id)
+                && !"0".equals(id)) {
+
+            return "ID:" + id;
+        }
+
+        // Fallback for phrases without a valid ID.
+        return safeText(phrase.getIlokanoWord())
+                + "\u001F"
+                + safeText(phrase.getEnglishTranslation())
+                + "\u001F"
+                + safeText(phrase.getTagalogTranslation())
+                + "\u001F"
+                + safeText(phrase.getCategory());
+    }
+
+    private boolean arePhraseContentsEqual(
+            Phrase oldPhrase,
+            Phrase newPhrase
+    ) {
+
+        if (oldPhrase == null || newPhrase == null) {
+            return oldPhrase == newPhrase;
+        }
+
+        return safeText(oldPhrase.getIlokanoWord())
+                .equals(safeText(newPhrase.getIlokanoWord()))
+
+                && safeText(oldPhrase.getEnglishTranslation())
+                .equals(safeText(newPhrase.getEnglishTranslation()))
+
+                && safeText(oldPhrase.getTagalogTranslation())
+                .equals(safeText(newPhrase.getTagalogTranslation()))
+
+                && safeText(oldPhrase.getPartOfSpeech())
+                .equals(safeText(newPhrase.getPartOfSpeech()))
+
+                && safeText(oldPhrase.getCategory())
+                .equals(safeText(newPhrase.getCategory()))
+
+                && safeText(oldPhrase.getEnglishSentence())
+                .equals(safeText(newPhrase.getEnglishSentence()))
+
+                && safeText(oldPhrase.getIlokanoSentence())
+                .equals(safeText(newPhrase.getIlokanoSentence()));
+    }
     public void addItems(List<Phrase> newItems) {
 
         if (newItems == null || newItems.isEmpty()) {

@@ -23,7 +23,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Practical Sentence-based PHRASEBOOK"
+            android:text="PHRASEBOOK"
             android:textColor="@color/cyan_primary"
             android:textSize="12sp"
             android:textStyle="bold"

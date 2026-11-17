@@ -15,7 +15,7 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
-
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -47,7 +47,7 @@ public class DictionaryAdapter
     private final List<Word> wordList = new ArrayList<>();
 
     private final OnPlayClickListener playClickListener;
-
+    private String lastAppliedSearchQuery = "";
     private String searchQuery = "";
     private String selectedLanguage = "English";
     private String sortOrder = SORT_A_TO_Z;
@@ -101,11 +101,14 @@ public class DictionaryAdapter
 
     public void setSelectedLanguage(String language) {
 
-        selectedLanguage = language == null
+        final String newLanguage = language == null
                 ? "English"
                 : language;
 
-        notifyItemRangeChanged(0, getItemCount());
+        runWhenLayoutIsSafe(() -> {
+            selectedLanguage = newLanguage;
+            notifyItemRangeChanged(0, getItemCount());
+        });
     }
 
     // =========================================================
@@ -113,12 +116,9 @@ public class DictionaryAdapter
     // =========================================================
 
     public void setSearchQuery(String query) {
-
         searchQuery = query == null
                 ? ""
                 : query.trim().toLowerCase(Locale.ROOT);
-
-        notifyItemRangeChanged(0, getItemCount());
     }
 
     // =========================================================
@@ -127,11 +127,14 @@ public class DictionaryAdapter
 
     public void setSortOrder(String order) {
 
-        sortOrder = SORT_Z_TO_A.equals(order)
+        final String newOrder = SORT_Z_TO_A.equals(order)
                 ? SORT_Z_TO_A
                 : SORT_A_TO_Z;
 
-        applyFilters();
+        runWhenLayoutIsSafe(() -> {
+            sortOrder = newOrder;
+            applyFilters();
+        });
     }
 
     public String getSortOrder() {
@@ -144,15 +147,20 @@ public class DictionaryAdapter
 
     public void setSelectedLetter(String letter) {
 
+        final String newLetter;
+
         if (letter == null || letter.trim().isEmpty()) {
-            selectedLetter = "";
+            newLetter = "";
         } else {
-            selectedLetter = letter.trim()
+            newLetter = letter.trim()
                     .substring(0, 1)
                     .toUpperCase(Locale.ROOT);
         }
 
-        applyFilters();
+        runWhenLayoutIsSafe(() -> {
+            selectedLetter = newLetter;
+            applyFilters();
+        });
     }
 
     public String getSelectedLetter() {
@@ -161,9 +169,10 @@ public class DictionaryAdapter
 
     public void clearLetterFilter() {
 
-        selectedLetter = "";
-
-        applyFilters();
+        runWhenLayoutIsSafe(() -> {
+            selectedLetter = "";
+            applyFilters();
+        });
     }
 
     // =========================================================
@@ -172,42 +181,158 @@ public class DictionaryAdapter
 
     private void applyFilters() {
 
-        wordList.clear();
+        runWhenLayoutIsSafe(() -> {
 
-        for (Word word : allWords) {
+            // Keep the existing displayed list unchanged until DiffUtil
+            // has calculated the differences.
+            final List<Word> oldList = new ArrayList<>(wordList);
+            final List<Word> newList = new ArrayList<>();
 
-            if (word == null) {
-                continue;
-            }
+            for (Word word : allWords) {
 
-            String ilokano =
-                    safeText(word.getIlokanoWord()).trim();
-
-            if (!selectedLetter.isEmpty()) {
-
-                if (ilokano.isEmpty()
-                        || !ilokano.regionMatches(
-                        true,
-                        0,
-                        selectedLetter,
-                        0,
-                        selectedLetter.length()
-                )) {
+                if (word == null) {
                     continue;
                 }
+
+                String ilokano =
+                        safeText(word.getIlokanoWord()).trim();
+
+                if (!selectedLetter.isEmpty()) {
+
+                    if (ilokano.isEmpty()
+                            || !ilokano.regionMatches(
+                            true,
+                            0,
+                            selectedLetter,
+                            0,
+                            selectedLetter.length()
+                    )) {
+                        continue;
+                    }
+                }
+
+                newList.add(word);
             }
 
-            wordList.add(word);
-        }
+            sortWords(newList);
 
-        sortWords();
+            final String oldQuery = lastAppliedSearchQuery;
+            final String newQuery = searchQuery;
 
-        notifyDataSetChanged();
+            DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(
+                    new DiffUtil.Callback() {
+
+                        @Override
+                        public int getOldListSize() {
+                            return oldList.size();
+                        }
+
+                        @Override
+                        public int getNewListSize() {
+                            return newList.size();
+                        }
+
+                        @Override
+                        public boolean areItemsTheSame(
+                                int oldPosition,
+                                int newPosition
+                        ) {
+
+                            Word oldWord = oldList.get(oldPosition);
+                            Word newWord = newList.get(newPosition);
+
+                            if (oldWord == null || newWord == null) {
+                                return oldWord == newWord;
+                            }
+
+                            String oldId = safeText(oldWord.getId());
+                            String newId = safeText(newWord.getId());
+
+                            // Prefer database/API IDs.
+                            if (!oldId.isEmpty() || !newId.isEmpty()) {
+                                return !oldId.isEmpty()
+                                        && oldId.equals(newId);
+                            }
+
+                            // Fallback for records without IDs.
+                            return createDuplicateKey(
+                                    oldWord.getIlokanoWord(),
+                                    oldWord.getEnglishTranslation()
+                            ).equals(
+                                    createDuplicateKey(
+                                            newWord.getIlokanoWord(),
+                                            newWord.getEnglishTranslation()
+                                    )
+                            );
+                        }
+
+                        @Override
+                        public boolean areContentsTheSame(
+                                int oldPosition,
+                                int newPosition
+                        ) {
+
+                            Word oldWord = oldList.get(oldPosition);
+                            Word newWord = newList.get(newPosition);
+
+                            if (oldWord == null || newWord == null) {
+                                return oldWord == newWord;
+                            }
+
+                            // Search highlighting must also be refreshed
+                            // when the query changes.
+                            if (!oldQuery.equals(newQuery)) {
+                                return false;
+                            }
+
+                            return safeText(oldWord.getIlokanoWord())
+                                    .equals(safeText(newWord.getIlokanoWord()))
+
+                                    && safeText(oldWord.getEnglishTranslation())
+                                    .equals(safeText(newWord.getEnglishTranslation()))
+
+                                    && safeText(oldWord.getTagalogTranslation())
+                                    .equals(safeText(newWord.getTagalogTranslation()))
+
+                                    && safeText(oldWord.getPartOfSpeech())
+                                    .equals(safeText(newWord.getPartOfSpeech()))
+
+                                    && safeText(oldWord.getCategory())
+                                    .equals(safeText(newWord.getCategory()))
+
+                                    && safeText(oldWord.getDefinition())
+                                    .equals(safeText(newWord.getDefinition()))
+
+                                    && safeText(oldWord.getTtsUrl())
+                                    .equals(safeText(newWord.getTtsUrl()))
+
+                                    && safeText(oldWord.getUpdatedAt())
+                                    .equals(safeText(newWord.getUpdatedAt()));
+                        }
+                    }
+            );
+
+            // Replace the displayed data only after calculating differences.
+            wordList.clear();
+            wordList.addAll(newList);
+
+            lastAppliedSearchQuery = newQuery;
+
+            // Dispatch targeted insert, remove, move and change operations.
+            diffResult.dispatchUpdatesTo(this);
+
+            // The footer is always the final adapter item.
+            int footerPosition = wordList.size();
+
+            if (footerPosition < getItemCount()) {
+                notifyItemChanged(footerPosition);
+            }
+        });
     }
 
-    private void sortWords() {
+    private void sortWords(List<Word> words) {
 
-        Collections.sort(wordList, (first, second) -> {
+        Collections.sort(words, (first, second) -> {
 
             String firstWord =
                     safeText(first.getIlokanoWord()).trim();
@@ -215,10 +340,7 @@ public class DictionaryAdapter
             String secondWord =
                     safeText(second.getIlokanoWord()).trim();
 
-            int result = collator.compare(
-                    firstWord,
-                    secondWord
-            );
+            int result = collator.compare(firstWord, secondWord);
 
             if (result == 0) {
                 result = firstWord.compareToIgnoreCase(secondWord);
@@ -241,22 +363,30 @@ public class DictionaryAdapter
             boolean moreAvailable
     ) {
 
-        boolean changed =
-                isLoading != loading || hasMore != moreAvailable;
+        runWhenLayoutIsSafe(() -> {
 
-        isLoading = loading;
-        hasMore = moreAvailable;
+            boolean changed =
+                    isLoading != loading || hasMore != moreAvailable;
 
-        if (changed) {
-            notifyPaginationFooterChanged();
-        }
+            isLoading = loading;
+            hasMore = moreAvailable;
+
+            if (changed) {
+                notifyPaginationFooterChanged();
+            }
+        });
     }
 
     /**
-     * RecyclerView can reject adapter notifications while it is computing a
-     * layout. Defer the footer notification until the current layout finishes.
+     * Defers adapter updates while RecyclerView is measuring, laying out,
+     * or scrolling. The callback is ignored if this adapter has been detached
+     * or attached to a different RecyclerView in the meantime.
      */
-    private void notifyPaginationFooterChanged() {
+    private void runWhenLayoutIsSafe(Runnable action) {
+
+        if (action == null) {
+            return;
+        }
 
         RecyclerView recyclerView = attachedRecyclerView;
 
@@ -264,21 +394,28 @@ public class DictionaryAdapter
 
             recyclerView.post(() -> {
 
-                // Do not notify through a RecyclerView this adapter left.
                 if (attachedRecyclerView != recyclerView) {
                     return;
                 }
 
-                int footerPosition = wordList.size();
-
-                if (footerPosition < getItemCount()) {
-                    notifyItemChanged(footerPosition);
-                }
+                action.run();
             });
 
         } else {
-            notifyItemChanged(wordList.size());
+            action.run();
         }
+    }
+
+    private void notifyPaginationFooterChanged() {
+
+        runWhenLayoutIsSafe(() -> {
+
+            int footerPosition = wordList.size();
+
+            if (footerPosition < getItemCount()) {
+                notifyItemChanged(footerPosition);
+            }
+        });
     }
 
     @Override
@@ -518,31 +655,34 @@ public class DictionaryAdapter
                 FavoriteRepository.TYPE_DICTIONARY,
                 favorites -> {
 
-                    favoriteKeys.clear();
+                    runWhenLayoutIsSafe(() -> {
 
-                    if (favorites != null) {
+                        favoriteKeys.clear();
 
-                        for (FavoriteEntity favorite : favorites) {
+                        if (favorites != null) {
 
-                            if (favorite == null) {
-                                continue;
+                            for (FavoriteEntity favorite : favorites) {
+
+                                if (favorite == null) {
+                                    continue;
+                                }
+
+                                favoriteKeys.add(
+                                        createFavoriteKey(
+                                                favorite.getIlokanoText(),
+                                                favorite.getEnglishText(),
+                                                favorite.getTagalogText()
+                                        )
+                                );
                             }
-
-                            favoriteKeys.add(
-                                    createFavoriteKey(
-                                            favorite.getIlokanoText(),
-                                            favorite.getEnglishText(),
-                                            favorite.getTagalogText()
-                                    )
-                            );
                         }
-                    }
 
-                    favoritesLoaded = true;
-                    favoritesLoading = false;
+                        favoritesLoaded = true;
+                        favoritesLoading = false;
 
-                    // Refresh visible heart icons.
-                    notifyItemRangeChanged(0, getItemCount());
+                        // Refresh visible heart icons safely.
+                        notifyItemRangeChanged(0, getItemCount());
+                    });
                 }
         );
     }
@@ -846,13 +986,17 @@ public class DictionaryAdapter
 
     public void filterList(List<Word> words) {
 
-        allWords.clear();
+        // Copy the incoming list so later repository changes cannot mutate
+        // the adapter's backing data unexpectedly.
+        final List<Word> replacement = words == null
+                ? new ArrayList<>()
+                : new ArrayList<>(words);
 
-        if (words != null) {
-            allWords.addAll(words);
-        }
-
-        applyFilters();
+        runWhenLayoutIsSafe(() -> {
+            allWords.clear();
+            allWords.addAll(replacement);
+            applyFilters();
+        });
     }
 
     // =========================================================
@@ -864,6 +1008,13 @@ public class DictionaryAdapter
         if (words == null || words.isEmpty()) {
             return;
         }
+
+        final List<Word> incomingWords = new ArrayList<>(words);
+
+        runWhenLayoutIsSafe(() -> addItemsNow(incomingWords));
+    }
+
+    private void addItemsNow(List<Word> words) {
 
         // Build lookup sets once.
         // This avoids scanning the entire existing list for every word.
