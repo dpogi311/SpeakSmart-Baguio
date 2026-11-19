@@ -1,21 +1,24 @@
-
 package com.example.speaksmartbaguio;
 
+import android.animation.ObjectAnimator;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.text.Html;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.Button;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.text.Html;
+
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class FirstTimeGuideActivity extends AppCompatActivity {
-
+    public static final String EXTRA_FROM_SETTINGS = "from_settings";
     private static final String PREFS_NAME = "FirstTimeGuidePrefs";
     private static final String KEY_COMPLETED = "guide_completed";
 
@@ -45,6 +48,7 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
 
     private int currentPage = 0;
     private int pageWidth = 0;
+    private boolean isFinishingGuide = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -111,8 +115,8 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
             pageScroller.scrollTo(0, 0);
 
             updateNavigation();
+            animatePageReveal(0);
         });
-
     }
 
     private void setupPageIndicators() {
@@ -121,14 +125,12 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
 
         for (int i = 0; i < PAGE_LAYOUTS.length; i++) {
 
-
             TextView dot = new TextView(this);
 
             dot.setText("●");
             dot.setTextSize(13);
             dot.setPadding(7, 5, 7, 5);
             dot.setTextColor(COLOR_MUTED);
-
 
             dotsContainer.addView(dot);
         }
@@ -141,36 +143,43 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
         for (int i = 0; i < dotsContainer.getChildCount(); i++) {
 
             TextView dot = (TextView) dotsContainer.getChildAt(i);
+            boolean isActive = (i == currentPage);
 
-            if (i == currentPage) {
-                dot.setTextColor(COLOR_BRIGHT_TEAL);
-                dot.setTextSize(16);
-            } else {
-                dot.setTextColor(COLOR_MUTED);
-                dot.setTextSize(12);
-            }
+            dot.setTextColor(isActive ? COLOR_BRIGHT_TEAL : COLOR_MUTED);
+            dot.setTextSize(isActive ? 15 : 12);
+
+            dot.animate().cancel();
+            dot.animate()
+                    .scaleX(isActive ? 1.25f : 0.9f)
+                    .scaleY(isActive ? 1.25f : 0.9f)
+                    .alpha(isActive ? 1f : 0.55f)
+                    .setDuration(200L)
+                    .setInterpolator(
+                            isActive
+                                    ? new OvershootInterpolator(1.6f)
+                                    : new DecelerateInterpolator()
+                    )
+                    .start();
         }
     }
 
     private void setupNavigation() {
 
-        btnBack.setOnClickListener(v -> {
-
+        btnBack.setOnClickListener(v -> animateButtonTap(v, () -> {
             if (currentPage > 0) {
                 goToPage(currentPage - 1);
             }
-        });
+        }));
 
-        btnNext.setOnClickListener(v -> {
-
+        btnNext.setOnClickListener(v -> animateButtonTap(v, () -> {
             if (currentPage < PAGE_LAYOUTS.length - 1) {
                 goToPage(currentPage + 1);
             } else {
                 finishGuide();
             }
-        });
+        }));
 
-        btnSkip.setOnClickListener(v -> finishGuide());
+        btnSkip.setOnClickListener(v -> animateButtonTap(v, this::finishGuide));
 
         updateNavigation();
     }
@@ -180,9 +189,28 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
         boolean isFirstPage = currentPage == 0;
         boolean isLastPage = currentPage == PAGE_LAYOUTS.length - 1;
 
-        btnBack.setVisibility(
-                isFirstPage ? View.INVISIBLE : View.VISIBLE
-        );
+        if (isFirstPage) {
+            if (btnBack.getVisibility() == View.VISIBLE) {
+                btnBack.animate()
+                        .alpha(0f)
+                        .setDuration(150L)
+                        .withEndAction(() -> btnBack.setVisibility(View.INVISIBLE))
+                        .start();
+            } else {
+                btnBack.setVisibility(View.INVISIBLE);
+                btnBack.setAlpha(0f);
+            }
+        } else {
+            if (btnBack.getVisibility() != View.VISIBLE) {
+                btnBack.setAlpha(0f);
+                btnBack.setVisibility(View.VISIBLE);
+            }
+            btnBack.animate()
+                    .alpha(1f)
+                    .setDuration(200L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        }
 
         if (isLastPage) {
             btnNext.setText("Get Started");
@@ -202,14 +230,74 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
         currentPage = page;
 
         if (pageWidth > 0) {
-
-            pageScroller.smoothScrollTo(
-                    page * pageWidth,
-                    0
+            int targetX = page * pageWidth;
+            ObjectAnimator scrollAnimator = ObjectAnimator.ofInt(
+                    pageScroller,
+                    "scrollX",
+                    targetX
             );
+            scrollAnimator.setDuration(320L);
+            scrollAnimator.setInterpolator(new DecelerateInterpolator(1.4f));
+            scrollAnimator.start();
         }
 
+        animatePageReveal(page);
         updateNavigation();
+    }
+
+    private void animatePageReveal(int pageIndex) {
+
+        if (pagesContainer == null
+                || pageIndex < 0
+                || pageIndex >= pagesContainer.getChildCount()) {
+            return;
+        }
+
+        View pageView = pagesContainer.getChildAt(pageIndex);
+        if (pageView == null) {
+            return;
+        }
+
+        pageView.animate().cancel();
+        pageView.setAlpha(0.55f);
+        pageView.setScaleX(0.96f);
+        pageView.setScaleY(0.96f);
+        pageView.animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(280L)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+    }
+
+    private void animateButtonTap(View view, Runnable action) {
+
+        if (view == null) {
+            if (action != null) {
+                action.run();
+            }
+            return;
+        }
+
+        view.animate().cancel();
+        view.animate()
+                .scaleX(0.94f)
+                .scaleY(0.94f)
+                .setDuration(75L)
+                .withEndAction(() -> {
+                    view.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(100L)
+                            .setInterpolator(new OvershootInterpolator(1.2f))
+                            .start();
+
+                    if (action != null) {
+                        action.run();
+                    }
+                })
+                .start();
     }
 
     private void setupBackNavigation() {
@@ -233,15 +321,53 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
 
     private void finishGuide() {
 
-        SharedPreferences preferences =
-                getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        if (isFinishingGuide) {
+            return;
+        }
+        isFinishingGuide = true;
 
-        preferences.edit()
-                .putBoolean(
-                        KEY_COMPLETED,
-                        !ALWAYS_SHOW_GUIDE_FOR_TESTING
-                )
-                .apply();
+        boolean openedFromSettings = getIntent() != null
+                && getIntent().getBooleanExtra(EXTRA_FROM_SETTINGS, false);
+
+        if (!openedFromSettings) {
+            SharedPreferences preferences =
+                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+
+            preferences.edit()
+                    .putBoolean(
+                            KEY_COMPLETED,
+                            !ALWAYS_SHOW_GUIDE_FOR_TESTING
+                    )
+                    .apply();
+        }
+
+        View rootView = findViewById(android.R.id.content);
+
+        if (openedFromSettings) {
+            if (rootView != null) {
+                rootView.animate()
+                        .alpha(0f)
+                        .scaleX(1.02f)
+                        .scaleY(1.02f)
+                        .setDuration(200L)
+                        .setInterpolator(new DecelerateInterpolator())
+                        .withEndAction(() -> {
+                            finish();
+                            overridePendingTransition(
+                                    R.anim.slide_in_left,
+                                    R.anim.slide_out_right
+                            );
+                        })
+                        .start();
+            } else {
+                finish();
+                overridePendingTransition(
+                        R.anim.slide_in_left,
+                        R.anim.slide_out_right
+                );
+            }
+            return;
+        }
 
         Intent intent = new Intent(
                 FirstTimeGuideActivity.this,
@@ -253,7 +379,29 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
                         Intent.FLAG_ACTIVITY_CLEAR_TASK
         );
 
-        startActivity(intent);
-        finish();
+        if (rootView != null) {
+            rootView.animate()
+                    .alpha(0f)
+                    .scaleX(1.02f)
+                    .scaleY(1.02f)
+                    .setDuration(220L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .withEndAction(() -> {
+                        startActivity(intent);
+                        overridePendingTransition(
+                                android.R.anim.fade_in,
+                                android.R.anim.fade_out
+                        );
+                        finish();
+                    })
+                    .start();
+        } else {
+            startActivity(intent);
+            overridePendingTransition(
+                    android.R.anim.fade_in,
+                    android.R.anim.fade_out
+            );
+            finish();
+        }
     }
 }

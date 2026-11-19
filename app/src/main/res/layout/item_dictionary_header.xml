@@ -26,6 +26,7 @@
             android:textColor="@color/cyan_primary"
             android:textSize="12sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_label"
             android:letterSpacing="0.18" />
 
         <ImageButton
@@ -50,6 +51,7 @@
         android:textColor="@color/text_primary"
         android:textSize="28sp"
         android:textStyle="bold"
+        android:fontFamily="@font/font_display"
         android:layout_marginBottom="6dp" />
 
     <TextView
@@ -58,6 +60,7 @@
         android:text="Explore English and Tagalog meanings in Ilokano."
         android:textColor="@color/text_secondary"
         android:textSize="14sp"
+        android:fontFamily="@font/font_body"
         android:lineSpacingExtra="3dp"
         android:layout_marginBottom="20dp" />
 
@@ -75,7 +78,7 @@
         app:boxCornerRadiusTopEnd="16dp"
         app:boxCornerRadiusBottomStart="16dp"
         app:boxCornerRadiusBottomEnd="16dp"
-        app:startIconDrawable="@android:drawable/ic_menu_search"
+        app:startIconDrawable="@drawable/ic_search_modern"
         app:startIconTint="@color/cyan_primary"
         app:hintTextColor="@color/cyan_primary"
         app:expandedHintEnabled="true">
@@ -93,7 +96,8 @@
             android:inputType="text"
             android:textColor="@color/text_primary"
             android:textColorHint="@color/text_secondary"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:fontFamily="@font/font_body" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -105,6 +109,7 @@
         android:textColor="@color/text_secondary"
         android:textSize="11sp"
         android:textStyle="bold"
+        android:fontFamily="@font/font_label"
         android:letterSpacing="0.10"
         android:layout_marginTop="18dp"
         android:layout_marginBottom="8dp" />
@@ -143,6 +148,7 @@
             android:textColorHint="@color/text_secondary"
             android:textSize="16sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_body"
             android:inputType="none"
             android:focusable="true"
             android:clickable="true" />
@@ -191,6 +197,7 @@
             android:textColor="@color/cyan_primary"
             android:textSize="12sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_label"
             android:letterSpacing="0.10"
             android:layout_marginBottom="10dp" />
 
@@ -206,6 +213,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="A–Z"
+                android:fontFamily="@font/font_body"
                 android:textColor="@color/text_primary"
                 android:buttonTint="@color/cyan_primary"
                 android:checked="true" />
@@ -216,6 +224,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Z–A"
+                android:fontFamily="@font/font_body"
                 android:textColor="@color/text_primary"
                 android:buttonTint="@color/cyan_primary" />
 
@@ -236,6 +245,7 @@
                 android:layout_weight="1"
                 android:text="Reset"
                 android:textAllCaps="false"
+                android:fontFamily="@font/font_body"
                 android:textColor="@color/cyan_primary"
                 app:strokeColor="@color/cyan_deep"
                 app:cornerRadius="12dp" />
@@ -249,6 +259,7 @@
                 android:text="Apply"
                 android:textAllCaps="false"
                 android:textStyle="bold"
+                android:fontFamily="@font/font_body"
                 android:textColor="@color/text_on_cyan"
                 app:backgroundTint="@color/cyan_primary"
                 app:cornerRadius="12dp" />
@@ -266,6 +277,7 @@
         android:textColor="@color/cyan_secondary"
         android:textSize="11sp"
         android:textStyle="bold"
+        android:fontFamily="@font/font_label"
         android:letterSpacing="0.14" />
 
     <TextView
@@ -275,6 +287,7 @@
         android:textColor="@color/text_primary"
         android:textSize="20sp"
         android:textStyle="bold"
+        android:fontFamily="@font/font_display"
         android:layout_marginBottom="4dp" />
 
     <TextView
@@ -283,6 +296,7 @@
         android:text="Search to discover word meanings and pronunciations."
         android:textColor="@color/text_secondary"
         android:textSize="13sp"
+        android:fontFamily="@font/font_body"
         android:lineSpacingExtra="2dp"
         android:layout_marginBottom="8dp" />
 
@@ -311,6 +325,7 @@
         android:text="No words found"
         android:textColor="@color/text_secondary"
         android:textSize="15sp"
+        android:fontFamily="@font/font_body"
         android:visibility="gone" />
 
 </LinearLayout>

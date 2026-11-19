@@ -41,6 +41,7 @@
                 android:textColor="@color/cyan_primary"
                 android:textSize="20sp"
                 android:textStyle="bold"
+                android:fontFamily="@font/font_display"
                 android:lineSpacingExtra="3dp"
                 android:maxLines="3"
                 android:ellipsize="end" />
@@ -53,6 +54,7 @@
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp"
                 android:textStyle="italic"
+                android:fontFamily="@font/font_label"
                 android:visibility="gone" />
 
             <TextView
@@ -62,6 +64,7 @@
                 android:layout_marginTop="12dp"
                 android:textColor="@color/text_primary"
                 android:textSize="16sp"
+                android:fontFamily="@font/font_body"
                 android:lineSpacingExtra="4dp"
                 android:maxLines="4"
                 android:ellipsize="end" />
@@ -72,7 +75,8 @@
                 android:layout_marginTop="10dp"
                 android:text="Tap to view phrase details"
                 android:textColor="@color/text_secondary"
-                android:textSize="11sp" />
+                android:textSize="11sp"
+                android:fontFamily="@font/font_label" />
 
         </LinearLayout>
 

@@ -21,7 +21,7 @@
         android:scaleX="0.8"
         android:scaleY="0.8" />
 
-    <!-- APP NAME -->
+    <!-- APP NAME (Poppins Display) -->
     <TextView
         android:id="@+id/textAppTitle"
         android:layout_width="match_parent"
@@ -35,13 +35,13 @@
         android:textColor="@color/text_primary"
         android:textSize="29sp"
         android:textStyle="bold"
-        android:fontFamily="sans-serif-black"
-        android:letterSpacing="0.08"
+        android:fontFamily="@font/font_display"
+        android:letterSpacing="0.06"
         android:lineSpacingExtra="1dp"
         android:includeFontPadding="false"
         android:alpha="0" />
 
-    <!-- DEVELOPER CREDIT -->
+    <!-- DEVELOPER CREDIT (Space Grotesk Label) -->
     <TextView
         android:id="@+id/textDeveloperCredit"
         android:layout_width="match_parent"
@@ -51,10 +51,10 @@
         android:gravity="center"
         android:text="DEVELOPED BY"
         android:textColor="@color/text_secondary"
-        android:textSize="10sp"
+        android:textSize="10.5sp"
         android:textStyle="bold"
-        android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.28"
+        android:fontFamily="@font/font_label"
+        android:letterSpacing="0.24"
         android:includeFontPadding="false"
         android:alpha="0" />
 
@@ -69,7 +69,7 @@
         android:layout_centerHorizontal="true"
         android:layout_marginTop="19dp" />
 
-    <!-- MAIN TAGLINE -->
+    <!-- MAIN TAGLINE (Space Grotesk Label) -->
     <TextView
         android:id="@+id/textGroupSub"
         android:layout_width="match_parent"
@@ -83,12 +83,12 @@
         android:textColor="@color/text_primary"
         android:textSize="12sp"
         android:textStyle="bold"
-        android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.12"
+        android:fontFamily="@font/font_label"
+        android:letterSpacing="0.11"
         android:includeFontPadding="false"
         android:alpha="0" />
 
-    <!-- SECONDARY TAGLINE -->
+    <!-- SECONDARY TAGLINE (Inter Body) -->
     <TextView
         android:id="@+id/textBifrostSub"
         android:layout_width="match_parent"
@@ -100,9 +100,10 @@
         android:gravity="center"
         android:text="BRIDGING LANGUAGES&#10;&amp; CONNECTING CULTURES"
         android:textColor="@color/text_secondary"
-        android:textSize="10sp"
-        android:fontFamily="sans-serif"
-        android:letterSpacing="0.09"
+        android:textSize="10.5sp"
+        android:textStyle="normal"
+        android:fontFamily="@font/font_body"
+        android:letterSpacing="0.07"
         android:lineSpacingExtra="4dp"
         android:includeFontPadding="false"
         android:alpha="0" />

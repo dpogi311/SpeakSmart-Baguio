@@ -1,7 +1,7 @@
-
 package com.example.speaksmartbaguio;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
@@ -14,12 +14,16 @@ import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.RelativeSizeSpan;
+import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.content.SharedPreferences;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
 public class SplashActivity extends AppCompatActivity {
@@ -72,6 +76,28 @@ public class SplashActivity extends AppCompatActivity {
             );
         }
 
+        View rootView = findViewById(android.R.id.content);
+        if (rootView != null) {
+            rootView.animate()
+                    .alpha(0f)
+                    .scaleX(1.03f)
+                    .scaleY(1.03f)
+                    .setDuration(280L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .withEndAction(() -> launchDestination(intent))
+                    .start();
+        } else {
+            launchDestination(intent);
+        }
+    };
+
+
+    private void launchDestination(Intent intent) {
+
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+
         startActivity(intent);
 
         overridePendingTransition(
@@ -80,7 +106,7 @@ public class SplashActivity extends AppCompatActivity {
         );
 
         finish();
-    };
+    }
 
 
     // ==========================================
@@ -172,40 +198,47 @@ public class SplashActivity extends AppCompatActivity {
         setupAppTitle(textAppTitle, tealEnd);
 
         // ==========================================
-        // SCENE 2: LOGO REVEAL
+        // SCENE 2: LOGO REVEAL + GENTLE PULSE
         // ==========================================
 
+        splashLogo.setAlpha(0f);
+        splashLogo.setScaleX(0.82f);
+        splashLogo.setScaleY(0.82f);
         splashLogo.animate()
                 .alpha(1f)
                 .scaleX(1f)
                 .scaleY(1f)
-                .setDuration(900)
+                .setDuration(850L)
+                .setInterpolator(new OvershootInterpolator(1.25f))
+                .withEndAction(() -> startLogoPulse(splashLogo))
                 .start();
 
         // ==========================================
         // SCENE 3: APP TITLE REVEAL
         // ==========================================
 
-        textAppTitle.setTranslationY(16f);
+        textAppTitle.setTranslationY(20f);
 
         textAppTitle.animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setStartDelay(450)
-                .setDuration(850)
+                .setStartDelay(420L)
+                .setDuration(800L)
+                .setInterpolator(new DecelerateInterpolator())
                 .start();
 
         // ==========================================
         // SCENE 4: DEVELOPER CREDIT
         // ==========================================
 
-        textDeveloperCredit.setTranslationY(12f);
+        textDeveloperCredit.setTranslationY(14f);
 
         textDeveloperCredit.animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setStartDelay(850)
-                .setDuration(800)
+                .setStartDelay(800L)
+                .setDuration(750L)
+                .setInterpolator(new DecelerateInterpolator())
                 .start();
 
         // ==========================================
@@ -219,7 +252,7 @@ public class SplashActivity extends AppCompatActivity {
         );
 
         // ==========================================
-        // SCENE 6: START LETTER ANIMATION
+        // SCENE 6: START CASCADING LETTER ANIMATION
         // ==========================================
 
         handler.postDelayed(() -> {
@@ -228,9 +261,8 @@ public class SplashActivity extends AppCompatActivity {
                 return;
             }
 
-            animateLetters(
+            animateLettersWave(
                     letterContainer,
-                    0,
                     () -> revealTagline(
                             textGroupSub,
                             textBifrostSub,
@@ -238,7 +270,7 @@ public class SplashActivity extends AppCompatActivity {
                     )
             );
 
-        }, 1600);
+        }, 1450L);
 
         // ==========================================
         // SCENE 7: OPEN HOME
@@ -248,6 +280,36 @@ public class SplashActivity extends AppCompatActivity {
                 openHome,
                 SPLASH_DELAY
         );
+    }
+
+    // ==========================================
+    // SUBTLE LOGO BREATHING PULSE
+    // ==========================================
+
+    private void startLogoPulse(ImageView splashLogo) {
+
+        if (isFinishing() || isDestroyed() || navigationStarted) {
+            return;
+        }
+
+        splashLogo.animate()
+                .scaleX(1.035f)
+                .scaleY(1.035f)
+                .setDuration(1400L)
+                .setInterpolator(new DecelerateInterpolator())
+                .withEndAction(() -> {
+                    if (isFinishing() || isDestroyed() || navigationStarted) {
+                        return;
+                    }
+                    splashLogo.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(1400L)
+                            .setInterpolator(new DecelerateInterpolator())
+                            .withEndAction(() -> startLogoPulse(splashLogo))
+                            .start();
+                })
+                .start();
     }
 
     // ==========================================
@@ -281,12 +343,14 @@ public class SplashActivity extends AppCompatActivity {
 
         title.setText(appTitle);
 
-        title.setTypeface(
-                Typeface.create(
-                        "sans-serif-black",
-                        Typeface.BOLD
-                )
+        Typeface displayFont = ResourcesCompat.getFont(
+                this,
+                R.font.font_display
         );
+
+        if (displayFont != null) {
+            title.setTypeface(displayFont, Typeface.BOLD);
+        }
 
         title.setShadowLayer(
                 16f,
@@ -308,6 +372,11 @@ public class SplashActivity extends AppCompatActivity {
 
         container.removeAllViews();
 
+        Typeface displayFont = ResourcesCompat.getFont(
+                this,
+                R.font.font_display
+        );
+
         for (char c : GROUP_NAME.toCharArray()) {
 
             TextView letter = new TextView(this);
@@ -316,12 +385,9 @@ public class SplashActivity extends AppCompatActivity {
 
             letter.setTextSize(39f);
 
-            letter.setTypeface(
-                    Typeface.create(
-                            "sans-serif-black",
-                            Typeface.BOLD
-                    )
-            );
+            if (displayFont != null) {
+                letter.setTypeface(displayFont, Typeface.BOLD);
+            }
 
             letter.setAlpha(0f);
 
@@ -367,12 +433,11 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     // ==========================================
-    // LETTER-BY-LETTER ANIMATION
+    // CASCADING WAVE LETTER ANIMATION
     // ==========================================
 
-    private void animateLetters(
+    private void animateLettersWave(
             LinearLayout container,
-            int index,
             Runnable onComplete
     ) {
 
@@ -380,33 +445,31 @@ public class SplashActivity extends AppCompatActivity {
             return;
         }
 
-        if (index >= container.getChildCount()) {
+        int count = container.getChildCount();
+        if (count == 0) {
             onComplete.run();
             return;
         }
 
-        TextView letter =
-                (TextView) container.getChildAt(index);
+        for (int i = 0; i < count; i++) {
+            final boolean isLast = (i == count - 1);
+            TextView letter = (TextView) container.getChildAt(i);
 
-        letter.setTranslationY(12f);
+            letter.setTranslationY(16f);
+            letter.setScaleX(0.8f);
+            letter.setScaleY(0.8f);
 
-        letter.setScaleX(0.85f);
-        letter.setScaleY(0.85f);
-
-        letter.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .scaleX(1f)
-                .scaleY(1f)
-                .setDuration(180)
-                .withEndAction(() ->
-                        animateLetters(
-                                container,
-                                index + 1,
-                                onComplete
-                        )
-                )
-                .start();
+            letter.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setStartDelay(i * 75L)
+                    .setDuration(280L)
+                    .setInterpolator(new OvershootInterpolator(1.5f))
+                    .withEndAction(isLast ? onComplete : null)
+                    .start();
+        }
     }
 
     // ==========================================
@@ -423,12 +486,13 @@ public class SplashActivity extends AppCompatActivity {
             return;
         }
 
-        tagline.setTranslationY(8f);
+        tagline.setTranslationY(10f);
 
         tagline.animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setDuration(750)
+                .setDuration(650L)
+                .setInterpolator(new DecelerateInterpolator())
                 .withEndAction(() ->
                         revealSecondaryTagline(
                                 secondaryTagline,
@@ -451,12 +515,13 @@ public class SplashActivity extends AppCompatActivity {
             return;
         }
 
-        tagline.setTranslationY(6f);
+        tagline.setTranslationY(8f);
 
         tagline.animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setDuration(650)
+                .setDuration(550L)
+                .setInterpolator(new DecelerateInterpolator())
                 .withEndAction(() ->
                         revealSpinner(loader)
                 )
@@ -475,15 +540,20 @@ public class SplashActivity extends AppCompatActivity {
             return;
         }
 
+        loader.setScaleX(0.92f);
+        loader.setScaleY(0.92f);
         loader.animate()
                 .alpha(1f)
-                .setDuration(600)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(550L)
+                .setInterpolator(new DecelerateInterpolator())
                 .start();
     }
 
-    // ==========================================
+    // =========================================================
     // CLEANUP
-    // ==========================================
+    // =========================================================
 
     @Override
     protected void onDestroy() {

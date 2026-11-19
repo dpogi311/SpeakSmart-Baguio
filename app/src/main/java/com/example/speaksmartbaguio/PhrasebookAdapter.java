@@ -1,28 +1,39 @@
-
 package com.example.speaksmartbaguio;
 
+import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.ReplacementSpan;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.recyclerview.widget.DiffUtil;
+
 import androidx.annotation.NonNull;
+import androidx.core.content.res.ResourcesCompat;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.speaksmartbaguio.entity.FavoriteEntity;
 import com.example.speaksmartbaguio.repository.FavoriteRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +57,7 @@ public class PhrasebookAdapter
 
     private boolean isLoading = false;
     private boolean hasMore = true;
+    private int lastAnimatedPosition = -1;
 
     private RecyclerView attachedRecyclerView;
 
@@ -97,6 +109,18 @@ public class PhrasebookAdapter
         super.onDetachedFromRecyclerView(recyclerView);
     }
 
+    @Override
+    public void onViewDetachedFromWindow(
+            @NonNull RecyclerView.ViewHolder holder
+    ) {
+        super.onViewDetachedFromWindow(holder);
+        holder.itemView.animate().cancel();
+        holder.itemView.setAlpha(1f);
+        holder.itemView.setTranslationY(0f);
+        holder.itemView.setScaleX(1f);
+        holder.itemView.setScaleY(1f);
+    }
+
     /**
      * Executes adapter changes only when RecyclerView
      * is not computing its layout.
@@ -122,6 +146,80 @@ public class PhrasebookAdapter
         }
 
         action.run();
+    }
+
+    // ---------------------------------------------------------
+    // ANIMATION HELPERS
+    // ---------------------------------------------------------
+
+    private void animateItemEntrance(View itemView, int position) {
+        if (position > lastAnimatedPosition) {
+            lastAnimatedPosition = position;
+            itemView.animate().cancel();
+            itemView.setAlpha(0f);
+            itemView.setTranslationY(dpToPx(itemView.getContext(), 14f));
+            itemView.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(220L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        } else {
+            itemView.setAlpha(1f);
+            itemView.setTranslationY(0f);
+        }
+    }
+
+    private void animateHeartPop(TextView heartView, boolean isFavorite) {
+        heartView.animate().cancel();
+        if (isFavorite) {
+            heartView.setScaleX(0.75f);
+            heartView.setScaleY(0.75f);
+            heartView.animate()
+                    .scaleX(1.25f)
+                    .scaleY(1.25f)
+                    .setDuration(110L)
+                    .withEndAction(() -> heartView.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(140L)
+                            .setInterpolator(new OvershootInterpolator(2.0f))
+                            .start())
+                    .start();
+        } else {
+            heartView.animate()
+                    .scaleX(0.85f)
+                    .scaleY(0.85f)
+                    .setDuration(75L)
+                    .withEndAction(() -> heartView.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(100L)
+                            .setInterpolator(new DecelerateInterpolator())
+                            .start())
+                    .start();
+        }
+    }
+
+    private void animateTapBounce(View view, float downScale, Runnable action) {
+        view.animate().cancel();
+        view.animate()
+                .scaleX(downScale)
+                .scaleY(downScale)
+                .setDuration(70L)
+                .withEndAction(() -> {
+                    view.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(100L)
+                            .setInterpolator(new OvershootInterpolator(1.3f))
+                            .start();
+
+                    if (action != null) {
+                        action.run();
+                    }
+                })
+                .start();
     }
 
     // ---------------------------------------------------------
@@ -338,44 +436,53 @@ public class PhrasebookAdapter
         }
 
         // Open phrase details.
-        holder.itemView.setOnClickListener(v -> {
+        holder.itemView.setOnClickListener(v ->
+                animateTapBounce(v, 0.97f, () -> {
+                    Context context = v.getContext();
+                    Intent intent = new Intent(
+                            context,
+                            PhraseDetailActivity.class
+                    );
 
-            Intent intent = new Intent(
-                    v.getContext(),
-                    PhraseDetailActivity.class
-            );
+                    intent.putExtra("id", phrase.getId());
+                    intent.putExtra("ilokano", ilokano);
+                    intent.putExtra("english", english);
+                    intent.putExtra("tagalog", tagalog);
+                    intent.putExtra("pos", partOfSpeech);
 
-            intent.putExtra("id", phrase.getId());
-            intent.putExtra("ilokano", ilokano);
-            intent.putExtra("english", english);
-            intent.putExtra("tagalog", tagalog);
-            intent.putExtra("pos", partOfSpeech);
+                    intent.putExtra(
+                            "category",
+                            safeText(phrase.getCategory())
+                    );
 
-            intent.putExtra(
-                    "category",
-                    safeText(phrase.getCategory())
-            );
+                    intent.putExtra(
+                            "englishSentence",
+                            safeText(phrase.getEnglishSentence())
+                    );
 
-            intent.putExtra(
-                    "englishSentence",
-                    safeText(phrase.getEnglishSentence())
-            );
+                    intent.putExtra(
+                            "sentence",
+                            safeText(phrase.getIlokanoSentence())
+                    );
 
-            intent.putExtra(
-                    "sentence",
-                    safeText(phrase.getIlokanoSentence())
-            );
-
-            v.getContext().startActivity(intent);
-        });
+                    context.startActivity(intent);
+                    if (context instanceof Activity) {
+                        ((Activity) context).overridePendingTransition(
+                                R.anim.slide_in_right,
+                                R.anim.slide_out_left
+                        );
+                    }
+                })
+        );
 
         // Play pronunciation.
-        holder.buttonPlayAudio.setOnClickListener(v -> {
-
-            if (clickListener != null) {
-                clickListener.onPlayClicked(phrase);
-            }
-        });
+        holder.buttonPlayAudio.setOnClickListener(v ->
+                animateTapBounce(v, 0.86f, () -> {
+                    if (clickListener != null) {
+                        clickListener.onPlayClicked(phrase);
+                    }
+                })
+        );
 
         holder.buttonPlayAudio.setContentDescription(
                 "Play pronunciation for " + ilokano
@@ -419,6 +526,8 @@ public class PhrasebookAdapter
                 holder.itemView.getContext(),
                 holder.itemView
         );
+
+        animateItemEntrance(holder.itemView, position);
     }
 
     // ---------------------------------------------------------
@@ -486,13 +595,17 @@ public class PhrasebookAdapter
                                                 true,
                                                 ilokano
                                         );
+                                        animateHeartPop(holder.buttonFavorite, true);
                                     }
 
-                                    Toast.makeText(
-                                            holder.itemView.getContext(),
-                                            message,
-                                            Toast.LENGTH_SHORT
-                                    ).show();
+                                    showModernNotification(
+                                            holder.itemView,
+                                            message != null && !message.trim().isEmpty()
+                                                    ? message
+                                                    : (success
+                                                    ? "Added to favorites"
+                                                    : "Could not save favorite")
+                                    );
                                 }
                         );
                     }
@@ -523,11 +636,10 @@ public class PhrasebookAdapter
 
                     if (favorites == null) {
 
-                        Toast.makeText(
-                                holder.itemView.getContext(),
-                                "Could not load Favorites.",
-                                Toast.LENGTH_SHORT
-                        ).show();
+                        showModernNotification(
+                                holder.itemView,
+                                "Could not load Favorites."
+                        );
 
                         return;
                     }
@@ -548,12 +660,12 @@ public class PhrasebookAdapter
                     if (match == null) {
 
                         setHeartState(holder, false, ilokano);
+                        animateHeartPop(holder.buttonFavorite, false);
 
-                        Toast.makeText(
-                                holder.itemView.getContext(),
-                                "Favorite was not found.",
-                                Toast.LENGTH_SHORT
-                        ).show();
+                        showModernNotification(
+                                holder.itemView,
+                                "Favorite was not found."
+                        );
 
                         return;
                     }
@@ -578,17 +690,66 @@ public class PhrasebookAdapter
                                             false,
                                             ilokano
                                     );
+                                    animateHeartPop(holder.buttonFavorite, false);
                                 }
 
-                                Toast.makeText(
-                                        holder.itemView.getContext(),
-                                        message,
-                                        Toast.LENGTH_SHORT
-                                ).show();
+                                showModernNotification(
+                                        holder.itemView,
+                                        message != null && !message.trim().isEmpty()
+                                                ? message
+                                                : (success
+                                                ? "Removed from favorites"
+                                                : "Could not remove favorite")
+                                );
                             }
                     );
                 }
         );
+    }
+
+    private void showModernNotification(View anchorView, String message) {
+
+        View targetView = attachedRecyclerView != null
+                ? attachedRecyclerView
+                : anchorView;
+
+        if (targetView == null) {
+            return;
+        }
+
+        try {
+            Snackbar snackbar = Snackbar.make(
+                    targetView,
+                    message,
+                    Snackbar.LENGTH_SHORT
+            );
+
+            snackbar.setBackgroundTint(Color.rgb(25, 35, 40));
+            snackbar.setTextColor(Color.WHITE);
+
+            TextView snackText = snackbar.getView().findViewById(
+                    com.google.android.material.R.id.snackbar_text
+            );
+            if (snackText != null) {
+                Typeface bodyFont = ResourcesCompat.getFont(
+                        targetView.getContext(),
+                        R.font.font_body
+                );
+                if (bodyFont != null) {
+                    snackText.setTypeface(bodyFont);
+                }
+            }
+
+            snackbar.setAnimationMode(Snackbar.ANIMATION_MODE_SLIDE);
+            snackbar.show();
+
+        } catch (Exception e) {
+            Toast.makeText(
+                    targetView.getContext(),
+                    message,
+                    Toast.LENGTH_SHORT
+            ).show();
+        }
     }
 
     private void setHeartState(
@@ -627,43 +788,121 @@ public class PhrasebookAdapter
     }
 
     // ---------------------------------------------------------
-    // PAGINATION FOOTER
+    // STYLED PAGINATION FOOTER ("LOADING MORE PHRASES" & "LOAD MORE")
     // ---------------------------------------------------------
 
     private void bindFooter(FooterViewHolder holder) {
 
+        Context context = holder.itemView.getContext();
+
+        // Tint the progress bar to match the app's teal/cyan accent.
+        holder.footerProgress.setIndeterminateTintList(
+                ColorStateList.valueOf(Color.parseColor("#06B8A8"))
+        );
+
+        Typeface labelFont = ResourcesCompat.getFont(
+                context,
+                R.font.font_label
+        );
+
+        holder.footerText.setGravity(Gravity.CENTER);
+        holder.footerText.setTypeface(
+                labelFont != null ? labelFont : Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+        holder.footerText.setLetterSpacing(0.05f);
+
         if (isLoading) {
 
-            holder.footerProgress.setVisibility(View.VISIBLE);
-            holder.footerText.setVisibility(View.GONE);
+            holder.footerProgress.setVisibility(View.GONE);
+            holder.footerText.setVisibility(View.VISIBLE);
+            holder.footerText.setText("Loading more phrases...");
+            holder.footerText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+            holder.footerText.setTextColor(Color.parseColor("#E0F2FE"));
+
+            // Subtle frosted status pill around the loading text.
+            GradientDrawable loadingPill = new GradientDrawable();
+            loadingPill.setShape(GradientDrawable.RECTANGLE);
+            loadingPill.setCornerRadius(dpToPx(context, 999f));
+            loadingPill.setColor(Color.parseColor("#661E293B"));
+            loadingPill.setStroke(
+                    dpToPx(context, 1f),
+                    Color.parseColor("#4D70D6ED")
+            );
+
+            holder.footerText.setBackground(loadingPill);
+            holder.footerText.setPadding(
+                    dpToPx(context, 18f),
+                    dpToPx(context, 8f),
+                    dpToPx(context, 18f),
+                    dpToPx(context, 8f)
+            );
+
+            holder.itemView.setVisibility(View.VISIBLE);
+            holder.itemView.setOnClickListener(null);
             holder.footerText.setOnClickListener(null);
+
+        } else if (hasMore && !items.isEmpty()) {
+
+            holder.footerProgress.setVisibility(View.GONE);
+            holder.footerText.setVisibility(View.VISIBLE);
+            holder.footerText.setText("LOAD MORE PHRASES");
+            holder.footerText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+            holder.footerText.setTextColor(Color.parseColor("#E0F2FE"));
+
+            // Sleek interactive Frosted Teal/Cyan Pill Button.
+            GradientDrawable loadMorePill = new GradientDrawable();
+            loadMorePill.setShape(GradientDrawable.RECTANGLE);
+            loadMorePill.setCornerRadius(dpToPx(context, 999f));
+            loadMorePill.setColor(Color.parseColor("#3306B8A8"));
+            loadMorePill.setStroke(
+                    dpToPx(context, 1.5f),
+                    Color.parseColor("#9970D6ED")
+            );
+
+            holder.footerText.setBackground(loadMorePill);
+            holder.footerText.setPadding(
+                    dpToPx(context, 24f),
+                    dpToPx(context, 11f),
+                    dpToPx(context, 24f),
+                    dpToPx(context, 11f)
+            );
+
+            holder.itemView.setVisibility(View.VISIBLE);
+
+            View.OnClickListener triggerLoadMore = v ->
+                    animateTapBounce(holder.footerText, 0.94f, () -> {
+                        if (loadMoreListener != null && !isLoading) {
+                            loadMoreListener.run();
+                        }
+                    });
+
+            holder.itemView.setOnClickListener(triggerLoadMore);
+            holder.footerText.setOnClickListener(triggerLoadMore);
 
         } else {
 
             holder.footerProgress.setVisibility(View.GONE);
+            holder.footerText.setVisibility(View.GONE);
 
-            if (hasMore && !items.isEmpty()) {
-
-                holder.footerText.setVisibility(View.VISIBLE);
-                holder.footerText.setText("Load more phrases");
-
-                holder.footerText.setOnClickListener(v -> {
-
-                    if (loadMoreListener != null && !isLoading) {
-                        loadMoreListener.run();
-                    }
-                });
-
-            } else {
-
-                holder.footerText.setVisibility(View.GONE);
-                holder.footerText.setOnClickListener(null);
-            }
+            holder.itemView.setVisibility(View.GONE);
+            holder.itemView.setOnClickListener(null);
+            holder.footerText.setOnClickListener(null);
         }
 
         AccessibilityPreferences.applyToViewTree(
                 holder.itemView.getContext(),
                 holder.itemView
+        );
+    }
+
+    private int dpToPx(Context context, float dp) {
+        return Math.round(
+                TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_DIP,
+                        dp,
+                        context.getResources().getDisplayMetrics()
+                )
         );
     }
 
@@ -683,6 +922,8 @@ public class PhrasebookAdapter
                 : new ArrayList<>();
 
         runWhenRecyclerViewIsReady(() -> {
+
+            lastAnimatedPosition = -1;
 
             List<Phrase> oldList = new ArrayList<>(items);
 
@@ -747,6 +988,7 @@ public class PhrasebookAdapter
             notifyItemChanged(footerPosition);
         });
     }
+
     private String getPhraseIdentity(Phrase phrase) {
 
         if (phrase == null) {
@@ -802,6 +1044,7 @@ public class PhrasebookAdapter
                 && safeText(oldPhrase.getIlokanoSentence())
                 .equals(safeText(newPhrase.getIlokanoSentence()));
     }
+
     public void addItems(List<Phrase> newItems) {
 
         if (newItems == null || newItems.isEmpty()) {

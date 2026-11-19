@@ -1,9 +1,10 @@
-
 package com.example.speaksmartbaguio;
 
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -12,21 +13,33 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.ArrayAdapter;
 import android.widget.Filter;
-import androidx.recyclerview.widget.RecyclerView;
+import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
+import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.ConcatAdapter;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.speaksmartbaguio.databinding.FragmentPhrasebookBinding;
 import com.example.speaksmartbaguio.databinding.ItemPhrasebookHeaderBinding;
 import com.example.speaksmartbaguio.mapper.EntityMapper;
 import com.example.speaksmartbaguio.repository.PhraseRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
+import com.example.speaksmartbaguio.utils.AudioPreferences;
 import com.example.speaksmartbaguio.utils.NetworkUtil;
 import com.example.speaksmartbaguio.utils.SettingsMenuHelper;
 import com.google.android.material.snackbar.Snackbar;
@@ -52,6 +65,12 @@ public class PhrasebookFragment extends Fragment {
     private PhrasebookAdapter adapter;
     private PhrasebookHeaderAdapter headerAdapter;
 
+    private RecyclerView.OnScrollListener scrollToTopScrollListener;
+
+    // Floating "Scroll to Top" arrow button created programmatically.
+    private TextView scrollToTopButton;
+    private boolean isScrollToTopVisible = false;
+
     private ApiService apiService;
     private PhraseRepository repository;
 
@@ -67,6 +86,9 @@ public class PhrasebookFragment extends Fragment {
     private boolean hasMore = true;
     private boolean isApplyingIncomingSearch = false;
     private boolean headerInitialized = false;
+
+    private SharedPreferences phrasePrefs;
+    private SharedPreferences.OnSharedPreferenceChangeListener phrasePrefListener;
 
     private final Handler searchHandler =
             new Handler(Looper.getMainLooper());
@@ -106,12 +128,136 @@ public class PhrasebookFragment extends Fragment {
 
         setupTextToSpeech();
         setupRecyclerView();
+        registerPreferenceListener();
+        setupScrollToTopButton();
+        animatePageEntrance();
 
         AccessibilityPreferences.applyToViewTree(
                 requireContext(),
                 view
         );
     }
+
+    private void registerPreferenceListener() {
+
+        phrasePrefs = requireContext().getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+        );
+
+        phrasePrefListener = (sharedPreferences, key) -> {
+            if (!KEY_LANGUAGE.equals(key) || !isAdded() || binding == null) {
+                return;
+            }
+
+            String updatedLang = sharedPreferences.getString(
+                    KEY_LANGUAGE,
+                    "English"
+            );
+
+            if (!"English".equals(updatedLang)
+                    && !"Tagalog".equals(updatedLang)) {
+                updatedLang = "English";
+            }
+
+            if (updatedLang.equals(selectedLanguage)) {
+                return;
+            }
+
+            selectedLanguage = updatedLang;
+
+            if (headerBinding != null) {
+                headerBinding.languageDropdown.setText(selectedLanguage, false);
+            }
+
+            if (adapter != null) {
+                adapter.setSelectedLanguage(selectedLanguage);
+            }
+        };
+
+        phrasePrefs.registerOnSharedPreferenceChangeListener(
+                phrasePrefListener
+        );
+    }
+
+    private void animatePageEntrance() {
+
+        if (binding == null) {
+            return;
+        }
+
+        RecyclerView recyclerView = binding.recyclerViewPhrasebook;
+        recyclerView.setAlpha(0f);
+        recyclerView.setTranslationY(dpToPx(16f));
+        recyclerView.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(280L)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+    }
+
+    private void animateButtonTap(@Nullable View view, @Nullable Runnable action) {
+
+        if (view == null) {
+            if (action != null) {
+                action.run();
+            }
+            return;
+        }
+
+        view.animate().cancel();
+        view.animate()
+                .scaleX(0.90f)
+                .scaleY(0.90f)
+                .setDuration(70L)
+                .withEndAction(() -> {
+                    view.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(100L)
+                            .setInterpolator(new OvershootInterpolator(1.3f))
+                            .start();
+
+                    if (action != null) {
+                        action.run();
+                    }
+                })
+                .start();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        // Sync language preference if changed from SettingsActivity.
+        if (isAdded()) {
+            String previousLanguage = selectedLanguage;
+            loadSavedLanguage();
+            if (!previousLanguage.equals(selectedLanguage)) {
+                if (headerBinding != null) {
+                    headerBinding.languageDropdown.setText(selectedLanguage, false);
+                }
+                if (adapter != null) {
+                    adapter.setSelectedLanguage(selectedLanguage);
+                }
+            }
+        }
+
+        // If the fragment was already alive and received new search arguments,
+        // apply them now once the header is initialized.
+        if (headerInitialized && headerBinding != null) {
+            Bundle args = getArguments();
+            if (args != null && args.containsKey(MainActivity.EXTRA_PHRASEBOOK_SEARCH)) {
+                incomingSearchHandled = false;
+                handleIncomingSearch();
+                if (!pendingSearchQuery.isEmpty()) {
+                    searchOfflinePhrases(pendingSearchQuery);
+                }
+            }
+        }
+    }
+
     // =========================================================
     // LOAD SAVED LANGUAGE
     // =========================================================
@@ -188,6 +334,26 @@ public class PhrasebookFragment extends Fragment {
                 true
         );
 
+        scrollToTopScrollListener =
+                new RecyclerView.OnScrollListener() {
+
+                    @Override
+                    public void onScrolled(
+                            @NonNull RecyclerView recyclerView,
+                            int dx,
+                            int dy
+                    ) {
+                        int firstVisible =
+                                layoutManager.findFirstVisibleItemPosition();
+
+                        updateScrollToTopButtonVisibility(firstVisible > 0);
+                    }
+                };
+
+        binding.recyclerViewPhrasebook.addOnScrollListener(
+                scrollToTopScrollListener
+        );
+
         binding.phrasebookFastScroller.attachToRecyclerView(
                 binding.recyclerViewPhrasebook
         );
@@ -198,6 +364,208 @@ public class PhrasebookFragment extends Fragment {
                         loadPhrases(false);
                     }
                 }
+        );
+    }
+
+    // =========================================================
+    // FLOATING "SCROLL TO TOP" ARROW BUTTON & TRANSITION
+    // =========================================================
+
+    private void setupScrollToTopButton() {
+
+        if (binding == null || !isAdded()) {
+            return;
+        }
+
+        View root = binding.getRoot();
+
+        if (!(root instanceof ViewGroup)) {
+            return;
+        }
+
+        ViewGroup rootGroup = (ViewGroup) root;
+
+        int sizePx = dpToPx(48f);
+        int bottomMarginPx = dpToPx(24f);
+        int endMarginPx = dpToPx(28f);
+
+        scrollToTopButton = new TextView(requireContext());
+        scrollToTopButton.setId(View.generateViewId());
+        scrollToTopButton.setText("↑");
+        scrollToTopButton.setGravity(Gravity.CENTER);
+        scrollToTopButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f);
+        scrollToTopButton.setTypeface(
+                Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        );
+        scrollToTopButton.setTextColor(Color.parseColor("#E0F2FE"));
+        scrollToTopButton.setContentDescription("Scroll to top");
+        scrollToTopButton.setElevation(dpToPx(8f));
+
+        // Frosted Dark-Teal Glass circle with a glowing cyan border.
+        GradientDrawable circleBg = new GradientDrawable();
+        circleBg.setShape(GradientDrawable.OVAL);
+        circleBg.setColor(Color.parseColor("#E6163242"));
+        circleBg.setStroke(
+                dpToPx(1.5f),
+                Color.parseColor("#CC70D6ED")
+        );
+        scrollToTopButton.setBackground(circleBg);
+
+        // Start hidden at the top of the list.
+        scrollToTopButton.setVisibility(View.GONE);
+        scrollToTopButton.setAlpha(0f);
+        scrollToTopButton.setScaleX(0.8f);
+        scrollToTopButton.setScaleY(0.8f);
+        isScrollToTopVisible = false;
+
+        // Smooth upward transition to top when tapped.
+        scrollToTopButton.setOnClickListener(v -> animateScrollToTop());
+
+        // Position in bottom-end corner regardless of root ViewGroup type.
+        if (rootGroup instanceof ConstraintLayout) {
+            ConstraintLayout.LayoutParams params =
+                    new ConstraintLayout.LayoutParams(sizePx, sizePx);
+            params.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+            params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+            params.bottomMargin = bottomMarginPx;
+            params.setMarginEnd(endMarginPx);
+            params.rightMargin = endMarginPx;
+            rootGroup.addView(scrollToTopButton, params);
+
+        } else if (rootGroup instanceof RelativeLayout) {
+            RelativeLayout.LayoutParams params =
+                    new RelativeLayout.LayoutParams(sizePx, sizePx);
+            params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+            params.addRule(RelativeLayout.ALIGN_PARENT_END);
+            params.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+            params.bottomMargin = bottomMarginPx;
+            params.setMarginEnd(endMarginPx);
+            params.rightMargin = endMarginPx;
+            rootGroup.addView(scrollToTopButton, params);
+
+        } else {
+            FrameLayout.LayoutParams params =
+                    new FrameLayout.LayoutParams(
+                            sizePx,
+                            sizePx,
+                            Gravity.BOTTOM | Gravity.END
+                    );
+            params.bottomMargin = bottomMarginPx;
+            params.setMarginEnd(endMarginPx);
+            params.rightMargin = endMarginPx;
+            rootGroup.addView(scrollToTopButton, params);
+        }
+    }
+
+    /**
+     * Performs a fast, fluid upward scroll transition to the top of the list
+     * and animates the arrow button launching upward.
+     */
+    private void animateScrollToTop() {
+
+        if (binding == null) {
+            return;
+        }
+
+        RecyclerView recyclerView = binding.recyclerViewPhrasebook;
+        recyclerView.stopScroll();
+
+        RecyclerView.LayoutManager lm = recyclerView.getLayoutManager();
+        if (lm instanceof LinearLayoutManager) {
+            int firstVisible =
+                    ((LinearLayoutManager) lm).findFirstVisibleItemPosition();
+
+            // If far down the list, snap close to the top first so the
+            // smooth scroll transition finishes quickly and fluidly.
+            if (firstVisible > 8) {
+                recyclerView.scrollToPosition(8);
+            }
+        }
+
+        recyclerView.post(() -> {
+            if (binding != null) {
+                binding.recyclerViewPhrasebook.smoothScrollToPosition(0);
+            }
+        });
+
+        // Subtle upward-glide entrance transition on the RecyclerView content.
+        recyclerView.animate().cancel();
+        recyclerView.setTranslationY(dpToPx(18f));
+        recyclerView.setAlpha(0.88f);
+        recyclerView.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(260L)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        // Launch-upward exit animation on the arrow button itself.
+        if (scrollToTopButton != null) {
+            isScrollToTopVisible = false;
+            scrollToTopButton.animate().cancel();
+            scrollToTopButton.animate()
+                    .translationY(-dpToPx(18f))
+                    .alpha(0f)
+                    .scaleX(0.85f)
+                    .scaleY(0.85f)
+                    .setDuration(200L)
+                    .withEndAction(() -> {
+                        if (scrollToTopButton != null) {
+                            scrollToTopButton.setTranslationY(0f);
+                            if (!isScrollToTopVisible) {
+                                scrollToTopButton.setVisibility(View.GONE);
+                            }
+                        }
+                    })
+                    .start();
+        }
+    }
+
+    private void updateScrollToTopButtonVisibility(boolean show) {
+
+        if (scrollToTopButton == null || isScrollToTopVisible == show) {
+            return;
+        }
+
+        isScrollToTopVisible = show;
+
+        scrollToTopButton.animate().cancel();
+
+        if (show) {
+            scrollToTopButton.setTranslationY(dpToPx(12f));
+            scrollToTopButton.setVisibility(View.VISIBLE);
+            scrollToTopButton.animate()
+                    .translationY(0f)
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(180L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        } else {
+            scrollToTopButton.animate()
+                    .translationY(dpToPx(10f))
+                    .alpha(0f)
+                    .scaleX(0.8f)
+                    .scaleY(0.8f)
+                    .setDuration(150L)
+                    .withEndAction(() -> {
+                        if (scrollToTopButton != null && !isScrollToTopVisible) {
+                            scrollToTopButton.setTranslationY(0f);
+                            scrollToTopButton.setVisibility(View.GONE);
+                        }
+                    })
+                    .start();
+        }
+    }
+
+    private int dpToPx(float dp) {
+        return Math.round(
+                TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_DIP,
+                        dp,
+                        getResources().getDisplayMetrics()
+                )
         );
     }
 
@@ -241,8 +609,15 @@ public class PhrasebookFragment extends Fragment {
 
             if (!pendingSearchQuery.isEmpty()) {
 
-                // Load matching online phrases.
-                loadPhrases(true);
+                // 1. Immediately display matching locally saved phrases first
+                //    (since Daily Phrase comes from local storage).
+                searchOfflinePhrases(pendingSearchQuery);
+
+                // 2. Also check online phrases if internet is available.
+                Context context = getContext();
+                if (context != null && NetworkUtil.isOnline(context)) {
+                    loadPhrases(true);
+                }
 
             } else {
 
@@ -260,6 +635,7 @@ public class PhrasebookFragment extends Fragment {
             }
         });
     }
+
     private void runWhenRecyclerViewIsIdle(Runnable action) {
 
         if (binding == null || !isAdded()) {
@@ -291,6 +667,7 @@ public class PhrasebookFragment extends Fragment {
             }
         });
     }
+
     // =========================================================
     // INCOMING SEARCH
     // =========================================================
@@ -355,7 +732,7 @@ public class PhrasebookFragment extends Fragment {
         }
 
         headerBinding.buttonSettingsMenu.setOnClickListener(
-                v -> SettingsMenuHelper.show(v)
+                v -> animateButtonTap(v, () -> SettingsMenuHelper.show(v))
         );
     }
 
@@ -389,8 +766,12 @@ public class PhrasebookFragment extends Fragment {
 
                     try {
 
-                        tts.setPitch(0.95f);
-                        tts.setSpeechRate(0.85f);
+                        if (isAdded()) {
+                            AudioPreferences.applyToTextToSpeech(
+                                    requireContext(),
+                                    tts
+                            );
+                        }
 
                         ttsReady = setBestAvailableTtsLanguage();
 
@@ -739,6 +1120,19 @@ public class PhrasebookFragment extends Fragment {
                 Color.WHITE
         );
 
+        TextView snackText = snackbar.getView().findViewById(
+                com.google.android.material.R.id.snackbar_text
+        );
+        if (snackText != null) {
+            Typeface bodyFont = ResourcesCompat.getFont(
+                    requireContext(),
+                    R.font.font_body
+            );
+            if (bodyFont != null) {
+                snackText.setTypeface(bodyFont);
+            }
+        }
+
         snackbar.setAnimationMode(
                 Snackbar.ANIMATION_MODE_SLIDE
         );
@@ -865,6 +1259,16 @@ public class PhrasebookFragment extends Fragment {
                                     items != null
                                             ? items
                                             : new ArrayList<>();
+
+                            // If the online API returned 0 matches for a search query,
+                            // fall back to local database search so Daily Phrase entries
+                            // (such as full Ilokano sentences) are never wiped out.
+                            if (reset && safeItems.isEmpty() && !requestedQuery.isEmpty()) {
+                                hasMore = false;
+                                adapter.setPaginationState(false, false);
+                                searchOfflinePhrases(requestedQuery);
+                                return;
+                            }
 
                             if (reset) {
 
@@ -1072,29 +1476,38 @@ public class PhrasebookFragment extends Fragment {
             return;
         }
 
-        if (phraseCount == 0) {
+        TextView emptyView = headerBinding.textViewEmpty;
 
-            headerBinding.textViewEmpty.setVisibility(
-                    View.VISIBLE
-            );
+        if (phraseCount == 0) {
 
             if (query != null && !query.trim().isEmpty()) {
 
-                headerBinding.textViewEmpty.setText(
+                emptyView.setText(
                         "No phrases found. Try another search."
                 );
 
             } else {
 
-                headerBinding.textViewEmpty.setText(
+                emptyView.setText(
                         "No phrases available yet. "
                                 + "Connect to the internet to refresh."
                 );
             }
 
+            if (emptyView.getVisibility() != View.VISIBLE) {
+                emptyView.setAlpha(0f);
+                emptyView.setVisibility(View.VISIBLE);
+                emptyView.animate()
+                        .alpha(1f)
+                        .setDuration(200L)
+                        .setInterpolator(new DecelerateInterpolator())
+                        .start();
+            }
+
         } else {
 
-            headerBinding.textViewEmpty.setVisibility(
+            emptyView.animate().cancel();
+            emptyView.setVisibility(
                     View.GONE
             );
         }
@@ -1138,6 +1551,11 @@ public class PhrasebookFragment extends Fragment {
 
             tts.stop();
 
+            AudioPreferences.applyToTextToSpeech(
+                    requireContext(),
+                    tts
+            );
+
             int result = tts.speak(
                     ilokanoText.trim(),
                     TextToSpeech.QUEUE_FLUSH,
@@ -1177,6 +1595,24 @@ public class PhrasebookFragment extends Fragment {
         mainHandler.removeCallbacksAndMessages(null);
 
         ttsReady = false;
+        isScrollToTopVisible = false;
+
+        if (phrasePrefs != null && phrasePrefListener != null) {
+            phrasePrefs.unregisterOnSharedPreferenceChangeListener(
+                    phrasePrefListener
+            );
+            phrasePrefListener = null;
+            phrasePrefs = null;
+        }
+
+        if (scrollToTopButton != null) {
+            scrollToTopButton.animate().cancel();
+            scrollToTopButton = null;
+        }
+
+        if (headerBinding != null) {
+            headerBinding.textViewEmpty.animate().cancel();
+        }
 
         if (tts != null) {
 
@@ -1199,6 +1635,14 @@ public class PhrasebookFragment extends Fragment {
 
         if (binding != null) {
 
+            binding.recyclerViewPhrasebook.animate().cancel();
+
+            if (scrollToTopScrollListener != null) {
+                binding.recyclerViewPhrasebook.removeOnScrollListener(
+                        scrollToTopScrollListener
+                );
+            }
+
             binding.phrasebookFastScroller.setOnReachBottomListener(
                     null
             );
@@ -1212,6 +1656,7 @@ public class PhrasebookFragment extends Fragment {
             );
         }
 
+        scrollToTopScrollListener = null;
         headerBinding = null;
         headerAdapter = null;
         adapter = null;

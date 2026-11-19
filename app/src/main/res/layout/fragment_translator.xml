@@ -36,6 +36,7 @@
                 android:textColor="@color/cyan_primary"
                 android:textSize="13sp"
                 android:textStyle="bold"
+                android:fontFamily="@font/font_label"
                 android:letterSpacing="0.16" />
 
             <ImageButton
@@ -63,6 +64,7 @@
             android:textColor="@color/text_primary"
             android:textSize="25sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_display"
             android:lineSpacingExtra="3dp" />
 
         <TextView
@@ -73,6 +75,7 @@
             android:text="Translate words and discover their meaning."
             android:textColor="@color/text_secondary"
             android:textSize="15sp"
+            android:fontFamily="@font/font_body"
             android:lineSpacingExtra="3dp" />
 
         <!-- LANGUAGE SELECTION -->
@@ -85,6 +88,7 @@
             android:textColor="@color/cyan_secondary"
             android:textSize="12sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_label"
             android:letterSpacing="0.12" />
 
         <!-- LANGUAGE DROPDOWN -->
@@ -121,6 +125,7 @@
                 android:textColorHint="@color/text_secondary"
                 android:textSize="16sp"
                 android:textStyle="bold"
+                android:fontFamily="@font/font_body"
                 android:inputType="none"
                 android:focusable="false"
                 android:clickable="true" />
@@ -137,6 +142,7 @@
             android:textColor="@color/cyan_secondary"
             android:textSize="12sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_label"
             android:letterSpacing="0.12" />
 
         <!-- INPUT FIELD -->
@@ -172,6 +178,7 @@
                 android:imeOptions="flagNoExtractUi"
                 android:textColor="@color/text_primary"
                 android:textSize="17sp"
+                android:fontFamily="@font/font_body"
                 android:lineSpacingExtra="4dp"
                 android:autofillHints="none" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -186,6 +193,7 @@
             android:textColor="@color/cyan_secondary"
             android:textSize="12sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_label"
             android:letterSpacing="0.12" />
 
         <!-- VOICE ACTION BUTTONS -->
@@ -232,7 +240,8 @@
                     android:text="Speak"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:fontFamily="@font/font_display" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -241,7 +250,8 @@
                     android:gravity="center"
                     android:text="Voice input"
                     android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    android:fontFamily="@font/font_body" />
             </LinearLayout>
 
             <!-- LISTEN BUTTON -->
@@ -280,7 +290,8 @@
                     android:text="Listen"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:fontFamily="@font/font_display" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -289,7 +300,8 @@
                     android:gravity="center"
                     android:text="Hear translation"
                     android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    android:fontFamily="@font/font_body" />
             </LinearLayout>
         </LinearLayout>
 
@@ -334,6 +346,7 @@
                         android:textColor="@color/text_secondary"
                         android:textSize="13sp"
                         android:textStyle="bold"
+                        android:fontFamily="@font/font_label"
                         android:letterSpacing="0.06"
                         android:accessibilityLiveRegion="polite" />
 
@@ -356,8 +369,8 @@
                     android:textColor="@color/text_primary"
                     android:textSize="19sp"
                     android:textStyle="bold"
+                    android:fontFamily="@font/font_display"
                     android:lineSpacingExtra="6dp"
-                    android:fontFamily="sans"
                     android:textIsSelectable="true" />
 
             </LinearLayout>
@@ -405,6 +418,7 @@
                         android:textColor="@color/cyan_primary"
                         android:textSize="13sp"
                         android:textStyle="bold"
+                        android:fontFamily="@font/font_label"
                         android:letterSpacing="0.06"
                         android:accessibilityLiveRegion="polite" />
 
@@ -427,8 +441,8 @@
                     android:textColor="@color/text_primary"
                     android:textSize="19sp"
                     android:textStyle="bold"
+                    android:fontFamily="@font/font_display"
                     android:lineSpacingExtra="6dp"
-                    android:fontFamily="sans"
                     android:textIsSelectable="true" />
 
             </LinearLayout>

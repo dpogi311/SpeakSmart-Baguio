@@ -27,6 +27,7 @@
             android:textColor="@color/cyan_primary"
             android:textSize="12sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_label"
             android:letterSpacing="0.18"
             android:includeFontPadding="false" />
 
@@ -56,6 +57,7 @@
         android:textColor="@color/text_primary"
         android:textSize="26sp"
         android:textStyle="bold"
+        android:fontFamily="@font/font_display"
         android:includeFontPadding="false" />
 
     <TextView
@@ -67,6 +69,7 @@
         android:text="Discover useful everyday phrases in Ilokano."
         android:textColor="@color/text_secondary"
         android:textSize="14sp"
+        android:fontFamily="@font/font_body"
         android:lineSpacingExtra="3dp" />
 
     <!-- SEARCH FIELD -->
@@ -86,7 +89,7 @@
         app:boxCornerRadiusBottomEnd="16dp"
         app:hintTextColor="@color/cyan_primary"
         app:expandedHintEnabled="true"
-        app:startIconDrawable="@android:drawable/ic_menu_search"
+        app:startIconDrawable="@drawable/ic_search_modern"
         app:startIconTint="@color/cyan_primary"
         app:endIconMode="clear_text"
         app:endIconTint="@color/text_secondary">
@@ -104,6 +107,7 @@
             android:textColor="@color/text_primary"
             android:textColorHint="@color/text_secondary"
             android:textSize="16sp"
+            android:fontFamily="@font/font_body"
             android:imeOptions="actionSearch" />
 
     </com.google.android.material.textfield.TextInputLayout>
@@ -118,6 +122,7 @@
         android:textColor="@color/text_secondary"
         android:textSize="11sp"
         android:textStyle="bold"
+        android:fontFamily="@font/font_label"
         android:letterSpacing="0.10" />
 
     <!-- TARGET LANGUAGE DROPDOWN -->
@@ -155,6 +160,7 @@
             android:textColorHint="@color/text_secondary"
             android:textSize="16sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_body"
             android:inputType="none"
             android:focusable="false"
             android:clickable="true" />
@@ -170,6 +176,7 @@
         android:textColor="@color/cyan_secondary"
         android:textSize="11sp"
         android:textStyle="bold"
+        android:fontFamily="@font/font_label"
         android:letterSpacing="0.14" />
 
     <TextView
@@ -179,7 +186,8 @@
         android:text="Useful Phrases"
         android:textColor="@color/text_primary"
         android:textSize="20sp"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+        android:fontFamily="@font/font_display" />
 
     <TextView
         android:layout_width="match_parent"
@@ -188,6 +196,7 @@
         android:text="Discover everyday expressions and learn how to communicate naturally in Ilokano."
         android:textColor="@color/text_secondary"
         android:textSize="13sp"
+        android:fontFamily="@font/font_body"
         android:lineSpacingExtra="2dp" />
 
     <!-- LOADING INDICATOR -->
@@ -214,6 +223,7 @@
         android:text="No phrases found"
         android:textColor="@color/text_primary"
         android:textSize="16sp"
+        android:fontFamily="@font/font_body"
         android:lineSpacingExtra="4dp"
         android:visibility="gone" />
 

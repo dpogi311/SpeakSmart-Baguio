@@ -37,6 +37,7 @@
                     android:textColor="@color/cyan_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
+                    android:fontFamily="@font/font_label"
                     android:letterSpacing="0.08" />
 
                 <TextView
@@ -46,7 +47,8 @@
                     android:text="Word Details"
                     android:textColor="@color/text_primary"
                     android:textSize="22sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:fontFamily="@font/font_display" />
 
             </LinearLayout>
 
@@ -87,6 +89,7 @@
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
+                    android:fontFamily="@font/font_label"
                     android:letterSpacing="0.12" />
 
                 <!-- WORD AND SPEAKER BUTTON -->
@@ -106,6 +109,7 @@
                         android:textColor="@color/cyan_primary"
                         android:textSize="30sp"
                         android:textStyle="bold"
+                        android:fontFamily="@font/font_display"
                         android:breakStrategy="high_quality"
                         android:lineSpacingExtra="2dp" />
 
@@ -146,7 +150,8 @@
                     android:paddingBottom="7dp"
                     android:textColor="@color/cyan_secondary"
                     android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:fontFamily="@font/font_label" />
 
                 <!-- CATEGORY -->
                 <TextView
@@ -155,7 +160,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:textColor="@color/text_secondary"
-                    android:textSize="14sp" />
+                    android:textSize="14sp"
+                    android:fontFamily="@font/font_body" />
 
             </LinearLayout>
 
@@ -169,7 +175,8 @@
             android:text="Translations"
             android:textColor="@color/text_primary"
             android:textSize="21sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:fontFamily="@font/font_display" />
 
         <TextView
             android:layout_width="match_parent"
@@ -177,7 +184,8 @@
             android:layout_marginTop="5dp"
             android:text="Understand the word in both languages."
             android:textColor="@color/text_secondary"
-            android:textSize="14sp" />
+            android:textSize="14sp"
+            android:fontFamily="@font/font_body" />
 
         <!-- ENGLISH CARD -->
         <com.google.android.material.card.MaterialCardView
@@ -215,6 +223,7 @@
                         android:textColor="@color/cyan_secondary"
                         android:textSize="12sp"
                         android:textStyle="bold"
+                        android:fontFamily="@font/font_label"
                         android:letterSpacing="0.10" />
 
                 </LinearLayout>
@@ -226,6 +235,7 @@
                     android:layout_marginTop="12dp"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
+                    android:fontFamily="@font/font_body"
                     android:lineSpacingExtra="3dp"
                     android:breakStrategy="high_quality" />
 
@@ -269,6 +279,7 @@
                         android:textColor="@color/cyan_secondary"
                         android:textSize="12sp"
                         android:textStyle="bold"
+                        android:fontFamily="@font/font_label"
                         android:letterSpacing="0.10" />
 
                 </LinearLayout>
@@ -280,6 +291,7 @@
                     android:layout_marginTop="12dp"
                     android:textColor="@color/text_primary"
                     android:textSize="18sp"
+                    android:fontFamily="@font/font_body"
                     android:lineSpacingExtra="3dp"
                     android:breakStrategy="high_quality" />
 
@@ -295,7 +307,8 @@
             android:text="Meaning &amp; Definition"
             android:textColor="@color/text_primary"
             android:textSize="21sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:fontFamily="@font/font_display" />
 
         <TextView
             android:layout_width="match_parent"
@@ -303,7 +316,8 @@
             android:layout_marginTop="5dp"
             android:text="Learn more about the meaning of this word."
             android:textColor="@color/text_secondary"
-            android:textSize="14sp" />
+            android:textSize="14sp"
+            android:fontFamily="@font/font_body" />
 
         <!-- DEFINITION CARD -->
         <com.google.android.material.card.MaterialCardView
@@ -329,6 +343,7 @@
                     android:textColor="@color/cyan_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold"
+                    android:fontFamily="@font/font_label"
                     android:letterSpacing="0.10" />
 
                 <TextView
@@ -338,6 +353,7 @@
                     android:layout_marginTop="12dp"
                     android:textColor="@color/text_primary"
                     android:textSize="16sp"
+                    android:fontFamily="@font/font_body"
                     android:lineSpacingExtra="5dp"
                     android:breakStrategy="high_quality" />
 

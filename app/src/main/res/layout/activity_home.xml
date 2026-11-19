@@ -41,7 +41,7 @@
             android:textColor="@color/cyan_primary"
             android:textSize="26sp"
             android:textStyle="bold"
-            android:fontFamily="sans"
+            android:fontFamily="@font/font_display"
             android:letterSpacing="0.01" />
 
         <TextView
@@ -53,6 +53,7 @@
             android:text="Your Ilokano Language Companion"
             android:textColor="@color/text_secondary"
             android:textSize="14sp"
+            android:fontFamily="@font/font_body"
             android:lineSpacingExtra="2dp" />
 
         <!-- CONNECTION AND SYNC STATUS -->
@@ -88,7 +89,8 @@
                         android:text="Checking connection..."
                         android:textColor="@color/cyan_primary"
                         android:textSize="14sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:fontFamily="@font/font_label" />
 
                     <!-- RETRY SYNC BUTTON -->
 
@@ -130,6 +132,7 @@
                     android:text="Preparing synchronization status..."
                     android:textColor="@color/text_primary"
                     android:textSize="13sp"
+                    android:fontFamily="@font/font_body"
                     android:lineSpacingExtra="2dp" />
 
                 <TextView
@@ -139,7 +142,8 @@
                     android:layout_marginTop="4dp"
                     android:text="Last successful sync: Not yet synced"
                     android:textColor="@color/text_secondary"
-                    android:textSize="11sp" />
+                    android:textSize="11sp"
+                    android:fontFamily="@font/font_label" />
 
             </LinearLayout>
 
@@ -171,6 +175,7 @@
                     android:textColor="@color/cyan_primary"
                     android:textSize="10sp"
                     android:textStyle="bold"
+                    android:fontFamily="@font/font_label"
                     android:letterSpacing="0.12" />
 
                 <TextView
@@ -181,7 +186,7 @@
                     android:textColor="@color/text_primary"
                     android:textSize="21sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans" />
+                    android:fontFamily="@font/font_display" />
 
                 <TextView
                     android:layout_width="match_parent"
@@ -190,6 +195,7 @@
                     android:text="Translate words, explore meanings, and learn everyday phrases to connect with the people and culture of Baguio."
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp"
+                    android:fontFamily="@font/font_body"
                     android:lineSpacingExtra="3dp" />
 
             </LinearLayout>
@@ -208,6 +214,7 @@
             android:textColor="@color/cyan_primary"
             android:textSize="12sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_label"
             android:letterSpacing="0.12" />
 
         <TextView
@@ -216,7 +223,8 @@
             android:layout_marginBottom="2dp"
             android:text="Choose how you want to learn today."
             android:textColor="@color/text_secondary"
-            android:textSize="13sp" />
+            android:textSize="13sp"
+            android:fontFamily="@font/font_body" />
 
         <!-- TRANSLATOR CARD -->
 
@@ -263,7 +271,8 @@
                         android:text="Translator"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:fontFamily="@font/font_display" />
 
                     <TextView
                         android:layout_width="match_parent"
@@ -272,6 +281,7 @@
                         android:text="Translate between English, Tagalog, and Ilokano."
                         android:textColor="@color/text_secondary"
                         android:textSize="13sp"
+                        android:fontFamily="@font/font_body"
                         android:lineSpacingExtra="2dp" />
 
                 </LinearLayout>
@@ -335,7 +345,8 @@
                         android:text="Dictionary"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:fontFamily="@font/font_display" />
 
                     <TextView
                         android:layout_width="match_parent"
@@ -344,6 +355,7 @@
                         android:text="Discover Ilokano word meanings and translations."
                         android:textColor="@color/text_secondary"
                         android:textSize="13sp"
+                        android:fontFamily="@font/font_body"
                         android:lineSpacingExtra="2dp" />
 
                 </LinearLayout>
@@ -407,7 +419,8 @@
                         android:text="Phrasebook"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:fontFamily="@font/font_display" />
 
                     <TextView
                         android:layout_width="match_parent"
@@ -416,6 +429,81 @@
                         android:text="Explore useful everyday Ilokano phrases."
                         android:textColor="@color/text_secondary"
                         android:textSize="13sp"
+                        android:fontFamily="@font/font_body"
+                        android:lineSpacingExtra="2dp" />
+
+                </LinearLayout>
+
+                <!-- CHEVRON ARROW -->
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="24dp"
+                    android:layout_marginStart="6dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="@color/cyan_secondary" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- SETTINGS CARD -->
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            app:cardBackgroundColor="@color/app_surface"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/border_cyan"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:minHeight="90dp"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_settings_teal"
+                    app:tint="@color/cyan_primary" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Settings"
+                        android:textColor="@color/text_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:fontFamily="@font/font_display" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Customize appearance, accessibility, and app info."
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:fontFamily="@font/font_body"
                         android:lineSpacingExtra="2dp" />
 
                 </LinearLayout>
@@ -460,13 +548,6 @@
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
 
-                    <ImageView
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:contentDescription="@null"
-                        android:src="@drawable/ic_phrasebook"
-                        app:tint="@color/cyan_secondary" />
-
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -476,6 +557,7 @@
                         android:textColor="@color/cyan_primary"
                         android:textSize="11sp"
                         android:textStyle="bold"
+                        android:fontFamily="@font/font_label"
                         android:letterSpacing="0.10" />
 
                 </LinearLayout>
@@ -496,6 +578,7 @@
                     android:textColor="@color/cyan_primary"
                     android:textSize="10sp"
                     android:textStyle="bold"
+                    android:fontFamily="@font/font_label"
                     android:letterSpacing="0.06" />
 
                 <TextView
@@ -506,7 +589,8 @@
                     android:text="Naimbag nga aldaw!"
                     android:textColor="@color/text_primary"
                     android:textSize="22sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:fontFamily="@font/font_display" />
 
                 <TextView
                     android:id="@+id/tvDailyPhraseTranslation"
@@ -515,7 +599,8 @@
                     android:layout_marginTop="4dp"
                     android:text="Good day!"
                     android:textColor="@color/text_secondary"
-                    android:textSize="14sp" />
+                    android:textSize="14sp"
+                    android:fontFamily="@font/font_body" />
 
                 <View
                     android:layout_width="40dp"
@@ -530,6 +615,7 @@
                     android:text="Keep learning a new word or phrase every day."
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp"
+                    android:fontFamily="@font/font_body"
                     android:lineSpacingExtra="2dp" />
 
             </LinearLayout>
@@ -569,6 +655,7 @@
             android:textColor="@color/cyan_primary"
             android:textSize="12sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_label"
             android:letterSpacing="0.08" />
 
         <!-- APP DESCRIPTION -->
@@ -581,6 +668,7 @@
             android:text="Language learning application"
             android:textColor="@color/text_secondary"
             android:textSize="12sp"
+            android:fontFamily="@font/font_body"
             android:lineSpacingExtra="2dp" />
 
         <!-- INSTITUTION -->
@@ -593,6 +681,7 @@
             android:text="Blue Phenix Skills Training Center Corp."
             android:textColor="@color/text_secondary"
             android:textSize="11sp"
+            android:fontFamily="@font/font_body"
             android:lineSpacingExtra="2dp" />
 
         <!-- TAGLINE -->
@@ -605,6 +694,8 @@
             android:text="LEARN  •  UNDERSTAND  •  CONNECT"
             android:textColor="@color/cyan_secondary"
             android:textSize="10sp"
+            android:textStyle="bold"
+            android:fontFamily="@font/font_label"
             android:letterSpacing="0.08" />
 
         <!-- CLOSING MESSAGE -->
@@ -617,6 +708,7 @@
             android:text="Made for learning, sharing, and preserving language."
             android:textColor="@color/text_secondary"
             android:textSize="11sp"
+            android:fontFamily="@font/font_body"
             android:lineSpacingExtra="2dp" />
 
     </LinearLayout>

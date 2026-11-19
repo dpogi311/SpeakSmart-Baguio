@@ -1,4 +1,3 @@
-
 package com.example.speaksmartbaguio;
 
 import android.os.Bundle;
@@ -6,6 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -19,6 +19,7 @@ import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 public class AboutSpeakSmartFragment extends Fragment {
 
     private FragmentAboutSpeakSmartBinding binding;
+    private boolean isNavigatingBack = false;
 
     public AboutSpeakSmartFragment() {
         // Required empty public constructor.
@@ -51,36 +52,65 @@ public class AboutSpeakSmartFragment extends Fragment {
 
         applyAccessibilitySettings();
 
-        // Animate the page when it opens.
+        // Animate the page and its sections when it opens.
         animatePageEntrance(view);
     }
 
     // ---------------------------------------------------------
-    // PAGE ENTRANCE ANIMATION
+    // STAGGERED PAGE ENTRANCE ANIMATION
     // ---------------------------------------------------------
 
     private void animatePageEntrance(@NonNull View view) {
 
-        // Start slightly lower and transparent.
+        float offset = 20f * getResources().getDisplayMetrics().density;
+
         view.setAlpha(0f);
-
-        float startTranslation =
-                24f * getResources().getDisplayMetrics().density;
-
-        view.setTranslationY(startTranslation);
-
-        // Smooth fade-in and upward movement.
         view.animate()
                 .alpha(1f)
-                .translationY(0f)
-                .setDuration(450)
+                .setDuration(260L)
                 .setInterpolator(new DecelerateInterpolator())
                 .start();
+
+        ViewGroup contentContainer = resolveContentContainer(view);
+        if (contentContainer == null) {
+            return;
+        }
+
+        int childCount = contentContainer.getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            View child = contentContainer.getChildAt(i);
+            if (child == null || child.getVisibility() != View.VISIBLE) {
+                continue;
+            }
+
+            child.setAlpha(0f);
+            child.setTranslationY(offset);
+            child.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setStartDelay(40L + (i * 45L))
+                    .setDuration(320L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        }
+    }
+
+    @Nullable
+    private ViewGroup resolveContentContainer(@NonNull View root) {
+        if (!(root instanceof ViewGroup)) {
+            return null;
+        }
+        ViewGroup rootGroup = (ViewGroup) root;
+        if (rootGroup.getChildCount() == 1 && rootGroup.getChildAt(0) instanceof ViewGroup) {
+            return (ViewGroup) rootGroup.getChildAt(0);
+        }
+        return rootGroup;
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        isNavigatingBack = false;
 
         // Respect saved accessibility preferences when returning.
         if (binding != null && isAdded()) {
@@ -96,23 +126,43 @@ public class AboutSpeakSmartFragment extends Fragment {
 
         binding.buttonAboutBack.setOnClickListener(v -> {
 
-            if (!isAdded()) {
+            if (!isAdded() || isNavigatingBack) {
                 return;
             }
+            isNavigatingBack = true;
 
-            NavController navController =
-                    Navigation.findNavController(v);
+            v.animate().cancel();
+            v.animate()
+                    .scaleX(0.90f)
+                    .scaleY(0.90f)
+                    .setDuration(75L)
+                    .withEndAction(() -> {
+                        v.animate()
+                                .scaleX(1f)
+                                .scaleY(1f)
+                                .setDuration(100L)
+                                .setInterpolator(new OvershootInterpolator(1.3f))
+                                .start();
 
-            /*
-             * Return to the previous navigation destination.
-             * If there is no previous destination, use the
-             * activity's standard Android Back behavior.
-             */
-            if (!navController.navigateUp()) {
-                requireActivity()
-                        .getOnBackPressedDispatcher()
-                        .onBackPressed();
-            }
+                        if (!isAdded()) {
+                            return;
+                        }
+
+                        NavController navController =
+                                Navigation.findNavController(v);
+
+                        /*
+                         * Return to the previous navigation destination.
+                         * If there is no previous destination, use the
+                         * activity's standard Android Back behavior.
+                         */
+                        if (!navController.navigateUp()) {
+                            requireActivity()
+                                    .getOnBackPressedDispatcher()
+                                    .onBackPressed();
+                        }
+                    })
+                    .start();
         });
     }
 
@@ -140,8 +190,19 @@ public class AboutSpeakSmartFragment extends Fragment {
     public void onDestroyView() {
 
         if (binding != null) {
-            // Cancel any running entrance animation.
-            binding.getRoot().animate().cancel();
+            // Cancel any running entrance animations.
+            View root = binding.getRoot();
+            root.animate().cancel();
+
+            ViewGroup contentContainer = resolveContentContainer(root);
+            if (contentContainer != null) {
+                for (int i = 0; i < contentContainer.getChildCount(); i++) {
+                    View child = contentContainer.getChildAt(i);
+                    if (child != null) {
+                        child.animate().cancel();
+                    }
+                }
+            }
         }
 
         super.onDestroyView();

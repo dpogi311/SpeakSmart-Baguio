@@ -1,15 +1,23 @@
 package com.example.speaksmartbaguio;
 
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
+import android.util.TypedValue;
+import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.res.ResourcesCompat;
 
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
+import com.example.speaksmartbaguio.utils.AudioPreferences;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -34,6 +42,7 @@ public class WordDetailActivity extends AppCompatActivity {
 
     private boolean ttsReady = false;
     private boolean activityDestroyed = false;
+    private boolean isFinishingActivity = false;
 
     private String pendingSpeech = null;
 
@@ -53,7 +62,13 @@ public class WordDetailActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btnBack);
         btnSpeakWord = findViewById(R.id.btnSpeakWord);
 
-        btnBack.setOnClickListener(v -> finish());
+        btnBack.setOnClickListener(v -> {
+            if (isFinishingActivity) {
+                return;
+            }
+            isFinishingActivity = true;
+            animateButtonTap(v, this::finish);
+        });
 
         // Receive the selected word from DictionaryAdapter.
         ilokanoWord = getIntent().getStringExtra("ilokano");
@@ -106,11 +121,94 @@ public class WordDetailActivity extends AppCompatActivity {
                 getWindow().getDecorView()
         );
 
+        animateEntrance();
+
         // Initialize Android Text-to-Speech.
         initializeTextToSpeech();
 
         // Play the word when the speaker button is tapped.
-        btnSpeakWord.setOnClickListener(v -> playPronunciation());
+        btnSpeakWord.setOnClickListener(v ->
+                animateButtonTap(v, this::playPronunciation)
+        );
+    }
+
+    private void animateEntrance() {
+        View contentView = findViewById(android.R.id.content);
+        if (contentView == null) {
+            return;
+        }
+        float offset = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                16f,
+                getResources().getDisplayMetrics()
+        );
+        contentView.setAlpha(0f);
+        contentView.setTranslationY(offset);
+        contentView.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(260L)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+    }
+
+    private void animateButtonTap(View view, Runnable action) {
+        if (view == null) {
+            if (action != null) {
+                action.run();
+            }
+            return;
+        }
+
+        view.animate().cancel();
+        view.animate()
+                .scaleX(0.90f)
+                .scaleY(0.90f)
+                .setDuration(70L)
+                .withEndAction(() -> {
+                    view.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(100L)
+                            .setInterpolator(new OvershootInterpolator(1.3f))
+                            .start();
+
+                    if (action != null) {
+                        action.run();
+                    }
+                })
+                .start();
+    }
+
+    private void showModernMessage(String message) {
+        View rootView = findViewById(android.R.id.content);
+        if (rootView == null || activityDestroyed || isFinishing()) {
+            return;
+        }
+
+        Snackbar snackbar = Snackbar.make(
+                rootView,
+                message,
+                Snackbar.LENGTH_SHORT
+        );
+        snackbar.setBackgroundTint(Color.rgb(25, 35, 40));
+        snackbar.setTextColor(Color.WHITE);
+
+        TextView snackText = snackbar.getView().findViewById(
+                com.google.android.material.R.id.snackbar_text
+        );
+        if (snackText != null) {
+            Typeface bodyFont = ResourcesCompat.getFont(
+                    this,
+                    R.font.font_body
+            );
+            if (bodyFont != null) {
+                snackText.setTypeface(bodyFont);
+            }
+        }
+
+        snackbar.setAnimationMode(Snackbar.ANIMATION_MODE_SLIDE);
+        snackbar.show();
     }
 
     private void initializeTextToSpeech() {
@@ -146,8 +244,7 @@ public class WordDetailActivity extends AppCompatActivity {
                             tts.setLanguage(Locale.getDefault());
                         }
 
-                        tts.setSpeechRate(0.85f);
-                        tts.setPitch(1.0f);
+                        AudioPreferences.applyToTextToSpeech(this, tts);
 
                         // Speak if the user tapped before TTS finished initializing.
                         if (pendingSpeech != null) {
@@ -162,11 +259,7 @@ public class WordDetailActivity extends AppCompatActivity {
 
     private void playPronunciation() {
         if (ilokanoWord == null || ilokanoWord.trim().isEmpty()) {
-            Toast.makeText(
-                    this,
-                    "No word is available to pronounce.",
-                    Toast.LENGTH_SHORT
-            ).show();
+            showModernMessage("No word is available to pronounce.");
             return;
         }
 
@@ -235,15 +328,13 @@ public class WordDetailActivity extends AppCompatActivity {
             pendingSpeech = word;
 
             if (tts == null) {
-                Toast.makeText(
-                        this,
-                        "Pronunciation is initializing. Please try again.",
-                        Toast.LENGTH_SHORT
-                ).show();
+                showModernMessage("Pronunciation is initializing. Please try again.");
             }
 
             return;
         }
+
+        AudioPreferences.applyToTextToSpeech(this, tts);
 
         tts.speak(
                 word,
@@ -278,6 +369,12 @@ public class WordDetailActivity extends AppCompatActivity {
         if (tts != null) {
             tts.stop();
         }
+    }
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
     }
 
     @Override

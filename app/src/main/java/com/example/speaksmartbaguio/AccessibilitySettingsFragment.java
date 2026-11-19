@@ -1,15 +1,21 @@
-
 package com.example.speaksmartbaguio;
 
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.RadioGroup;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
@@ -17,6 +23,7 @@ import androidx.navigation.Navigation;
 import com.example.speaksmartbaguio.databinding.FragmentAccessibilitySettingsBinding;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.switchmaterial.SwitchMaterial;
 
 public class AccessibilitySettingsFragment extends Fragment {
 
@@ -27,6 +34,7 @@ public class AccessibilitySettingsFragment extends Fragment {
      * from triggering the normal setting-change listeners.
      */
     private boolean updatingControls = false;
+    private boolean isNavigatingBack = false;
 
     public AccessibilitySettingsFragment() {
         // Required empty public constructor.
@@ -55,7 +63,7 @@ public class AccessibilitySettingsFragment extends Fragment {
     ) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Animate the page when it opens.
+        // Animate the page and its sections when it opens.
         animatePageEntrance(view);
 
         // Set up the Back button.
@@ -73,31 +81,78 @@ public class AccessibilitySettingsFragment extends Fragment {
     }
 
     // ---------------------------------------------------------
-    // PAGE ENTRANCE ANIMATION
+    // STAGGERED PAGE ENTRANCE ANIMATION
     // ---------------------------------------------------------
 
     private void animatePageEntrance(@NonNull View view) {
 
-        // Start slightly lower and transparent.
+        float offset = 20f * getResources().getDisplayMetrics().density;
+
         view.setAlpha(0f);
-
-        float startTranslation =
-                24f * getResources().getDisplayMetrics().density;
-
-        view.setTranslationY(startTranslation);
-
-        // Smooth fade-in and upward movement.
         view.animate()
                 .alpha(1f)
-                .translationY(0f)
-                .setDuration(450)
+                .setDuration(260L)
                 .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        ViewGroup contentContainer = resolveContentContainer(view);
+        if (contentContainer == null) {
+            return;
+        }
+
+        int childCount = contentContainer.getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            View child = contentContainer.getChildAt(i);
+            if (child == null || child.getVisibility() != View.VISIBLE) {
+                continue;
+            }
+
+            child.setAlpha(0f);
+            child.setTranslationY(offset);
+            child.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setStartDelay(40L + (i * 45L))
+                    .setDuration(320L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        }
+    }
+
+    @Nullable
+    private ViewGroup resolveContentContainer(@NonNull View root) {
+        if (!(root instanceof ViewGroup)) {
+            return null;
+        }
+        ViewGroup rootGroup = (ViewGroup) root;
+        if (rootGroup.getChildCount() == 1 && rootGroup.getChildAt(0) instanceof ViewGroup) {
+            return (ViewGroup) rootGroup.getChildAt(0);
+        }
+        return rootGroup;
+    }
+
+    private void animateControlPulse(@Nullable View control) {
+        if (control == null) {
+            return;
+        }
+        control.animate().cancel();
+        control.animate()
+                .scaleX(1.04f)
+                .scaleY(1.04f)
+                .setDuration(90L)
+                .withEndAction(() -> control.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(120L)
+                        .setInterpolator(new OvershootInterpolator(1.3f))
+                        .start())
                 .start();
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        isNavigatingBack = false;
 
         /*
          * Reapply saved settings when returning to this screen.
@@ -117,22 +172,42 @@ public class AccessibilitySettingsFragment extends Fragment {
 
         binding.buttonAccessibilityBack.setOnClickListener(v -> {
 
-            if (!isAdded()) {
+            if (!isAdded() || isNavigatingBack) {
                 return;
             }
+            isNavigatingBack = true;
 
-            NavController navController =
-                    Navigation.findNavController(v);
+            v.animate().cancel();
+            v.animate()
+                    .scaleX(0.90f)
+                    .scaleY(0.90f)
+                    .setDuration(75L)
+                    .withEndAction(() -> {
+                        v.animate()
+                                .scaleX(1f)
+                                .scaleY(1f)
+                                .setDuration(100L)
+                                .setInterpolator(new OvershootInterpolator(1.3f))
+                                .start();
 
-            /*
-             * Return to the previous navigation destination.
-             * If navigation cannot go back, use normal Android Back.
-             */
-            if (!navController.navigateUp()) {
-                requireActivity()
-                        .getOnBackPressedDispatcher()
-                        .onBackPressed();
-            }
+                        if (!isAdded()) {
+                            return;
+                        }
+
+                        NavController navController =
+                                Navigation.findNavController(v);
+
+                        /*
+                         * Return to the previous navigation destination.
+                         * If navigation cannot go back, use normal Android Back.
+                         */
+                        if (!navController.navigateUp()) {
+                            requireActivity()
+                                    .getOnBackPressedDispatcher()
+                                    .onBackPressed();
+                        }
+                    })
+                    .start();
         });
     }
 
@@ -172,21 +247,57 @@ public class AccessibilitySettingsFragment extends Fragment {
                 binding.fontSizeStandard.setChecked(true);
             }
 
-            binding.switchHighContrast.setChecked(
+            boolean highContrast =
                     AccessibilityPreferences.isHighContrastEnabled(
                             requireContext()
-                    )
-            );
+                    );
+            binding.switchHighContrast.setChecked(highContrast);
+            updateSwitchAppearance(binding.switchHighContrast);
 
-            binding.switchSimplifiedLayout.setChecked(
+            boolean simplified =
                     AccessibilityPreferences.isSimplifiedLayoutEnabled(
                             requireContext()
-                    )
-            );
+                    );
+            binding.switchSimplifiedLayout.setChecked(simplified);
+            updateSwitchAppearance(binding.switchSimplifiedLayout);
 
         } finally {
             updatingControls = false;
         }
+    }
+
+    // ---------------------------------------------------------
+    // SWITCH VISUAL STATE (CLEAR ON vs OFF COLORS)
+    // ---------------------------------------------------------
+
+    private void updateSwitchAppearance(@Nullable SwitchMaterial switchView) {
+
+        if (switchView == null || !isAdded()) {
+            return;
+        }
+
+        int cyanPrimary = ContextCompat.getColor(
+                requireContext(),
+                R.color.cyan_primary
+        );
+
+        int[][] states = new int[][]{
+                new int[]{android.R.attr.state_checked},
+                new int[]{-android.R.attr.state_checked}
+        };
+
+        int[] thumbColors = new int[]{
+                cyanPrimary,
+                Color.parseColor("#CBD5E1")
+        };
+
+        int[] trackColors = new int[]{
+                Color.argb(120, Color.red(cyanPrimary), Color.green(cyanPrimary), Color.blue(cyanPrimary)),
+                Color.parseColor("#475569")
+        };
+
+        switchView.setThumbTintList(new ColorStateList(states, thumbColors));
+        switchView.setTrackTintList(new ColorStateList(states, trackColors));
     }
 
     // ---------------------------------------------------------
@@ -203,11 +314,13 @@ public class AccessibilitySettingsFragment extends Fragment {
                     }
 
                     float selectedScale;
+                    View selectedRadio;
 
                     if (checkedId == R.id.fontSizeLarge) {
 
                         selectedScale =
                                 AccessibilityPreferences.FONT_SCALE_LARGE;
+                        selectedRadio = binding.fontSizeLarge;
 
                     } else if (
                             checkedId == R.id.fontSizeExtraLarge
@@ -215,12 +328,16 @@ public class AccessibilitySettingsFragment extends Fragment {
 
                         selectedScale =
                                 AccessibilityPreferences.FONT_SCALE_EXTRA_LARGE;
+                        selectedRadio = binding.fontSizeExtraLarge;
 
                     } else {
 
                         selectedScale =
                                 AccessibilityPreferences.FONT_SCALE_STANDARD;
+                        selectedRadio = binding.fontSizeStandard;
                     }
+
+                    animateControlPulse(selectedRadio);
 
                     AccessibilityPreferences.setFontScale(
                             requireContext(),
@@ -246,6 +363,8 @@ public class AccessibilitySettingsFragment extends Fragment {
                     if (updatingControls) {
                         return;
                     }
+
+                    animateControlPulse(buttonView);
 
                     AccessibilityPreferences.setHighContrastEnabled(
                             requireContext(),
@@ -276,6 +395,8 @@ public class AccessibilitySettingsFragment extends Fragment {
                         return;
                     }
 
+                    animateControlPulse(buttonView);
+
                     AccessibilityPreferences.setSimplifiedLayoutEnabled(
                             requireContext(),
                             isChecked
@@ -303,6 +424,19 @@ public class AccessibilitySettingsFragment extends Fragment {
             if (binding == null) {
                 return;
             }
+
+            v.animate().cancel();
+            v.animate()
+                    .scaleX(0.95f)
+                    .scaleY(0.95f)
+                    .setDuration(75L)
+                    .withEndAction(() -> v.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(110L)
+                            .setInterpolator(new OvershootInterpolator(1.3f))
+                            .start())
+                    .start();
 
             // Restore all saved accessibility preferences.
             AccessibilityPreferences.reset(requireContext());
@@ -343,10 +477,13 @@ public class AccessibilitySettingsFragment extends Fragment {
                 requireContext(),
                 binding.getRoot()
         );
+
+        updateSwitchAppearance(binding.switchHighContrast);
+        updateSwitchAppearance(binding.switchSimplifiedLayout);
     }
 
     // ---------------------------------------------------------
-    // USER FEEDBACK
+    // USER FEEDBACK (MODERN DARK-GLASS SNACKBAR)
     // ---------------------------------------------------------
 
     private void showMessage(@NonNull String message) {
@@ -355,11 +492,38 @@ public class AccessibilitySettingsFragment extends Fragment {
             return;
         }
 
-        Snackbar.make(
+        Snackbar snackbar = Snackbar.make(
                 binding.getRoot(),
                 message,
                 Snackbar.LENGTH_SHORT
-        ).show();
+        );
+
+        snackbar.setBackgroundTint(
+                Color.rgb(25, 35, 40)
+        );
+
+        snackbar.setTextColor(
+                Color.WHITE
+        );
+
+        TextView snackText = snackbar.getView().findViewById(
+                com.google.android.material.R.id.snackbar_text
+        );
+        if (snackText != null) {
+            Typeface bodyFont = ResourcesCompat.getFont(
+                    requireContext(),
+                    R.font.font_body
+            );
+            if (bodyFont != null) {
+                snackText.setTypeface(bodyFont);
+            }
+        }
+
+        snackbar.setAnimationMode(
+                Snackbar.ANIMATION_MODE_SLIDE
+        );
+
+        snackbar.show();
     }
 
     // ---------------------------------------------------------
@@ -370,8 +534,19 @@ public class AccessibilitySettingsFragment extends Fragment {
     public void onDestroyView() {
 
         if (binding != null) {
-            // Cancel any running entrance animation.
-            binding.getRoot().animate().cancel();
+            // Cancel any running entrance animations.
+            View root = binding.getRoot();
+            root.animate().cancel();
+
+            ViewGroup contentContainer = resolveContentContainer(root);
+            if (contentContainer != null) {
+                for (int i = 0; i < contentContainer.getChildCount(); i++) {
+                    View child = contentContainer.getChildAt(i);
+                    if (child != null) {
+                        child.animate().cancel();
+                    }
+                }
+            }
         }
 
         super.onDestroyView();

@@ -1,31 +1,42 @@
 package com.example.speaksmartbaguio;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.text.InputType;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.ArrayAdapter;
-import android.widget.Toast;
-
-import java.io.IOException;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.speaksmartbaguio.databinding.FragmentPhraseListBinding;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
+import com.example.speaksmartbaguio.utils.AudioPreferences;
+import com.google.android.material.snackbar.Snackbar;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 public class PhraseListFragment extends Fragment {
+
+    private static final String PREFS_NAME = "PhrasePrefs";
+    private static final String KEY_LANGUAGE = "selectedLanguage";
 
     private FragmentPhraseListBinding binding;
     private PhraseAdapter adapter;
@@ -38,6 +49,9 @@ public class PhraseListFragment extends Fragment {
     private int currentPage = 1;
     private boolean isLoading = false;
     private boolean hasMore = true;
+
+    private SharedPreferences phrasePrefs;
+    private SharedPreferences.OnSharedPreferenceChangeListener phrasePrefListener;
 
     private static final int PAGE_SIZE = 20;
 
@@ -62,14 +76,117 @@ public class PhraseListFragment extends Fragment {
                 root
         );
 
+        restoreLanguagePreference();
+
         apiService = ApiService.getInstance();
 
         setupTextToSpeech();
         setupLanguageDropdown();
         setupRecyclerView();
+        registerPreferenceListener();
+        animatePageEntrance(root);
         loadPhrases(true);
 
         return root;
+    }
+
+    private void registerPreferenceListener() {
+        phrasePrefs = requireContext().getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+        );
+
+        phrasePrefListener = (sharedPreferences, key) -> {
+            if (!KEY_LANGUAGE.equals(key) || !isAdded() || binding == null) {
+                return;
+            }
+
+            String updatedLang = sharedPreferences.getString(KEY_LANGUAGE, "English");
+            if (!"English".equals(updatedLang) && !"Tagalog".equals(updatedLang)) {
+                updatedLang = "English";
+            }
+
+            if (updatedLang.equals(selectedLanguage)) {
+                return;
+            }
+
+            selectedLanguage = updatedLang;
+            binding.languageDropdown.setText(selectedLanguage, false);
+
+            if (adapter != null) {
+                adapter.setSelectedLanguage(selectedLanguage);
+            }
+        };
+
+        phrasePrefs.registerOnSharedPreferenceChangeListener(phrasePrefListener);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        if (!isAdded()) {
+            return;
+        }
+
+        String previousLanguage = selectedLanguage;
+        restoreLanguagePreference();
+
+        if (!previousLanguage.equals(selectedLanguage)) {
+            if (binding != null) {
+                binding.languageDropdown.setText(selectedLanguage, false);
+            }
+            if (adapter != null) {
+                adapter.setSelectedLanguage(selectedLanguage);
+            }
+        }
+    }
+
+    private void restoreLanguagePreference() {
+        SharedPreferences prefs = requireContext().getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+        );
+
+        selectedLanguage = prefs.getString(KEY_LANGUAGE, "English");
+
+        if (!"English".equals(selectedLanguage) && !"Tagalog".equals(selectedLanguage)) {
+            selectedLanguage = "English";
+        }
+    }
+
+    private void animatePageEntrance(@NonNull View view) {
+        view.setAlpha(0f);
+        view.setTranslationY(dpToPx(16f));
+        view.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(260L)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+    }
+
+    private void animateViewReveal(@Nullable View view) {
+        if (view == null) {
+            return;
+        }
+        view.animate().cancel();
+        view.setAlpha(0f);
+        view.setTranslationY(dpToPx(12f));
+        view.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(220L)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+    }
+
+    private float dpToPx(float dp) {
+        return TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp,
+                getResources().getDisplayMetrics()
+        );
     }
 
     private void setupTextToSpeech() {
@@ -85,12 +202,12 @@ public class PhraseListFragment extends Fragment {
                     }
 
                     if (status != TextToSpeech.SUCCESS) {
-                        Toast.makeText(
-                                requireContext(),
-                                "TTS initialization failed",
-                                Toast.LENGTH_SHORT
-                        ).show();
+                        showMessage("TTS initialization failed");
                     } else if (tts != null) {
+                        AudioPreferences.applyToTextToSpeech(
+                                requireContext(),
+                                tts
+                        );
                         tts.setLanguage(Locale.getDefault());
                     }
                 }
@@ -126,6 +243,12 @@ public class PhraseListFragment extends Fragment {
                             selectedLanguage,
                             false
                     );
+
+                    requireContext()
+                            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                            .edit()
+                            .putString(KEY_LANGUAGE, selectedLanguage)
+                            .apply();
 
                     if (adapter != null) {
                         adapter.setSelectedLanguage(selectedLanguage);
@@ -220,11 +343,15 @@ public class PhraseListFragment extends Fragment {
                         boolean isEmpty =
                                 items == null || items.isEmpty();
 
-                        binding.textViewEmpty.setVisibility(
-                                isEmpty && reset
-                                        ? View.VISIBLE
-                                        : View.GONE
-                        );
+                        if (isEmpty && reset) {
+                            if (binding.textViewEmpty.getVisibility() != View.VISIBLE) {
+                                binding.textViewEmpty.setVisibility(View.VISIBLE);
+                                animateViewReveal(binding.textViewEmpty);
+                            }
+                        } else {
+                            binding.textViewEmpty.animate().cancel();
+                            binding.textViewEmpty.setVisibility(View.GONE);
+                        }
 
                         if (items == null) {
                             adapter.setPaginationState(false, hasMore);
@@ -235,6 +362,9 @@ public class PhraseListFragment extends Fragment {
                             adapter.filterList(
                                     new ArrayList<>(items)
                             );
+                            if (!items.isEmpty()) {
+                                animateViewReveal(binding.recyclerViewPhrases);
+                            }
                         } else {
                             adapter.addItems(items);
                         }
@@ -265,14 +395,41 @@ public class PhraseListFragment extends Fragment {
 
                         adapter.setPaginationState(false, hasMore);
 
-                        Toast.makeText(
-                                requireContext(),
-                                error,
-                                Toast.LENGTH_SHORT
-                        ).show();
+                        showMessage(error);
                     }
                 }
         );
+    }
+
+    private void showMessage(String message) {
+        if (!isAdded() || binding == null || message == null || message.trim().isEmpty()) {
+            return;
+        }
+
+        Snackbar snackbar = Snackbar.make(
+                binding.getRoot(),
+                message,
+                Snackbar.LENGTH_SHORT
+        );
+
+        snackbar.setBackgroundTint(Color.rgb(25, 35, 40));
+        snackbar.setTextColor(Color.WHITE);
+
+        TextView snackText = snackbar.getView().findViewById(
+                com.google.android.material.R.id.snackbar_text
+        );
+        if (snackText != null) {
+            Typeface bodyFont = ResourcesCompat.getFont(
+                    requireContext(),
+                    R.font.font_body
+            );
+            if (bodyFont != null) {
+                snackText.setTypeface(bodyFont);
+            }
+        }
+
+        snackbar.setAnimationMode(Snackbar.ANIMATION_MODE_SLIDE);
+        snackbar.show();
     }
 
     private void speakPhrase(Phrase phrase) {
@@ -303,6 +460,11 @@ public class PhraseListFragment extends Fragment {
                     || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 tts.setLanguage(Locale.getDefault());
             }
+
+            AudioPreferences.applyToTextToSpeech(
+                    requireContext(),
+                    tts
+            );
 
             tts.speak(
                     targetText,
@@ -368,6 +530,18 @@ public class PhraseListFragment extends Fragment {
 
     @Override
     public void onDestroyView() {
+        if (binding != null) {
+            binding.getRoot().animate().cancel();
+            binding.recyclerViewPhrases.animate().cancel();
+            binding.textViewEmpty.animate().cancel();
+        }
+
+        if (phrasePrefs != null && phrasePrefListener != null) {
+            phrasePrefs.unregisterOnSharedPreferenceChangeListener(phrasePrefListener);
+            phrasePrefListener = null;
+            phrasePrefs = null;
+        }
+
         releaseMediaPlayer();
 
         if (tts != null) {

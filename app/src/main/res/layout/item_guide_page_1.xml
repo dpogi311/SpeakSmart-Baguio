@@ -1,70 +1,82 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/guidePageOne"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:gravity="center"
-    android:paddingStart="24dp"
-    android:paddingEnd="24dp"
-    android:paddingTop="24dp"
-    android:paddingBottom="24dp">
+    android:orientation="vertical"
+    android:paddingStart="16dp"
+    android:paddingTop="16dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="16dp">
 
     <!-- ILLUSTRATION CARD -->
-    <LinearLayout
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="230dp"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:background="#112429"
-        android:padding="20dp">
+        app:cardBackgroundColor="#0D1C21"
+        app:cardCornerRadius="26dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#1D4049"
+        app:strokeWidth="1dp">
 
-        <ImageView
-            android:id="@+id/ivGuideLogo"
-            android:layout_width="140dp"
-            android:layout_height="140dp"
-            android:src="@drawable/ic_logo"
-            android:scaleType="fitCenter"
-            android:contentDescription="Speak Smart Baguio Logo" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="20dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="SPEAK SMART BAGUIO"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.18" />
+            <ImageView
+                android:id="@+id/ivGuideLogo"
+                android:layout_width="128dp"
+                android:layout_height="128dp"
+                android:contentDescription="Speak Smart Baguio Logo"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_logo" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="@font/font_label"
+                android:letterSpacing="0.18"
+                android:text="SPEAK SMART BAGUIO"
+                android:textColor="#E2F1F3"
+                android:textSize="14sp"
+                android:textStyle="bold" />
 
-    </LinearLayout>
+        </LinearLayout>
 
+    </com.google.android.material.card.MaterialCardView>
 
-
-    <!-- PAGE TITLE -->
     <!-- PAGE TITLE -->
     <TextView
         android:id="@+id/tvGuideTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="24dp"
+        android:fontFamily="@font/font_display"
         android:gravity="center"
-        android:textSize="27sp"
-        android:textStyle="bold"
-        android:lineSpacingExtra="4dp" />
+        android:lineSpacingExtra="4dp"
+        android:textColor="#FFFFFF"
+        android:textSize="26sp"
+        android:textStyle="bold" />
 
     <!-- PAGE DESCRIPTION -->
     <TextView
         android:id="@+id/tvGuideDescription"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="12dp"
+        android:fontFamily="@font/font_body"
         android:gravity="center"
-        android:text="Your Ilokano Language Companion. Discover and learn Benguet Ilokano through a simple and convenient application."
-        android:textColor="#B1C2C5"
-        android:textSize="15sp"
-        android:lineSpacingExtra="7dp"
+        android:lineSpacingExtra="6dp"
         android:paddingStart="8dp"
-        android:paddingEnd="8dp" />
+        android:paddingEnd="8dp"
+        android:text="Your Ilokano Language Companion. Discover and learn Benguet Ilokano through a simple and convenient application."
+        android:textColor="#9BB4B8"
+        android:textSize="15sp" />
 
 </LinearLayout>

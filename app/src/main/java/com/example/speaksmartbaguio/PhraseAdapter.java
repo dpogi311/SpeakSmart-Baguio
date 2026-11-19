@@ -1,13 +1,18 @@
 package com.example.speaksmartbaguio;
 
+import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.BackgroundColorSpan;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -32,6 +37,7 @@ public class PhraseAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
 
     private boolean isLoading = false;
     private boolean hasMore = true;
+    private int lastAnimatedPosition = -1;
     private Runnable loadMoreListener;
 
     public interface OnPhraseClickListener {
@@ -126,6 +132,65 @@ public class PhraseAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         }
     }
 
+    @Override
+    public void onViewDetachedFromWindow(
+            @NonNull RecyclerView.ViewHolder holder
+    ) {
+        super.onViewDetachedFromWindow(holder);
+        holder.itemView.animate().cancel();
+        holder.itemView.setAlpha(1f);
+        holder.itemView.setTranslationY(0f);
+        holder.itemView.setScaleX(1f);
+        holder.itemView.setScaleY(1f);
+    }
+
+    private void animateItemEntrance(View itemView, int position) {
+        if (position > lastAnimatedPosition) {
+            lastAnimatedPosition = position;
+            itemView.animate().cancel();
+            itemView.setAlpha(0f);
+            itemView.setTranslationY(dpToPx(itemView.getContext(), 14f));
+            itemView.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(220L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        } else {
+            itemView.setAlpha(1f);
+            itemView.setTranslationY(0f);
+        }
+    }
+
+    private void animateTapBounce(View view, float downScale, Runnable action) {
+        view.animate().cancel();
+        view.animate()
+                .scaleX(downScale)
+                .scaleY(downScale)
+                .setDuration(70L)
+                .withEndAction(() -> {
+                    view.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(100L)
+                            .setInterpolator(new OvershootInterpolator(1.3f))
+                            .start();
+
+                    if (action != null) {
+                        action.run();
+                    }
+                })
+                .start();
+    }
+
+    private float dpToPx(Context context, float dp) {
+        return TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp,
+                context.getResources().getDisplayMetrics()
+        );
+    }
+
     private void bindPhrase(PhraseViewHolder holder, int position) {
         if (items == null || position < 0 || position >= items.size()) {
             return;
@@ -165,29 +230,40 @@ public class PhraseAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         }
 
         // Open the phrase detail page.
-        holder.itemView.setOnClickListener(v -> {
-            Intent intent = new Intent(
-                    v.getContext(),
-                    PhraseDetailActivity.class
-            );
+        holder.itemView.setOnClickListener(v ->
+                animateTapBounce(v, 0.97f, () -> {
+                    Context context = v.getContext();
+                    Intent intent = new Intent(
+                            context,
+                            PhraseDetailActivity.class
+                    );
 
-            intent.putExtra("id", phrase.getId());
-            intent.putExtra("ilokano", phrase.getIlokanoWord());
-            intent.putExtra("english", phrase.getEnglishTranslation());
-            intent.putExtra("tagalog", phrase.getTagalogTranslation());
-            intent.putExtra("pos", phrase.getPartOfSpeech());
-            intent.putExtra("category", phrase.getCategory());
-            intent.putExtra("sentence", phrase.getIlokanoSentence());
+                    intent.putExtra("id", phrase.getId());
+                    intent.putExtra("ilokano", phrase.getIlokanoWord());
+                    intent.putExtra("english", phrase.getEnglishTranslation());
+                    intent.putExtra("tagalog", phrase.getTagalogTranslation());
+                    intent.putExtra("pos", phrase.getPartOfSpeech());
+                    intent.putExtra("category", phrase.getCategory());
+                    intent.putExtra("sentence", phrase.getIlokanoSentence());
 
-            v.getContext().startActivity(intent);
-        });
+                    context.startActivity(intent);
+                    if (context instanceof Activity) {
+                        ((Activity) context).overridePendingTransition(
+                                R.anim.slide_in_right,
+                                R.anim.slide_out_left
+                        );
+                    }
+                })
+        );
 
         // Preserve the existing audio callback.
-        holder.buttonPlay.setOnClickListener(v -> {
-            if (clickListener != null) {
-                clickListener.onPlayClicked(phrase);
-            }
-        });
+        holder.buttonPlay.setOnClickListener(v ->
+                animateTapBounce(v, 0.86f, () -> {
+                    if (clickListener != null) {
+                        clickListener.onPlayClicked(phrase);
+                    }
+                })
+        );
 
         // Apply saved font-size, contrast, and layout preferences
         // to the phrase card and all of its child views.
@@ -195,6 +271,8 @@ public class PhraseAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                 holder.itemView.getContext(),
                 holder.itemView
         );
+
+        animateItemEntrance(holder.itemView, position);
     }
 
     private void bindFooter(FooterViewHolder holder) {
@@ -213,11 +291,13 @@ public class PhraseAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                     0, 0, 0, 0
             );
 
-            holder.itemView.setOnClickListener(v -> {
-                if (loadMoreListener != null && !isLoading && hasMore) {
-                    loadMoreListener.run();
-                }
-            });
+            holder.itemView.setOnClickListener(v ->
+                    animateTapBounce(holder.footerText, 0.94f, () -> {
+                        if (loadMoreListener != null && !isLoading && hasMore) {
+                            loadMoreListener.run();
+                        }
+                    })
+            );
 
         } else {
             holder.progressBar.setVisibility(View.GONE);
@@ -242,6 +322,7 @@ public class PhraseAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     }
 
     public void filterList(List<Phrase> filteredList) {
+        lastAnimatedPosition = -1;
         items = filteredList;
         notifyDataSetChanged();
     }

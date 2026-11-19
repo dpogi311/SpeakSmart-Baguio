@@ -1,36 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/guideRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#060D10"
     android:orientation="vertical"
-    android:background="#050505"
     android:paddingStart="22dp"
-    android:paddingTop="12dp"
+    android:paddingTop="16dp"
     android:paddingEnd="22dp"
-    android:paddingBottom="18dp">
+    android:paddingBottom="22dp">
 
     <!-- TOP BAR -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:gravity="end|center_vertical"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="@font/font_label"
+            android:letterSpacing="0.16"
+            android:text="QUICK GUIDE"
+            android:textColor="#08D4C2"
+            android:textSize="11sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/btnSkipGuide"
             android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:minWidth="56dp"
-            android:gravity="center"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp"
-            android:text="Skip"
-            android:textColor="#B1C2C5"
-            android:textSize="15sp"
-            android:textStyle="bold"
+            android:layout_height="38dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
-            android:focusable="true" />
+            android:focusable="true"
+            android:fontFamily="@font/font_label"
+            android:gravity="center"
+            android:letterSpacing="0.06"
+            android:minWidth="60dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="Skip"
+            android:textColor="#9BB4B8"
+            android:textSize="13sp"
+            android:textStyle="bold" />
 
     </LinearLayout>
 
@@ -40,11 +55,11 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:fillViewport="false"
-        android:scrollbars="none"
-        android:overScrollMode="never"
         android:clickable="false"
-        android:focusable="false">
+        android:fillViewport="false"
+        android:focusable="false"
+        android:overScrollMode="never"
+        android:scrollbars="none">
 
         <LinearLayout
             android:id="@+id/guidePagesContainer"
@@ -57,40 +72,59 @@
     <LinearLayout
         android:id="@+id/guideDotsContainer"
         android:layout_width="match_parent"
-        android:layout_height="42dp"
+        android:layout_height="44dp"
+        android:layout_marginBottom="8dp"
         android:gravity="center"
         android:orientation="horizontal" />
 
     <!-- BOTTOM NAVIGATION -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="54dp"
+        android:layout_height="56dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnGuideBack"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="‹ Back"
+            android:fontFamily="@font/font_body"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="‹  Back"
             android:textAllCaps="false"
-            android:textColor="#B1C2C5"
-            android:backgroundTint="#112429" />
+            android:textColor="#CFE2E5"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            app:backgroundTint="#0E1C21"
+            app:cornerRadius="999dp"
+            app:elevation="0dp"
+            app:rippleColor="#2608D4C2"
+            app:strokeColor="#1D3840"
+            app:strokeWidth="1dp" />
 
         <View
             android:layout_width="12dp"
             android:layout_height="1dp" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnGuideNext"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Next ›"
+            android:fontFamily="@font/font_body"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="Next  ›"
             android:textAllCaps="false"
             android:textColor="#FFFFFF"
-            android:backgroundTint="#0DA396" />
+            android:textSize="15sp"
+            android:textStyle="bold"
+            app:backgroundTint="#0DA396"
+            app:cornerRadius="999dp"
+            app:elevation="4dp"
+            app:rippleColor="#33FFFFFF" />
 
     </LinearLayout>
 

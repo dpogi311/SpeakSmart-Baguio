@@ -1,8 +1,9 @@
-
 package com.example.speaksmartbaguio;
 
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -10,13 +11,22 @@ import android.speech.tts.TextToSpeech;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.ArrayAdapter;
 import android.widget.Filter;
-import android.widget.Toast;
-import android.util.Log;
+import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
+import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.ConcatAdapter;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -27,6 +37,7 @@ import com.example.speaksmartbaguio.databinding.ItemDictionaryHeaderBinding;
 import com.example.speaksmartbaguio.mapper.EntityMapper;
 import com.example.speaksmartbaguio.repository.DictionaryRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
+import com.example.speaksmartbaguio.utils.AudioPreferences;
 import com.example.speaksmartbaguio.utils.NetworkUtil;
 import com.example.speaksmartbaguio.utils.SettingsMenuHelper;
 import com.google.android.material.snackbar.Snackbar;
@@ -58,6 +69,10 @@ public class DictionaryFragment extends Fragment {
 
     private RecyclerView.OnScrollListener paginationScrollListener;
 
+    // Floating "Scroll to Top" arrow button created programmatically.
+    private TextView scrollToTopButton;
+    private boolean isScrollToTopVisible = false;
+
     private ApiService apiService;
     private DictionaryRepository repository;
 
@@ -76,6 +91,7 @@ public class DictionaryFragment extends Fragment {
     private boolean isLoading = false;
     private boolean hasMore = true;
     private boolean isApplyingIncomingSearch = false;
+    private boolean incomingSearchHandled = false;
 
     private boolean headerInitialized = false;
     private boolean initialLoadScheduled = false;
@@ -83,6 +99,9 @@ public class DictionaryFragment extends Fragment {
     private long dataGeneration = 0L;
 
     private boolean onlineResultApplied = false;
+
+    private SharedPreferences dictionaryPrefs;
+    private SharedPreferences.OnSharedPreferenceChangeListener dictionaryPrefListener;
 
     private final Handler searchHandler =
             new Handler(Looper.getMainLooper());
@@ -108,6 +127,8 @@ public class DictionaryFragment extends Fragment {
 
         binding = FragmentDictionaryBinding.bind(view);
 
+        incomingSearchHandled = false;
+
         apiService = ApiService.getInstance();
 
         repository = new DictionaryRepository(
@@ -115,14 +136,138 @@ public class DictionaryFragment extends Fragment {
         );
 
         restorePreferences();
+        registerPreferenceListener();
 
         setupTextToSpeech();
         setupRecyclerView();
+        setupScrollToTopButton();
+        animatePageEntrance();
 
         AccessibilityPreferences.applyToViewTree(
                 requireContext(),
                 binding.getRoot()
         );
+    }
+
+    private void registerPreferenceListener() {
+
+        dictionaryPrefs = requireContext().getSharedPreferences(
+                PREFS_NAME,
+                android.content.Context.MODE_PRIVATE
+        );
+
+        dictionaryPrefListener = (sharedPreferences, key) -> {
+            if (!KEY_LANGUAGE.equals(key) || !isAdded() || binding == null) {
+                return;
+            }
+
+            String updatedLang = sharedPreferences.getString(
+                    KEY_LANGUAGE,
+                    "English"
+            );
+
+            if (!"English".equals(updatedLang)
+                    && !"Tagalog".equals(updatedLang)) {
+                updatedLang = "English";
+            }
+
+            if (updatedLang.equals(selectedLanguage)) {
+                return;
+            }
+
+            selectedLanguage = updatedLang;
+
+            if (headerBinding != null) {
+                headerBinding.languageDropdown.setText(selectedLanguage, false);
+            }
+
+            if (dictionaryAdapter != null) {
+                dictionaryAdapter.setSelectedLanguage(selectedLanguage);
+            }
+        };
+
+        dictionaryPrefs.registerOnSharedPreferenceChangeListener(
+                dictionaryPrefListener
+        );
+    }
+
+    private void animatePageEntrance() {
+
+        if (binding == null) {
+            return;
+        }
+
+        RecyclerView recyclerView = binding.recyclerViewDictionary;
+        recyclerView.setAlpha(0f);
+        recyclerView.setTranslationY(dpToPx(16f));
+        recyclerView.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(280L)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+    }
+
+    private void animateButtonTap(@Nullable View view, @Nullable Runnable action) {
+
+        if (view == null) {
+            if (action != null) {
+                action.run();
+            }
+            return;
+        }
+
+        view.animate().cancel();
+        view.animate()
+                .scaleX(0.92f)
+                .scaleY(0.92f)
+                .setDuration(70L)
+                .withEndAction(() -> {
+                    view.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(100L)
+                            .setInterpolator(new OvershootInterpolator(1.3f))
+                            .start();
+
+                    if (action != null) {
+                        action.run();
+                    }
+                })
+                .start();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        // Sync language preference if changed from SettingsActivity.
+        if (isAdded()) {
+            String previousLanguage = selectedLanguage;
+            restorePreferences();
+            if (!previousLanguage.equals(selectedLanguage)) {
+                if (headerBinding != null) {
+                    headerBinding.languageDropdown.setText(selectedLanguage, false);
+                }
+                if (dictionaryAdapter != null) {
+                    dictionaryAdapter.setSelectedLanguage(selectedLanguage);
+                }
+            }
+        }
+
+        // If the fragment was already alive and received new search arguments,
+        // apply them now once the header is initialized.
+        if (headerInitialized && headerBinding != null) {
+            Bundle args = getArguments();
+            if (args != null && args.containsKey(MainActivity.EXTRA_DICTIONARY_SEARCH)) {
+                incomingSearchHandled = false;
+                handleIncomingSearch();
+                if (dictionaryAdapter != null) {
+                    dictionaryAdapter.setSearchQuery(pendingSearchQuery);
+                }
+                loadWords(true);
+            }
+        }
     }
 
     // =========================================================
@@ -218,6 +363,12 @@ public class DictionaryFragment extends Fragment {
                             int dy
                     ) {
 
+                        // Show or hide the "Scroll to Top" button based on scroll position.
+                        int firstVisible =
+                                layoutManager.findFirstVisibleItemPosition();
+
+                        updateScrollToTopButtonVisibility(firstVisible > 0);
+
                         if (dy <= 0
                                 || isLoading
                                 || !hasMore) {
@@ -251,6 +402,208 @@ public class DictionaryFragment extends Fragment {
                         loadWords(false);
                     }
                 }
+        );
+    }
+
+    // =========================================================
+    // FLOATING "SCROLL TO TOP" ARROW BUTTON & TRANSITION
+    // =========================================================
+
+    private void setupScrollToTopButton() {
+
+        if (binding == null || !isAdded()) {
+            return;
+        }
+
+        View root = binding.getRoot();
+
+        if (!(root instanceof ViewGroup)) {
+            return;
+        }
+
+        ViewGroup rootGroup = (ViewGroup) root;
+
+        int sizePx = dpToPx(48f);
+        int bottomMarginPx = dpToPx(24f);
+        int endMarginPx = dpToPx(28f);
+
+        scrollToTopButton = new TextView(requireContext());
+        scrollToTopButton.setId(View.generateViewId());
+        scrollToTopButton.setText("↑");
+        scrollToTopButton.setGravity(Gravity.CENTER);
+        scrollToTopButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f);
+        scrollToTopButton.setTypeface(
+                Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        );
+        scrollToTopButton.setTextColor(Color.parseColor("#E0F2FE"));
+        scrollToTopButton.setContentDescription("Scroll to top");
+        scrollToTopButton.setElevation(dpToPx(8f));
+
+        // Frosted Dark-Teal Glass circle with a glowing cyan border.
+        GradientDrawable circleBg = new GradientDrawable();
+        circleBg.setShape(GradientDrawable.OVAL);
+        circleBg.setColor(Color.parseColor("#E6163242"));
+        circleBg.setStroke(
+                dpToPx(1.5f),
+                Color.parseColor("#CC70D6ED")
+        );
+        scrollToTopButton.setBackground(circleBg);
+
+        // Start hidden at the top of the list.
+        scrollToTopButton.setVisibility(View.GONE);
+        scrollToTopButton.setAlpha(0f);
+        scrollToTopButton.setScaleX(0.8f);
+        scrollToTopButton.setScaleY(0.8f);
+        isScrollToTopVisible = false;
+
+        // Smooth upward transition to top when tapped.
+        scrollToTopButton.setOnClickListener(v -> animateScrollToTop());
+
+        // Position in bottom-end corner regardless of root ViewGroup type.
+        if (rootGroup instanceof ConstraintLayout) {
+            ConstraintLayout.LayoutParams params =
+                    new ConstraintLayout.LayoutParams(sizePx, sizePx);
+            params.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+            params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+            params.bottomMargin = bottomMarginPx;
+            params.setMarginEnd(endMarginPx);
+            params.rightMargin = endMarginPx;
+            rootGroup.addView(scrollToTopButton, params);
+
+        } else if (rootGroup instanceof RelativeLayout) {
+            RelativeLayout.LayoutParams params =
+                    new RelativeLayout.LayoutParams(sizePx, sizePx);
+            params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+            params.addRule(RelativeLayout.ALIGN_PARENT_END);
+            params.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+            params.bottomMargin = bottomMarginPx;
+            params.setMarginEnd(endMarginPx);
+            params.rightMargin = endMarginPx;
+            rootGroup.addView(scrollToTopButton, params);
+
+        } else {
+            FrameLayout.LayoutParams params =
+                    new FrameLayout.LayoutParams(
+                            sizePx,
+                            sizePx,
+                            Gravity.BOTTOM | Gravity.END
+                    );
+            params.bottomMargin = bottomMarginPx;
+            params.setMarginEnd(endMarginPx);
+            params.rightMargin = endMarginPx;
+            rootGroup.addView(scrollToTopButton, params);
+        }
+    }
+
+    /**
+     * Performs a fast, fluid upward scroll transition to the top of the list
+     * and animates the arrow button launching upward.
+     */
+    private void animateScrollToTop() {
+
+        if (binding == null) {
+            return;
+        }
+
+        RecyclerView recyclerView = binding.recyclerViewDictionary;
+        recyclerView.stopScroll();
+
+        RecyclerView.LayoutManager lm = recyclerView.getLayoutManager();
+        if (lm instanceof LinearLayoutManager) {
+            int firstVisible =
+                    ((LinearLayoutManager) lm).findFirstVisibleItemPosition();
+
+            // If far down the list, snap close to the top first so the
+            // smooth scroll transition finishes quickly and fluidly.
+            if (firstVisible > 8) {
+                recyclerView.scrollToPosition(8);
+            }
+        }
+
+        recyclerView.post(() -> {
+            if (binding != null) {
+                binding.recyclerViewDictionary.smoothScrollToPosition(0);
+            }
+        });
+
+        // Subtle upward-glide entrance transition on the RecyclerView content.
+        recyclerView.animate().cancel();
+        recyclerView.setTranslationY(dpToPx(18f));
+        recyclerView.setAlpha(0.88f);
+        recyclerView.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(260L)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        // Launch-upward exit animation on the arrow button itself.
+        if (scrollToTopButton != null) {
+            isScrollToTopVisible = false;
+            scrollToTopButton.animate().cancel();
+            scrollToTopButton.animate()
+                    .translationY(-dpToPx(18f))
+                    .alpha(0f)
+                    .scaleX(0.85f)
+                    .scaleY(0.85f)
+                    .setDuration(200L)
+                    .withEndAction(() -> {
+                        if (scrollToTopButton != null) {
+                            scrollToTopButton.setTranslationY(0f);
+                            if (!isScrollToTopVisible) {
+                                scrollToTopButton.setVisibility(View.GONE);
+                            }
+                        }
+                    })
+                    .start();
+        }
+    }
+
+    private void updateScrollToTopButtonVisibility(boolean show) {
+
+        if (scrollToTopButton == null || isScrollToTopVisible == show) {
+            return;
+        }
+
+        isScrollToTopVisible = show;
+
+        scrollToTopButton.animate().cancel();
+
+        if (show) {
+            scrollToTopButton.setTranslationY(dpToPx(12f));
+            scrollToTopButton.setVisibility(View.VISIBLE);
+            scrollToTopButton.animate()
+                    .translationY(0f)
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(180L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        } else {
+            scrollToTopButton.animate()
+                    .translationY(dpToPx(10f))
+                    .alpha(0f)
+                    .scaleX(0.8f)
+                    .scaleY(0.8f)
+                    .setDuration(150L)
+                    .withEndAction(() -> {
+                        if (scrollToTopButton != null && !isScrollToTopVisible) {
+                            scrollToTopButton.setTranslationY(0f);
+                            scrollToTopButton.setVisibility(View.GONE);
+                        }
+                    })
+                    .start();
+        }
+    }
+
+    private int dpToPx(float dp) {
+        return Math.round(
+                TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_DIP,
+                        dp,
+                        getResources().getDisplayMetrics()
+                )
         );
     }
 
@@ -328,19 +681,36 @@ public class DictionaryFragment extends Fragment {
 
     private void handleIncomingSearch() {
 
-        if (headerBinding == null || getArguments() == null) {
+        if (!isAdded()
+                || headerBinding == null
+                || incomingSearchHandled) {
             return;
         }
 
-        String query = getArguments().getString(
+        Bundle args = getArguments();
+
+        incomingSearchHandled = true;
+
+        if (args == null) {
+            return;
+        }
+
+        String query = args.getString(
                 MainActivity.EXTRA_DICTIONARY_SEARCH
         );
+
+        // Consume the argument so it cannot be applied again.
+        args.remove(MainActivity.EXTRA_DICTIONARY_SEARCH);
 
         if (query == null || query.trim().isEmpty()) {
             return;
         }
 
         pendingSearchQuery = query.trim();
+
+        if (dictionaryAdapter != null) {
+            dictionaryAdapter.clearLetterFilter();
+        }
 
         isApplyingIncomingSearch = true;
 
@@ -362,7 +732,7 @@ public class DictionaryFragment extends Fragment {
     private void setupSettingsMenuButton() {
 
         headerBinding.buttonSettingsMenu.setOnClickListener(
-                v -> SettingsMenuHelper.show(v)
+                v -> animateButtonTap(v, () -> SettingsMenuHelper.show(v))
         );
     }
 
@@ -396,8 +766,12 @@ public class DictionaryFragment extends Fragment {
 
                     try {
 
-                        tts.setPitch(0.95f);
-                        tts.setSpeechRate(0.85f);
+                        if (isAdded()) {
+                            AudioPreferences.applyToTextToSpeech(
+                                    requireContext(),
+                                    tts
+                            );
+                        }
 
                         configureTtsLanguage();
 
@@ -607,20 +981,23 @@ public class DictionaryFragment extends Fragment {
 
         updateSortRadioButtons();
 
-        headerBinding.buttonDictionaryFilter.setOnClickListener(v -> {
+        headerBinding.buttonDictionaryFilter.setOnClickListener(v ->
+                animateButtonTap(v, () -> {
+                    if (headerBinding == null) {
+                        return;
+                    }
 
-            boolean isVisible =
-                    headerBinding.dictionaryFilterPanel.getVisibility()
-                            == View.VISIBLE;
+                    boolean isVisible =
+                            headerBinding.dictionaryFilterPanel.getVisibility()
+                                    == View.VISIBLE;
 
-            headerBinding.dictionaryFilterPanel.setVisibility(
-                    isVisible ? View.GONE : View.VISIBLE
-            );
+                    setFilterPanelVisible(!isVisible);
 
-            if (!isVisible) {
-                updateSortRadioButtons();
-            }
-        });
+                    if (!isVisible) {
+                        updateSortRadioButtons();
+                    }
+                })
+        );
 
         headerBinding.sortOrderGroup.setOnCheckedChangeListener(
                 (group, checkedId) -> {
@@ -639,49 +1016,120 @@ public class DictionaryFragment extends Fragment {
                 }
         );
 
-        headerBinding.buttonApplyDictionaryFilters.setOnClickListener(v -> {
+        headerBinding.buttonApplyDictionaryFilters.setOnClickListener(v ->
+                animateButtonTap(v, () -> {
+                    if (headerBinding == null) {
+                        return;
+                    }
 
-            selectedSortOrder =
-                    headerBinding.radioSortZA.isChecked()
-                            ? DictionaryAdapter.SORT_Z_TO_A
-                            : DictionaryAdapter.SORT_A_TO_Z;
+                    selectedSortOrder =
+                            headerBinding.radioSortZA.isChecked()
+                                    ? DictionaryAdapter.SORT_Z_TO_A
+                                    : DictionaryAdapter.SORT_A_TO_Z;
 
-            saveSortPreference();
+                    saveSortPreference();
 
-            dictionaryAdapter.setSortOrder(
-                    selectedSortOrder
-            );
+                    dictionaryAdapter.setSortOrder(
+                            selectedSortOrder
+                    );
 
-            dictionaryAdapter.clearLetterFilter();
+                    dictionaryAdapter.clearLetterFilter();
 
-            headerBinding.dictionaryFilterPanel.setVisibility(
-                    View.GONE
-            );
+                    setFilterPanelVisible(false);
 
-            loadWords(true);
-        });
+                    loadWords(true);
+                })
+        );
 
-        headerBinding.buttonClearDictionaryFilters.setOnClickListener(v -> {
+        headerBinding.buttonClearDictionaryFilters.setOnClickListener(v ->
+                animateButtonTap(v, () -> {
+                    if (headerBinding == null) {
+                        return;
+                    }
 
-            selectedSortOrder =
-                    DictionaryAdapter.SORT_A_TO_Z;
+                    selectedSortOrder =
+                            DictionaryAdapter.SORT_A_TO_Z;
 
-            saveSortPreference();
+                    saveSortPreference();
 
-            updateSortRadioButtons();
+                    updateSortRadioButtons();
 
-            dictionaryAdapter.setSortOrder(
-                    selectedSortOrder
-            );
+                    dictionaryAdapter.setSortOrder(
+                            selectedSortOrder
+                    );
 
-            dictionaryAdapter.clearLetterFilter();
+                    dictionaryAdapter.clearLetterFilter();
 
-            headerBinding.dictionaryFilterPanel.setVisibility(
-                    View.GONE
-            );
+                    setFilterPanelVisible(false);
 
-            loadWords(true);
-        });
+                    loadWords(true);
+                })
+        );
+    }
+
+    private void setFilterPanelVisible(boolean show) {
+
+        if (headerBinding == null) {
+            return;
+        }
+
+        View panel = headerBinding.dictionaryFilterPanel;
+        panel.animate().cancel();
+
+        if (show) {
+            panel.setAlpha(0f);
+            panel.setTranslationY(-dpToPx(10f));
+            panel.setVisibility(View.VISIBLE);
+            panel.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(220L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        } else {
+            if (panel.getVisibility() == View.GONE) {
+                return;
+            }
+            panel.animate()
+                    .alpha(0f)
+                    .translationY(-dpToPx(8f))
+                    .setDuration(160L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .withEndAction(() -> {
+                        if (headerBinding != null) {
+                            panel.setVisibility(View.GONE);
+                            panel.setTranslationY(0f);
+                        }
+                    })
+                    .start();
+        }
+    }
+
+    private void updateEmptyState(boolean show, @Nullable String message) {
+
+        if (headerBinding == null) {
+            return;
+        }
+
+        TextView emptyView = headerBinding.textViewEmpty;
+
+        if (show) {
+            if (message != null) {
+                emptyView.setText(message);
+            }
+            if (emptyView.getVisibility() != View.VISIBLE) {
+                emptyView.setAlpha(0f);
+                emptyView.setVisibility(View.VISIBLE);
+                emptyView.animate()
+                        .alpha(1f)
+                        .setDuration(200L)
+                        .setInterpolator(new DecelerateInterpolator())
+                        .start();
+            }
+        } else {
+            emptyView.animate().cancel();
+            emptyView.setVisibility(View.GONE);
+        }
     }
 
     private void saveSortPreference() {
@@ -772,7 +1220,9 @@ public class DictionaryFragment extends Fragment {
                     public void afterTextChanged(Editable s) {
                     }
                 }
-        );headerBinding.searchBar.setOnFocusChangeListener((view, hasFocus) -> {
+        );
+
+        headerBinding.searchBar.setOnFocusChangeListener((view, hasFocus) -> {
             Log.d("DictionarySearch", "Search focus changed: " + hasFocus);
         });
     }
@@ -925,8 +1375,6 @@ public class DictionaryFragment extends Fragment {
 
                             isLoading = false;
 
-                            onlineResultApplied = true;
-
                             if (headerBinding != null) {
 
                                 headerBinding.progressBar.setVisibility(
@@ -938,6 +1386,19 @@ public class DictionaryFragment extends Fragment {
                                     items != null
                                             ? items
                                             : new ArrayList<>();
+
+                            // If searching for a specific word (e.g. from Daily Card)
+                            // and the online API returned 0 matches on page 1 without more pages,
+                            // fall back to local offline search instead of wiping out local results.
+                            if (reset && safeItems.isEmpty() && !more && !requestedQuery.isEmpty()) {
+                                hasMore = false;
+                                onlineResultApplied = false;
+                                dictionaryAdapter.setPaginationState(false, false);
+                                searchOffline(requestedQuery, requestGeneration);
+                                return;
+                            }
+
+                            onlineResultApplied = true;
 
                             if (reset) {
 
@@ -970,23 +1431,12 @@ public class DictionaryFragment extends Fragment {
                             boolean noVisibleWords =
                                     dictionaryAdapter.getItemCount() <= 1;
 
-                            if (headerBinding != null) {
-
-                                headerBinding.textViewEmpty.setVisibility(
-                                        noVisibleWords && !hasMore
-                                                ? View.VISIBLE
-                                                : View.GONE
-                                );
-
-                                if (noVisibleWords && !hasMore) {
-
-                                    headerBinding.textViewEmpty.setText(
-                                            requestedQuery.isEmpty()
-                                                    ? "No dictionary words available."
-                                                    : "No matching words found."
-                                    );
-                                }
-                            }
+                            updateEmptyState(
+                                    noVisibleWords && !hasMore,
+                                    requestedQuery.isEmpty()
+                                            ? "No dictionary words available."
+                                            : "No matching words found."
+                            );
 
                             if (!requestedQuery.isEmpty()
                                     && noVisibleWords
@@ -1117,16 +1567,10 @@ public class DictionaryFragment extends Fragment {
                     boolean noWords =
                             dictionaryAdapter.getItemCount() <= 1;
 
-                    headerBinding.textViewEmpty.setVisibility(
-                            noWords ? View.VISIBLE : View.GONE
+                    updateEmptyState(
+                            noWords,
+                            "No saved dictionary words found."
                     );
-
-                    if (noWords) {
-
-                        headerBinding.textViewEmpty.setText(
-                                "No saved dictionary words found."
-                        );
-                    }
                 }
 
                 Log.d(
@@ -1197,16 +1641,10 @@ public class DictionaryFragment extends Fragment {
                             boolean noWords =
                                     dictionaryAdapter.getItemCount() <= 1;
 
-                            headerBinding.textViewEmpty.setVisibility(
-                                    noWords ? View.VISIBLE : View.GONE
+                            updateEmptyState(
+                                    noWords,
+                                    "No matching saved words found."
                             );
-
-                            if (noWords) {
-
-                                headerBinding.textViewEmpty.setText(
-                                        "No matching saved words found."
-                                );
-                            }
                         }
 
                         Log.d(
@@ -1244,6 +1682,19 @@ public class DictionaryFragment extends Fragment {
         snackbar.setTextColor(
                 Color.WHITE
         );
+
+        TextView snackText = snackbar.getView().findViewById(
+                com.google.android.material.R.id.snackbar_text
+        );
+        if (snackText != null) {
+            Typeface bodyFont = ResourcesCompat.getFont(
+                    requireContext(),
+                    R.font.font_body
+            );
+            if (bodyFont != null) {
+                snackText.setTypeface(bodyFont);
+            }
+        }
 
         snackbar.setAnimationMode(
                 Snackbar.ANIMATION_MODE_SLIDE
@@ -1285,6 +1736,11 @@ public class DictionaryFragment extends Fragment {
         try {
 
             tts.stop();
+
+            AudioPreferences.applyToTextToSpeech(
+                    requireContext(),
+                    tts
+            );
 
             int result = tts.speak(
                     textToSpeak.trim(),
@@ -1335,8 +1791,30 @@ public class DictionaryFragment extends Fragment {
         onlineResultApplied = false;
         headerInitialized = false;
         initialLoadScheduled = false;
+        incomingSearchHandled = false;
+        isScrollToTopVisible = false;
+
+        if (dictionaryPrefs != null && dictionaryPrefListener != null) {
+            dictionaryPrefs.unregisterOnSharedPreferenceChangeListener(
+                    dictionaryPrefListener
+            );
+            dictionaryPrefListener = null;
+            dictionaryPrefs = null;
+        }
+
+        if (scrollToTopButton != null) {
+            scrollToTopButton.animate().cancel();
+            scrollToTopButton = null;
+        }
+
+        if (headerBinding != null) {
+            headerBinding.dictionaryFilterPanel.animate().cancel();
+            headerBinding.textViewEmpty.animate().cancel();
+        }
 
         if (binding != null) {
+
+            binding.recyclerViewDictionary.animate().cancel();
 
             if (paginationScrollListener != null) {
 

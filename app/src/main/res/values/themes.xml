@@ -22,6 +22,10 @@
         <item name="colorSurface">@color/app_surface</item>
         <item name="colorOnSurface">@color/text_primary</item>
 
+        <!-- Global Default Font (Inter) -->
+        <item name="android:fontFamily">@font/font_body</item>
+        <item name="fontFamily">@font/font_body</item>
+
         <!-- Legacy widget accent compatibility -->
         <item name="colorAccent">@color/cyan_primary</item>
         <item name="android:colorAccent">@color/cyan_primary</item>
@@ -65,6 +69,8 @@
         <item name="boxStrokeColor">@color/input_stroke_focused</item>
         <item name="boxStrokeWidthFocused">2dp</item>
         <item name="hintTextColor">@color/text_secondary</item>
+        <item name="android:fontFamily">@font/font_body</item>
+        <item name="fontFamily">@font/font_body</item>
     </style>
 
     <!-- =====================================================
@@ -78,6 +84,8 @@
         <item name="android:textColorHint">@color/text_secondary</item>
         <item name="android:popupBackground">@color/app_surface_elevated</item>
         <item name="android:backgroundTint">@color/cyan_primary</item>
+        <item name="android:fontFamily">@font/font_body</item>
+        <item name="fontFamily">@font/font_body</item>
     </style>
 
     <!-- =====================================================

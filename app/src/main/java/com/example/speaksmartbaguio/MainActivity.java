@@ -1,10 +1,12 @@
-
 package com.example.speaksmartbaguio;
 
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.navigation.NavController;
 import androidx.navigation.NavOptions;
@@ -33,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
 
     private ActivityMainBinding binding;
     private NavController navController;
+    private boolean launchedStandaloneSettings = false;
 
 
     // =====================================================
@@ -80,6 +83,8 @@ public class MainActivity extends AppCompatActivity {
 
             int destinationId = item.getItemId();
 
+            animateNavItemPop(navView, destinationId);
+
             if (navController.getCurrentDestination() != null
                     && navController.getCurrentDestination().getId()
                     == destinationId) {
@@ -97,24 +102,7 @@ public class MainActivity extends AppCompatActivity {
 
             boolean movingForward = targetOrder >= currentOrder;
 
-            int enterAnimation;
-            int exitAnimation;
-
-            if (movingForward) {
-
-                enterAnimation = R.anim.slide_in_right;
-                exitAnimation = R.anim.slide_out_left;
-
-            } else {
-
-                enterAnimation = R.anim.slide_in_left;
-                exitAnimation = R.anim.slide_out_right;
-            }
-
-            NavOptions navOptions = createNavOptions(
-                    enterAnimation,
-                    exitAnimation
-            );
+            NavOptions navOptions = createDirectionalNavOptions(movingForward);
 
             try {
 
@@ -139,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
         // =================================================
 
         navView.setOnItemReselectedListener(item -> {
-            // Intentionally empty.
+            animateNavItemPop(navView, item.getItemId());
         });
 
 
@@ -152,15 +140,20 @@ public class MainActivity extends AppCompatActivity {
 
                     int destinationId = destination.getId();
 
+                    // If opened from SettingsActivity directly to Accessibility/About
+                    // and the user presses the in-screen back arrow back to Translator,
+                    // close MainActivity immediately to return to SettingsActivity.
+                    if (launchedStandaloneSettings
+                            && destinationId == R.id.navigation_translator) {
+                        finish();
+                        return;
+                    }
+
                     boolean hideBottomNavigation =
                             destinationId == R.id.navigation_accessibility_settings
                                     || destinationId == R.id.navigation_about;
 
-                    navView.setVisibility(
-                            hideBottomNavigation
-                                    ? View.GONE
-                                    : View.VISIBLE
-                    );
+                    animateBottomNavigation(navView, !hideBottomNavigation);
 
                     // Phrase List belongs to Phrasebook.
                     if (destinationId == R.id.phraseListFragment) {
@@ -179,7 +172,46 @@ public class MainActivity extends AppCompatActivity {
 
 
         // =================================================
-        // HANDLE NAVIGATION FROM HOME ACTIVITY
+        // BACK BUTTON BEHAVIOR
+        // Top-level bottom nav tabs return to HomeActivity;
+        // standalone settings screens return to SettingsActivity;
+        // in-module sub-pages pop back to their parent tab.
+        // =================================================
+
+        getOnBackPressedDispatcher().addCallback(
+                this,
+                new OnBackPressedCallback(true) {
+                    @Override
+                    public void handleOnBackPressed() {
+                        if (launchedStandaloneSettings) {
+                            finish();
+                            return;
+                        }
+
+                        if (navController != null
+                                && navController.getCurrentDestination() != null) {
+
+                            int currentId =
+                                    navController.getCurrentDestination().getId();
+
+                            boolean isSubDestination =
+                                    currentId == R.id.navigation_accessibility_settings
+                                            || currentId == R.id.navigation_about
+                                            || currentId == R.id.phraseListFragment;
+
+                            if (isSubDestination && navController.navigateUp()) {
+                                return;
+                            }
+                        }
+
+                        finish();
+                    }
+                }
+        );
+
+
+        // =================================================
+        // HANDLE NAVIGATION FROM HOME / SETTINGS ACTIVITY
         // =================================================
 
         handleNavigationIntent(getIntent(), navView);
@@ -187,13 +219,103 @@ public class MainActivity extends AppCompatActivity {
 
 
     // =====================================================
+    // UI ANIMATION HELPERS
+    // =====================================================
+
+    private void animateBottomNavigation(
+            BottomNavigationView navView,
+            boolean show
+    ) {
+
+        if (navView == null) {
+            return;
+        }
+
+        if (show) {
+            if (navView.getVisibility() == View.VISIBLE && navView.getAlpha() == 1f) {
+                return;
+            }
+
+            navView.animate().cancel();
+            if (navView.getVisibility() != View.VISIBLE) {
+                navView.setAlpha(0f);
+                navView.setTranslationY(
+                        navView.getHeight() > 0 ? navView.getHeight() : 120f
+                );
+                navView.setVisibility(View.VISIBLE);
+            }
+
+            navView.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(220L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        } else {
+            if (navView.getVisibility() == View.GONE) {
+                return;
+            }
+
+            float hideOffset = navView.getHeight() > 0 ? navView.getHeight() : 120f;
+            navView.animate().cancel();
+            navView.animate()
+                    .alpha(0f)
+                    .translationY(hideOffset)
+                    .setDuration(180L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .withEndAction(() -> navView.setVisibility(View.GONE))
+                    .start();
+        }
+    }
+
+
+    private void animateNavItemPop(
+            BottomNavigationView navView,
+            int itemId
+    ) {
+
+        if (navView == null) {
+            return;
+        }
+
+        View itemView = navView.findViewById(itemId);
+        if (itemView == null) {
+            return;
+        }
+
+        itemView.animate().cancel();
+        itemView.setScaleX(0.90f);
+        itemView.setScaleY(0.90f);
+        itemView.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(200L)
+                .setInterpolator(new OvershootInterpolator(1.6f))
+                .start();
+    }
+
+
+    // =====================================================
     // NAVIGATION OPTIONS
     // =====================================================
 
-    private NavOptions createNavOptions(
-            int enterAnimation,
-            int exitAnimation
-    ) {
+    private NavOptions createDirectionalNavOptions(boolean movingForward) {
+
+        int enterAnimation = movingForward
+                ? R.anim.slide_in_right
+                : R.anim.slide_in_left;
+
+        int exitAnimation = movingForward
+                ? R.anim.slide_out_left
+                : R.anim.slide_out_right;
+
+        int popEnterAnimation = movingForward
+                ? R.anim.slide_in_left
+                : R.anim.slide_in_right;
+
+        int popExitAnimation = movingForward
+                ? R.anim.slide_out_right
+                : R.anim.slide_out_left;
 
         return new NavOptions.Builder()
                 .setLaunchSingleTop(true)
@@ -203,8 +325,8 @@ public class MainActivity extends AppCompatActivity {
                 )
                 .setEnterAnim(enterAnimation)
                 .setExitAnim(exitAnimation)
-                .setPopEnterAnim(enterAnimation)
-                .setPopExitAnim(exitAnimation)
+                .setPopEnterAnim(popEnterAnimation)
+                .setPopExitAnim(popExitAnimation)
                 .build();
     }
 
@@ -237,7 +359,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     // =====================================================
-    // HANDLE HOME ACTIVITY NAVIGATION
+    // HANDLE HOME / SETTINGS ACTIVITY NAVIGATION
     // =====================================================
 
     private void handleNavigationIntent(
@@ -332,6 +454,26 @@ public class MainActivity extends AppCompatActivity {
                 break;
 
 
+            // =============================================
+            // ACCESSIBILITY SETTINGS
+            // =============================================
+
+            case "ACCESSIBILITY":
+
+                destinationId = R.id.navigation_accessibility_settings;
+                break;
+
+
+            // =============================================
+            // ABOUT SPEAK SMART
+            // =============================================
+
+            case "ABOUT":
+
+                destinationId = R.id.navigation_about;
+                break;
+
+
             default:
                 return;
         }
@@ -341,27 +483,35 @@ public class MainActivity extends AppCompatActivity {
         // DETERMINE ANIMATION DIRECTION
         // =================================================
 
-        int currentDestination =
-                navController.getCurrentDestination() != null
-                        ? navController.getCurrentDestination().getId()
-                        : R.id.navigation_translator;
+        boolean isStandaloneSettingsScreen =
+                destinationId == R.id.navigation_accessibility_settings
+                        || destinationId == R.id.navigation_about;
 
-        boolean movingForward =
-                getModuleOrder(destinationId)
-                        >= getModuleOrder(currentDestination);
+        launchedStandaloneSettings = isStandaloneSettingsScreen;
 
-        int enterAnimation = movingForward
-                ? R.anim.slide_in_right
-                : R.anim.slide_in_left;
+        NavOptions navOptions;
+        if (isStandaloneSettingsScreen) {
+            navOptions = new NavOptions.Builder()
+                    .setLaunchSingleTop(true)
+                    .setPopUpTo(
+                            R.id.navigation_translator,
+                            true
+                    )
+                    .setEnterAnim(R.anim.slide_in_right)
+                    .setExitAnim(R.anim.slide_out_left)
+                    .build();
+        } else {
+            int currentDestination =
+                    navController.getCurrentDestination() != null
+                            ? navController.getCurrentDestination().getId()
+                            : R.id.navigation_translator;
 
-        int exitAnimation = movingForward
-                ? R.anim.slide_out_left
-                : R.anim.slide_out_right;
+            boolean movingForward =
+                    getModuleOrder(destinationId)
+                            >= getModuleOrder(currentDestination);
 
-        NavOptions navOptions = createNavOptions(
-                enterAnimation,
-                exitAnimation
-        );
+            navOptions = createDirectionalNavOptions(movingForward);
+        }
 
 
         // =================================================
@@ -414,6 +564,17 @@ public class MainActivity extends AppCompatActivity {
                     binding.navView
             );
         }
+    }
+
+
+    // =====================================================
+    // ACTIVITY EXIT TRANSITION
+    // =====================================================
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
     }
 
 

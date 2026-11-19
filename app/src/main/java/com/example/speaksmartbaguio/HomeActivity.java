@@ -1,17 +1,32 @@
-
 package com.example.speaksmartbaguio;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.os.Bundle;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.LineBackgroundSpan;
+import android.text.style.LineHeightSpan;
+import android.text.style.ReplacementSpan;
+import android.text.style.StyleSpan;
+import android.util.TypedValue;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.res.ResourcesCompat;
 
 import com.example.speaksmartbaguio.databinding.ActivityHomeBinding;
 import com.example.speaksmartbaguio.mapper.EntityMapper;
@@ -40,8 +55,9 @@ public class HomeActivity extends AppCompatActivity {
     private boolean hasResumedOnce = false;
     private boolean lastKnownOnline = false;
     private boolean networkCallbackRegistered = false;
+    private boolean isNavigating = false;
 
-    // Exact Ilokano text displayed in the daily card.
+    // Exact Ilokano search query to pass to the target module.
     private String dailyPhraseSearchTerm = "";
 
     // Original source of the selected daily content.
@@ -62,6 +78,7 @@ public class HomeActivity extends AppCompatActivity {
         setupNavigation();
         setupDailyPhraseCard();
         setupSyncIndicator();
+        animateHomeEntrance();
 
         loadDailyPhrase();
 
@@ -75,19 +92,115 @@ public class HomeActivity extends AppCompatActivity {
 
 
     // =========================================================
+    // HOME ANIMATIONS & TRANSITIONS
+    // =========================================================
+
+    private void animateHomeEntrance() {
+
+        if (binding == null) {
+            return;
+        }
+
+        View[] cards = {
+                binding.homeDailyPhraseCard,
+                binding.cardTranslator,
+                binding.cardDictionary,
+                binding.cardPhrasebook,
+                binding.cardSettings
+        };
+
+        float offset = dpToPx(22f);
+
+        for (int i = 0; i < cards.length; i++) {
+            View card = cards[i];
+            if (card == null) {
+                continue;
+            }
+
+            card.setAlpha(0f);
+            card.setTranslationY(offset);
+            card.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setStartDelay(50L + (i * 65L))
+                    .setDuration(320L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        }
+    }
+
+
+    private void animateCardTap(View view, Runnable action) {
+
+        if (view == null) {
+            if (action != null) {
+                action.run();
+            }
+            return;
+        }
+
+        view.animate().cancel();
+        view.animate()
+                .scaleX(0.96f)
+                .scaleY(0.96f)
+                .setDuration(80L)
+                .setInterpolator(new DecelerateInterpolator())
+                .withEndAction(() -> {
+                    view.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(110L)
+                            .setInterpolator(new OvershootInterpolator(1.2f))
+                            .start();
+
+                    if (action != null) {
+                        action.run();
+                    }
+                })
+                .start();
+    }
+
+
+    // =========================================================
     // HOME NAVIGATION
     // =========================================================
 
     private void setupNavigation() {
 
-        binding.cardTranslator.setOnClickListener(v ->
-                openLearningTool("TRANSLATOR"));
+        binding.cardTranslator.setOnClickListener(v -> {
+            if (isNavigating) {
+                return;
+            }
+            isNavigating = true;
+            animateCardTap(v, () -> openLearningTool("TRANSLATOR"));
+        });
 
-        binding.cardDictionary.setOnClickListener(v ->
-                openLearningTool("DICTIONARY"));
+        binding.cardDictionary.setOnClickListener(v -> {
+            if (isNavigating) {
+                return;
+            }
+            isNavigating = true;
+            animateCardTap(v, () -> openLearningTool("DICTIONARY"));
+        });
 
-        binding.cardPhrasebook.setOnClickListener(v ->
-                openLearningTool("PHRASEBOOK"));
+        binding.cardPhrasebook.setOnClickListener(v -> {
+            if (isNavigating) {
+                return;
+            }
+            isNavigating = true;
+            animateCardTap(v, () -> openLearningTool("PHRASEBOOK"));
+        });
+
+        binding.cardSettings.setOnClickListener(v -> {
+            if (isNavigating) {
+                return;
+            }
+            isNavigating = true;
+            animateCardTap(v, () -> {
+                startActivity(new Intent(HomeActivity.this, SettingsActivity.class));
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+            });
+        });
     }
 
 
@@ -104,6 +217,7 @@ public class HomeActivity extends AppCompatActivity {
         );
 
         startActivity(intent);
+        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
     }
 
 
@@ -132,18 +246,19 @@ public class HomeActivity extends AppCompatActivity {
 
             intent.putExtra(
                     MainActivity.EXTRA_DICTIONARY_SEARCH,
-                    dailyPhraseSearchTerm
+                    dailyPhraseSearchTerm.trim()
             );
 
         } else {
 
             intent.putExtra(
                     MainActivity.EXTRA_PHRASEBOOK_SEARCH,
-                    dailyPhraseSearchTerm
+                    dailyPhraseSearchTerm.trim()
             );
         }
 
         startActivity(intent);
+        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
     }
 
 
@@ -153,9 +268,13 @@ public class HomeActivity extends AppCompatActivity {
 
     private void setupDailyPhraseCard() {
 
-        binding.homeDailyPhraseCard.setOnClickListener(v ->
-                openDailyPhrase()
-        );
+        binding.homeDailyPhraseCard.setOnClickListener(v -> {
+            if (isNavigating) {
+                return;
+            }
+            isNavigating = true;
+            animateCardTap(v, this::openDailyPhrase);
+        });
 
         binding.homeDailyPhraseCard.setClickable(true);
         binding.homeDailyPhraseCard.setFocusable(true);
@@ -279,7 +398,7 @@ public class HomeActivity extends AppCompatActivity {
 
     /**
      * Combines Phrasebook and Dictionary content.
-     * Every item stores its original module.
+     * Displays styled English and Tagalog pill badges with dividers.
      */
     private void displayDailyContent(
             List<Phrase> phrases,
@@ -289,21 +408,6 @@ public class HomeActivity extends AppCompatActivity {
         if (binding == null) {
             return;
         }
-
-        SharedPreferences preferences =
-                getSharedPreferences(
-                        "PhrasePrefs",
-                        Context.MODE_PRIVATE
-                );
-
-        String selectedLanguage =
-                preferences.getString(
-                        "selectedLanguage",
-                        "English"
-                );
-
-        boolean useTagalog =
-                "Tagalog".equalsIgnoreCase(selectedLanguage);
 
         List<DailyCardItem> dailyItems = new ArrayList<>();
 
@@ -323,17 +427,30 @@ public class HomeActivity extends AppCompatActivity {
                 String ilokanoText =
                         getIlokanoDisplayText(phrase);
 
-                String translation =
-                        getTranslation(phrase, useTagalog);
+                String searchTerm =
+                        getIlokanoSearchTerm(phrase);
+
+                String englishText =
+                        getEnglishDisplayText(phrase);
+
+                String tagalogText =
+                        phrase.getTagalogTranslation();
+
+                boolean hasAnyTranslation =
+                        (englishText != null && !englishText.trim().isEmpty())
+                                || (tagalogText != null && !tagalogText.trim().isEmpty());
 
                 if (!ilokanoText.trim().isEmpty()
-                        && !translation.trim().isEmpty()) {
+                        && !searchTerm.trim().isEmpty()
+                        && hasAnyTranslation) {
 
                     dailyItems.add(
                             new DailyCardItem(
                                     "PHRASEBOOK",
-                                    ilokanoText,
-                                    translation
+                                    ilokanoText.trim(),
+                                    searchTerm.trim(),
+                                    englishText == null ? "" : englishText.trim(),
+                                    tagalogText == null ? "" : tagalogText.trim()
                             )
                     );
                 }
@@ -355,34 +472,26 @@ public class HomeActivity extends AppCompatActivity {
 
                 String ilokanoText = word.getIlokanoWord();
 
-                String translation;
+                String englishText = word.getEnglishTranslation();
+                String tagalogText = word.getTagalogTranslation();
 
-                if (useTagalog) {
-
-                    translation = word.getTagalogTranslation();
-
-                    // Use English if Tagalog is unavailable.
-                    if (translation == null
-                            || translation.trim().isEmpty()) {
-
-                        translation = word.getEnglishTranslation();
-                    }
-
-                } else {
-
-                    translation = word.getEnglishTranslation();
-                }
+                boolean hasAnyTranslation =
+                        (englishText != null && !englishText.trim().isEmpty())
+                                || (tagalogText != null && !tagalogText.trim().isEmpty());
 
                 if (ilokanoText != null
-                        && translation != null
                         && !ilokanoText.trim().isEmpty()
-                        && !translation.trim().isEmpty()) {
+                        && hasAnyTranslation) {
+
+                    String cleanWord = ilokanoText.trim();
 
                     dailyItems.add(
                             new DailyCardItem(
                                     "DICTIONARY",
-                                    ilokanoText.trim(),
-                                    translation.trim()
+                                    cleanWord,
+                                    cleanWord,
+                                    englishText == null ? "" : englishText.trim(),
+                                    tagalogText == null ? "" : tagalogText.trim()
                             )
                     );
                 }
@@ -425,14 +534,14 @@ public class HomeActivity extends AppCompatActivity {
         // -----------------------------------------------------
 
         dailyPhraseSearchTerm =
-                selectedItem.ilokanoText;
+                selectedItem.searchTerm;
 
         dailyPhraseDestination =
                 selectedItem.source;
 
 
         // -----------------------------------------------------
-        // DISPLAY SOURCE LABEL
+        // DISPLAY SOURCE LABEL (KEEP ORIGINAL XML PILL PADDING)
         // -----------------------------------------------------
 
         if ("DICTIONARY".equals(selectedItem.source)) {
@@ -452,22 +561,48 @@ public class HomeActivity extends AppCompatActivity {
 
 
         // -----------------------------------------------------
-        // DISPLAY DAILY CONTENT
+        // DISPLAY DAILY CONTENT (WITH DIVIDERS & SPACING)
         // -----------------------------------------------------
 
         binding.tvDailyPhrase.setText(
                 selectedItem.ilokanoText
         );
 
+        binding.tvDailyPhraseTranslation.setSingleLine(false);
+        binding.tvDailyPhraseTranslation.setMaxLines(10);
+        binding.tvDailyPhraseTranslation.setLineSpacing(0f, 1.0f);
+
         binding.tvDailyPhraseTranslation.setText(
-                selectedItem.translation
+                buildStyledTranslations(
+                        selectedItem.englishTranslation,
+                        selectedItem.tagalogTranslation
+                )
         );
 
         binding.tvDailyPhrase.setVisibility(View.VISIBLE);
+        binding.tvDailyPhraseTranslation.setVisibility(View.VISIBLE);
 
-        binding.tvDailyPhraseTranslation.setVisibility(
-                View.VISIBLE
+        // Smoothly fade in refreshed daily content
+        fadeInViews(
+                binding.tvDailyPhraseSource,
+                binding.tvDailyPhrase,
+                binding.tvDailyPhraseTranslation
         );
+    }
+
+
+    private void fadeInViews(View... views) {
+        for (View view : views) {
+            if (view == null || view.getVisibility() != View.VISIBLE) {
+                continue;
+            }
+            view.setAlpha(0f);
+            view.animate()
+                    .alpha(1f)
+                    .setDuration(240L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        }
     }
 
 
@@ -479,23 +614,410 @@ public class HomeActivity extends AppCompatActivity {
 
         final String source;
         final String ilokanoText;
-        final String translation;
+        final String searchTerm;
+        final String englishTranslation;
+        final String tagalogTranslation;
 
         DailyCardItem(
                 String source,
                 String ilokanoText,
-                String translation
+                String searchTerm,
+                String englishTranslation,
+                String tagalogTranslation
         ) {
 
             this.source = source;
             this.ilokanoText = ilokanoText;
-            this.translation = translation;
+            this.searchTerm = searchTerm;
+            this.englishTranslation = englishTranslation;
+            this.tagalogTranslation = tagalogTranslation;
         }
     }
 
 
     // =========================================================
-    // PHRASEBOOK DISPLAY HELPERS
+    // STYLED TRANSLATION BUILDER (PILL BADGES + DIVIDERS)
+    // =========================================================
+
+    private CharSequence buildStyledTranslations(
+            String english,
+            String tagalog
+    ) {
+
+        String cleanEnglish =
+                english == null ? "" : english.trim();
+
+        String cleanTagalog =
+                tagalog == null ? "" : tagalog.trim();
+
+        Typeface labelFont = ResourcesCompat.getFont(
+                this,
+                R.font.font_label
+        );
+
+        SpannableStringBuilder builder =
+                new SpannableStringBuilder();
+
+        int dividerColor = Color.parseColor("#33FFFFFF");
+
+        // Top divider separating the Ilokano title from the translations.
+        appendDividerLine(
+                builder,
+                Math.round(dpToPx(14f)),
+                dividerColor
+        );
+
+        if (!cleanEnglish.isEmpty()) {
+            appendTranslationRow(
+                    builder,
+                    "EN",
+                    labelFont,
+                    Color.parseColor("#3338BDF8"), // Soft Sky Blue fill
+                    Color.parseColor("#8038BDF8"), // Sky Blue border
+                    Color.parseColor("#E0F2FE"),   // Crisp light badge text
+                    cleanEnglish
+            );
+        }
+
+        if (!cleanTagalog.isEmpty()) {
+            if (!cleanEnglish.isEmpty()) {
+                // Middle divider separating English and Tagalog rows.
+                appendDividerLine(
+                        builder,
+                        Math.round(dpToPx(18f)),
+                        dividerColor
+                );
+            }
+
+            appendTranslationRow(
+                    builder,
+                    "TL",
+                    labelFont,
+                    Color.parseColor("#33FBBF24"), // Warm Amber/Gold fill
+                    Color.parseColor("#80FBBF24"), // Amber/Gold border
+                    Color.parseColor("#FEF3C7"),   // Crisp warm badge text
+                    cleanTagalog
+            );
+        }
+
+        return builder;
+    }
+
+
+    /**
+     * Appends a dedicated spacer line that draws a horizontal divider
+     * centered vertically inside the spacing gap.
+     */
+    private void appendDividerLine(
+            SpannableStringBuilder builder,
+            int verticalGapPx,
+            int dividerColor
+    ) {
+
+        if (builder.length() > 0) {
+            builder.append("\n");
+        }
+
+        int start = builder.length();
+        builder.append("\u00A0");
+        int end = builder.length();
+
+        builder.setSpan(
+                new HorizontalDividerSpan(
+                        verticalGapPx,
+                        dpToPx(1f),
+                        dividerColor
+                ),
+                start,
+                end,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+
+        builder.append("\n");
+    }
+
+
+    /**
+     * Appends a badge pill ("EN" or "TL") followed by the translation text
+     * using the exact same bold font style and color for both languages.
+     */
+    private void appendTranslationRow(
+            SpannableStringBuilder builder,
+            String badgeLabel,
+            @Nullable Typeface badgeTypeface,
+            int badgeBackgroundColor,
+            int badgeBorderColor,
+            int badgeTextColor,
+            String translationText
+    ) {
+
+        int badgeStart = builder.length();
+        builder.append(badgeLabel);
+        int badgeEnd = builder.length();
+
+        RoundedBadgeSpan badgeSpan = new RoundedBadgeSpan(
+                badgeTypeface,
+                badgeBackgroundColor,
+                badgeBorderColor,
+                badgeTextColor,
+                dpToPx(6f),
+                dpToPx(7f),
+                dpToPx(2.5f),
+                spToPx(10.5f)
+        );
+
+        builder.setSpan(
+                badgeSpan,
+                badgeStart,
+                badgeEnd,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+
+        builder.append("   ");
+
+        int textStart = builder.length();
+        builder.append(translationText);
+        int textEnd = builder.length();
+
+        // Apply the exact same bold style to both English and Tagalog text.
+        builder.setSpan(
+                new StyleSpan(Typeface.BOLD),
+                textStart,
+                textEnd,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+    }
+
+
+    /**
+     * Custom span that creates vertical spacing and draws a full-width
+     * subtle horizontal divider line across the card.
+     */
+    private static class HorizontalDividerSpan
+            implements LineBackgroundSpan, LineHeightSpan {
+
+        private final int heightPx;
+        private final float strokeWidthPx;
+        private final int lineColor;
+
+        HorizontalDividerSpan(
+                int heightPx,
+                float strokeWidthPx,
+                int lineColor
+        ) {
+            this.heightPx = Math.max(4, heightPx);
+            this.strokeWidthPx = strokeWidthPx;
+            this.lineColor = lineColor;
+        }
+
+        @Override
+        public void chooseHeight(
+                CharSequence text,
+                int start,
+                int end,
+                int spanstartv,
+                int lineHeight,
+                Paint.FontMetricsInt fm
+        ) {
+            if (!(text instanceof Spanned)) {
+                return;
+            }
+
+            Spanned spanned = (Spanned) text;
+            int spanStart = spanned.getSpanStart(this);
+            int spanEnd = spanned.getSpanEnd(this);
+
+            if (spanStart >= start && spanEnd <= end) {
+                int half = heightPx / 2;
+                fm.ascent = -half;
+                fm.top = -half;
+                fm.descent = heightPx - half;
+                fm.bottom = heightPx - half;
+            }
+        }
+
+        @Override
+        public void drawBackground(
+                @NonNull Canvas canvas,
+                @NonNull Paint paint,
+                int left,
+                int right,
+                int top,
+                int baseline,
+                int bottom,
+                @NonNull CharSequence text,
+                int start,
+                int end,
+                int lineNumber
+        ) {
+            if (!(text instanceof Spanned)) {
+                return;
+            }
+
+            Spanned spanned = (Spanned) text;
+            int spanStart = spanned.getSpanStart(this);
+            int spanEnd = spanned.getSpanEnd(this);
+
+            if (spanStart >= start && spanEnd <= end) {
+                float centerY = (top + bottom) / 2f;
+
+                Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                linePaint.setColor(lineColor);
+                linePaint.setStyle(Paint.Style.STROKE);
+                linePaint.setStrokeWidth(strokeWidthPx);
+
+                canvas.drawLine(left, centerY, right, centerY, linePaint);
+            }
+        }
+    }
+
+
+    /**
+     * Custom ReplacementSpan that draws a modern rounded pill badge
+     * (with fill + subtle border) for "EN" and "TL" tags.
+     */
+    private static class RoundedBadgeSpan extends ReplacementSpan {
+
+        @Nullable
+        private final Typeface badgeTypeface;
+        private final int backgroundColor;
+        private final int borderColor;
+        private final int textColor;
+        private final float cornerRadius;
+        private final float horizontalPadding;
+        private final float verticalPadding;
+        private final float badgeTextSize;
+
+        RoundedBadgeSpan(
+                @Nullable Typeface badgeTypeface,
+                int backgroundColor,
+                int borderColor,
+                int textColor,
+                float cornerRadius,
+                float horizontalPadding,
+                float verticalPadding,
+                float badgeTextSize
+        ) {
+            this.badgeTypeface = badgeTypeface;
+            this.backgroundColor = backgroundColor;
+            this.borderColor = borderColor;
+            this.textColor = textColor;
+            this.cornerRadius = cornerRadius;
+            this.horizontalPadding = horizontalPadding;
+            this.verticalPadding = verticalPadding;
+            this.badgeTextSize = badgeTextSize;
+        }
+
+        private Paint createBadgePaint(Paint src) {
+            Paint badgePaint = new Paint(src);
+            badgePaint.setTextSize(badgeTextSize);
+            badgePaint.setTypeface(
+                    badgeTypeface != null
+                            ? Typeface.create(badgeTypeface, Typeface.BOLD)
+                            : Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            );
+            badgePaint.setAntiAlias(true);
+            badgePaint.setLetterSpacing(0.06f);
+            return badgePaint;
+        }
+
+        @Override
+        public int getSize(
+                @NonNull Paint paint,
+                CharSequence text,
+                int start,
+                int end,
+                @Nullable Paint.FontMetricsInt fm
+        ) {
+            Paint badgePaint = createBadgePaint(paint);
+            float textWidth = badgePaint.measureText(text, start, end);
+            return Math.round(textWidth + horizontalPadding * 2f);
+        }
+
+        @Override
+        public void draw(
+                @NonNull Canvas canvas,
+                CharSequence text,
+                int start,
+                int end,
+                float x,
+                int top,
+                int y,
+                int bottom,
+                @NonNull Paint paint
+        ) {
+            Paint badgePaint = createBadgePaint(paint);
+            Paint.FontMetrics badgeFm = badgePaint.getFontMetrics();
+            Paint.FontMetrics hostFm = paint.getFontMetrics();
+
+            float textWidth = badgePaint.measureText(text, start, end);
+            float badgeWidth = textWidth + horizontalPadding * 2f;
+            float badgeTextHeight = badgeFm.descent - badgeFm.ascent;
+            float badgeHeight = badgeTextHeight + verticalPadding * 2f;
+
+            // Vertically center the pill relative to the main translation text line.
+            float lineCenterY = y + (hostFm.ascent + hostFm.descent) / 2f;
+            float rectTop = lineCenterY - badgeHeight / 2f;
+            float rectBottom = lineCenterY + badgeHeight / 2f;
+
+            RectF rect = new RectF(
+                    x,
+                    rectTop,
+                    x + badgeWidth,
+                    rectBottom
+            );
+
+            // Draw pill background fill.
+            Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            bgPaint.setStyle(Paint.Style.FILL);
+            bgPaint.setColor(backgroundColor);
+            canvas.drawRoundRect(rect, cornerRadius, cornerRadius, bgPaint);
+
+            // Draw subtle pill border.
+            Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            strokePaint.setStyle(Paint.Style.STROKE);
+            strokePaint.setStrokeWidth(2f);
+            strokePaint.setColor(borderColor);
+            canvas.drawRoundRect(rect, cornerRadius, cornerRadius, strokePaint);
+
+            // Draw centered badge label ("EN" or "TL").
+            badgePaint.setColor(textColor);
+            float textX = x + horizontalPadding;
+            float textBaselineY =
+                    lineCenterY - (badgeFm.ascent + badgeFm.descent) / 2f;
+
+            canvas.drawText(
+                    text,
+                    start,
+                    end,
+                    textX,
+                    textBaselineY,
+                    badgePaint
+            );
+        }
+    }
+
+
+    private float dpToPx(float dp) {
+        return TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                dp,
+                getResources().getDisplayMetrics()
+        );
+    }
+
+
+    private float spToPx(float sp) {
+        return TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_SP,
+                sp,
+                getResources().getDisplayMetrics()
+        );
+    }
+
+
+    // =========================================================
+    // PHRASEBOOK & TRANSLATION HELPERS
     // =========================================================
 
     private String getIlokanoDisplayText(Phrase phrase) {
@@ -504,34 +1026,37 @@ public class HomeActivity extends AppCompatActivity {
             return "";
         }
 
-        String sentence = phrase.getIlokanoSentence();
-
-        if (sentence != null && !sentence.trim().isEmpty()) {
-            return sentence.trim();
-        }
-
         String word = phrase.getIlokanoWord();
 
-        return word == null ? "" : word.trim();
+        if (word != null && !word.trim().isEmpty()) {
+            return word.trim();
+        }
+
+        String sentence = phrase.getIlokanoSentence();
+
+        return sentence == null ? "" : sentence.trim();
     }
 
 
-    private String getTranslation(Phrase phrase, boolean useTagalog) {
+    /**
+     * Prefers ilokanoWord as the search query so Phrasebook search
+     * (both online API and local DB) always finds the exact entry.
+     */
+    private String getIlokanoSearchTerm(Phrase phrase) {
 
         if (phrase == null) {
             return "";
         }
 
-        if (useTagalog) {
+        String word = phrase.getIlokanoWord();
 
-            String tagalog = phrase.getTagalogTranslation();
-
-            if (tagalog != null && !tagalog.trim().isEmpty()) {
-                return tagalog.trim();
-            }
+        if (word != null && !word.trim().isEmpty()) {
+            return word.trim();
         }
 
-        return getEnglishDisplayText(phrase);
+        String sentence = phrase.getIlokanoSentence();
+
+        return sentence == null ? "" : sentence.trim();
     }
 
 
@@ -541,15 +1066,15 @@ public class HomeActivity extends AppCompatActivity {
             return "";
         }
 
-        String sentence = phrase.getEnglishSentence();
-
-        if (sentence != null && !sentence.trim().isEmpty()) {
-            return sentence.trim();
-        }
-
         String translation = phrase.getEnglishTranslation();
 
-        return translation == null ? "" : translation.trim();
+        if (translation != null && !translation.trim().isEmpty()) {
+            return translation.trim();
+        }
+
+        String sentence = phrase.getEnglishSentence();
+
+        return sentence == null ? "" : sentence.trim();
     }
 
 
@@ -573,15 +1098,15 @@ public class HomeActivity extends AppCompatActivity {
                 "Daily phrase is not available yet."
         );
 
+        binding.tvDailyPhraseTranslation.setLineSpacing(0f, 1.0f);
         binding.tvDailyPhraseTranslation.setText(
                 "Open Phrasebook or Dictionary to load learning content."
         );
 
         binding.tvDailyPhrase.setVisibility(View.VISIBLE);
+        binding.tvDailyPhraseTranslation.setVisibility(View.VISIBLE);
 
-        binding.tvDailyPhraseTranslation.setVisibility(
-                View.VISIBLE
-        );
+        fadeInViews(binding.tvDailyPhrase, binding.tvDailyPhraseTranslation);
     }
 
 
@@ -591,7 +1116,7 @@ public class HomeActivity extends AppCompatActivity {
 
     private void setupSyncIndicator() {
 
-        binding.btnRetrySync.setOnClickListener(v -> {
+        binding.btnRetrySync.setOnClickListener(v -> animateCardTap(v, () -> {
 
             if (!NetworkUtil.isOnline(this)) {
 
@@ -605,7 +1130,7 @@ public class HomeActivity extends AppCompatActivity {
             }
 
             startSync();
-        });
+        }));
 
         updateLastSyncText();
 
@@ -853,6 +1378,7 @@ public class HomeActivity extends AppCompatActivity {
     protected void onResume() {
 
         super.onResume();
+        isNavigating = false;
 
         if (hasResumedOnce) {
 

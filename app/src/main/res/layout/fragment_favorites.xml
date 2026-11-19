@@ -29,6 +29,7 @@
             android:textColor="@color/cyan_primary"
             android:textSize="28sp"
             android:textStyle="bold"
+            android:fontFamily="@font/font_display"
             android:accessibilityHeading="true" />
 
         <ImageButton
@@ -57,7 +58,8 @@
         android:layout_marginBottom="18dp"
         android:text="Your saved Ilokano words and phrases"
         android:textColor="@color/text_secondary"
-        android:textSize="14sp" />
+        android:textSize="14sp"
+        android:fontFamily="@font/font_body" />
 
     <!-- FAVORITE COUNT -->
 
@@ -68,8 +70,10 @@
         android:layout_marginBottom="14dp"
         android:text="0 saved items"
         android:textColor="@color/text_primary"
-        android:textSize="14sp"
-        android:textStyle="bold" />
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:fontFamily="@font/font_label"
+        android:letterSpacing="0.04" />
 
     <!-- EMPTY STATE -->
 
@@ -99,7 +103,8 @@
             android:text="No favorites yet"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:fontFamily="@font/font_display" />
 
         <TextView
             android:layout_width="match_parent"
@@ -109,6 +114,7 @@
             android:text="Tap the heart on a dictionary word or phrase to save it here."
             android:textColor="@color/text_secondary"
             android:textSize="14sp"
+            android:fontFamily="@font/font_body"
             android:lineSpacingExtra="4dp" />
 
     </LinearLayout>

@@ -18,6 +18,7 @@
         android:textColor="@color/cyan_secondary"
         android:textSize="14sp"
         android:textStyle="bold"
+        android:fontFamily="@font/font_label"
         android:letterSpacing="0.1"
         android:includeFontPadding="false"
         android:accessibilityHeading="true" />

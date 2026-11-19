@@ -1,17 +1,23 @@
-
 package com.example.speaksmartbaguio;
 
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.res.ResourcesCompat;
 
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
+import com.example.speaksmartbaguio.utils.AudioPreferences;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.util.Locale;
 
@@ -29,6 +35,7 @@ public class PhraseDetailActivity extends AppCompatActivity {
 
     private TextToSpeech tts;
     private boolean ttsReady = false;
+    private boolean isFinishingActivity = false;
 
     private String ilokanoPhrase = "";
 
@@ -52,7 +59,13 @@ public class PhraseDetailActivity extends AppCompatActivity {
 
         // Back button.
         ImageButton btnBack = findViewById(R.id.btnBack);
-        btnBack.setOnClickListener(v -> finish());
+        btnBack.setOnClickListener(v -> {
+            if (isFinishingActivity) {
+                return;
+            }
+            isFinishingActivity = true;
+            animateButtonTap(v, this::finish);
+        });
 
         // Retrieve phrase information.
         ilokanoPhrase = getIntent().getStringExtra("ilokano");
@@ -125,13 +138,96 @@ public class PhraseDetailActivity extends AppCompatActivity {
         setupTextToSpeech();
 
         // Speaker button.
-        btnSpeakPhrase.setOnClickListener(v -> speakIlokanoPhrase());
+        btnSpeakPhrase.setOnClickListener(v ->
+                animateButtonTap(v, this::speakIlokanoPhrase)
+        );
 
         // Apply accessibility settings.
         AccessibilityPreferences.applyToViewTree(
                 this,
                 getWindow().getDecorView()
         );
+
+        animateEntrance();
+    }
+
+    private void animateEntrance() {
+        View contentView = findViewById(android.R.id.content);
+        if (contentView == null) {
+            return;
+        }
+        float offset = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                16f,
+                getResources().getDisplayMetrics()
+        );
+        contentView.setAlpha(0f);
+        contentView.setTranslationY(offset);
+        contentView.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(260L)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+    }
+
+    private void animateButtonTap(View view, Runnable action) {
+        if (view == null) {
+            if (action != null) {
+                action.run();
+            }
+            return;
+        }
+
+        view.animate().cancel();
+        view.animate()
+                .scaleX(0.90f)
+                .scaleY(0.90f)
+                .setDuration(70L)
+                .withEndAction(() -> {
+                    view.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(100L)
+                            .setInterpolator(new OvershootInterpolator(1.3f))
+                            .start();
+
+                    if (action != null) {
+                        action.run();
+                    }
+                })
+                .start();
+    }
+
+    private void showModernMessage(String message) {
+        View rootView = findViewById(android.R.id.content);
+        if (rootView == null || isFinishing() || isDestroyed()) {
+            return;
+        }
+
+        Snackbar snackbar = Snackbar.make(
+                rootView,
+                message,
+                Snackbar.LENGTH_SHORT
+        );
+        snackbar.setBackgroundTint(Color.rgb(25, 35, 40));
+        snackbar.setTextColor(Color.WHITE);
+
+        TextView snackText = snackbar.getView().findViewById(
+                com.google.android.material.R.id.snackbar_text
+        );
+        if (snackText != null) {
+            Typeface bodyFont = ResourcesCompat.getFont(
+                    this,
+                    R.font.font_body
+            );
+            if (bodyFont != null) {
+                snackText.setTypeface(bodyFont);
+            }
+        }
+
+        snackbar.setAnimationMode(Snackbar.ANIMATION_MODE_SLIDE);
+        snackbar.show();
     }
 
     // =========================================================
@@ -157,8 +253,7 @@ public class PhraseDetailActivity extends AppCompatActivity {
                         return;
                     }
 
-                    tts.setPitch(0.95f);
-                    tts.setSpeechRate(0.85f);
+                    AudioPreferences.applyToTextToSpeech(this, tts);
 
                     ttsReady = setBestAvailableLanguage();
 
@@ -213,26 +308,18 @@ public class PhraseDetailActivity extends AppCompatActivity {
         // Speak only the main Ilokano phrase.
         // Do not use the English translation or example sentence.
         if (isEmpty(ilokanoPhrase)) {
-            Toast.makeText(
-                    this,
-                    "Ilokano phrase is unavailable.",
-                    Toast.LENGTH_SHORT
-            ).show();
-
+            showModernMessage("Ilokano phrase is unavailable.");
             return;
         }
 
         if (tts == null || !ttsReady) {
-            Toast.makeText(
-                    this,
-                    "Text-to-Speech is still starting. Please try again.",
-                    Toast.LENGTH_SHORT
-            ).show();
-
+            showModernMessage("Text-to-Speech is still starting. Please try again.");
             return;
         }
 
         tts.stop();
+
+        AudioPreferences.applyToTextToSpeech(this, tts);
 
         int result = tts.speak(
                 ilokanoPhrase.trim(),
@@ -242,11 +329,7 @@ public class PhraseDetailActivity extends AppCompatActivity {
         );
 
         if (result == TextToSpeech.ERROR) {
-            Toast.makeText(
-                    this,
-                    "Unable to pronounce this phrase.",
-                    Toast.LENGTH_SHORT
-            ).show();
+            showModernMessage("Unable to pronounce this phrase.");
         }
     }
 
@@ -263,8 +346,14 @@ public class PhraseDetailActivity extends AppCompatActivity {
     }
 
     // =========================================================
-    // CLEANUP
+    // EXIT TRANSITION & CLEANUP
     // =========================================================
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
+    }
 
     @Override
     protected void onDestroy() {
