@@ -58,6 +58,23 @@
                 android:visibility="gone" />
 
             <TextView
+                android:id="@+id/textViewCategory"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:paddingStart="9dp"
+                android:paddingEnd="9dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:background="@drawable/dropdown_glass_background"
+                android:textColor="@color/cyan_secondary"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:fontFamily="@font/font_label"
+                android:letterSpacing="0.04"
+                android:visibility="gone" />
+
+            <TextView
                 android:id="@+id/textViewSelectedTranslation"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

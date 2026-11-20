@@ -145,7 +145,7 @@
         app:endIconMode="dropdown_menu"
         app:endIconTint="@color/cyan_primary">
 
-        <AutoCompleteTextView
+        <com.google.android.material.textfield.MaterialAutoCompleteTextView
             android:id="@+id/languageDropdown"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -163,9 +163,178 @@
             android:fontFamily="@font/font_body"
             android:inputType="none"
             android:focusable="false"
-            android:clickable="true" />
+            android:clickable="true"
+            android:popupBackground="@drawable/dropdown_glass_background" />
 
     </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- CATEGORY FILTER LABEL -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:text="CATEGORY"
+        android:textColor="@color/text_secondary"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:fontFamily="@font/font_label"
+        android:letterSpacing="0.10" />
+
+    <!-- CATEGORY DROPDOWN -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/categoryDropdownLayout"
+        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox.ExposedDropdownMenu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        app:boxBackgroundMode="filled"
+        app:boxBackgroundColor="@color/app_surface"
+        app:boxStrokeColor="@color/dropdown_underline_color"
+        app:boxStrokeWidth="1dp"
+        app:boxStrokeWidthFocused="2dp"
+        app:boxCornerRadiusTopStart="16dp"
+        app:boxCornerRadiusTopEnd="16dp"
+        app:boxCornerRadiusBottomStart="16dp"
+        app:boxCornerRadiusBottomEnd="16dp"
+        app:hintEnabled="false"
+        app:endIconMode="dropdown_menu"
+        app:endIconTint="@color/cyan_primary">
+
+        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+            android:id="@+id/categoryDropdown"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:background="@android:color/transparent"
+            android:paddingStart="16dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="14dp"
+            android:hint="Select Category"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:fontFamily="@font/font_body"
+            android:inputType="none"
+            android:focusable="false"
+            android:clickable="true"
+            android:popupBackground="@drawable/dropdown_glass_background" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- SORT BUTTON -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonPhrasebookFilter"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginBottom="20dp"
+        android:padding="0dp"
+        android:minWidth="48dp"
+        android:minHeight="48dp"
+        android:contentDescription="Open phrasebook sorting options"
+        android:tooltipText="Sort phrasebook"
+        android:text=""
+        android:backgroundTint="@android:color/transparent"
+        android:stateListAnimator="@null"
+        app:icon="@drawable/ic_filter_cyan"
+        app:iconGravity="textStart"
+        app:iconSize="24dp"
+        app:iconTint="@color/cyan_primary"
+        app:iconPadding="0dp"
+        app:strokeColor="@color/cyan_deep"
+        app:strokeWidth="1dp"
+        app:cornerRadius="14dp" />
+
+    <!-- SORTING PANEL -->
+    <LinearLayout
+        android:id="@+id/phrasebookFilterPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@color/app_surface"
+        android:padding="14dp"
+        android:layout_marginBottom="20dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SORT PHRASEBOOK"
+            android:textColor="@color/cyan_primary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:fontFamily="@font/font_label"
+            android:letterSpacing="0.10"
+            android:layout_marginBottom="10dp" />
+
+        <RadioGroup
+            android:id="@+id/sortOrderGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/radioSortAZ"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="A–Z"
+                android:fontFamily="@font/font_body"
+                android:textColor="@color/text_primary"
+                android:buttonTint="@color/cyan_primary"
+                android:checked="true" />
+
+            <RadioButton
+                android:id="@+id/radioSortZA"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Z–A"
+                android:fontFamily="@font/font_body"
+                android:textColor="@color/text_primary"
+                android:buttonTint="@color/cyan_primary" />
+
+        </RadioGroup>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="12dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonClearPhrasebookFilters"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:text="Reset"
+                android:textAllCaps="false"
+                android:fontFamily="@font/font_body"
+                android:textColor="@color/cyan_primary"
+                app:strokeColor="@color/cyan_deep"
+                app:cornerRadius="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonApplyPhrasebookFilters"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Apply"
+                android:textAllCaps="false"
+                android:textStyle="bold"
+                android:fontFamily="@font/font_body"
+                android:textColor="@color/text_on_cyan"
+                app:backgroundTint="@color/cyan_primary"
+                app:cornerRadius="12dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
 
     <!-- RESULTS SECTION -->
     <TextView

@@ -36,6 +36,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.speaksmartbaguio.databinding.FragmentPhrasebookBinding;
 import com.example.speaksmartbaguio.databinding.ItemPhrasebookHeaderBinding;
+import com.example.speaksmartbaguio.entity.PhraseEntity;
 import com.example.speaksmartbaguio.mapper.EntityMapper;
 import com.example.speaksmartbaguio.repository.PhraseRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
@@ -78,6 +79,8 @@ public class PhrasebookFragment extends Fragment {
     private boolean ttsReady = false;
     private boolean incomingSearchHandled = false;
     private String selectedLanguage = "English";
+    private String selectedCategory = "All Categories";
+    private String selectedSortOrder = PhrasebookAdapter.SORT_A_TO_Z;
     private String pendingSearchQuery = "";
 
     private int currentPage = 1;
@@ -98,7 +101,11 @@ public class PhrasebookFragment extends Fragment {
 
     private final Runnable searchRunnable = () -> {
         if (binding != null && isAdded()) {
-            loadPhrases(true);
+            if (pendingSearchQuery.isEmpty()) {
+                loadOfflinePhrases();
+            } else {
+                searchOfflinePhrases(pendingSearchQuery);
+            }
         }
     };
 
@@ -583,16 +590,19 @@ public class PhrasebookFragment extends Fragment {
 
         headerBinding = newHeaderBinding;
 
+        setupSettingsMenuButton();
+        setupLanguageDropdown();
+        setupCategoryDropdown();
+        setupFilterPanel();
+        updateSortRadioButtons();
+        setupSearch();
+
         // Prevent duplicate initialization during header rebinding.
         if (headerInitialized) {
             return;
         }
 
         headerInitialized = true;
-
-        setupSettingsMenuButton();
-        setupLanguageDropdown();
-        setupSearch();
 
         // Wait until RecyclerView has finished its layout.
         runWhenRecyclerViewIsIdle(() -> {
@@ -979,6 +989,10 @@ public class PhrasebookFragment extends Fragment {
                                 dropdownAdapter
                         );
 
+                        headerBinding.languageDropdown.setDropDownBackgroundResource(
+                                R.drawable.dropdown_glass_background
+                        );
+
                         headerBinding.languageDropdown.setText(
                                 selectedLanguage,
                                 false
@@ -1032,6 +1046,357 @@ public class PhrasebookFragment extends Fragment {
                     }
                 }
         );
+    }
+
+    // =========================================================
+    // CATEGORY DROPDOWN
+    // =========================================================
+
+    private void setupCategoryDropdown() {
+
+        if (headerBinding == null || !isAdded()) {
+            return;
+        }
+
+        final List<String> categories = new ArrayList<>();
+        categories.add("All Categories");
+
+        ArrayAdapter<String> dropdownAdapter =
+                new ArrayAdapter<String>(
+                        requireContext(),
+                        R.layout.dropdown_item_bold,
+                        categories
+                ) {
+
+                    private final Filter showAllCategoriesFilter =
+                            new Filter() {
+
+                                @Override
+                                protected FilterResults performFiltering(
+                                        CharSequence constraint
+                                ) {
+                                    FilterResults results =
+                                            new FilterResults();
+                                    results.values = new ArrayList<>(categories);
+                                    results.count = categories.size();
+                                    return results;
+                                }
+
+                                @Override
+                                protected void publishResults(
+                                        CharSequence constraint,
+                                        FilterResults results
+                                ) {
+                                    if (results == null
+                                            || results.values == null) {
+                                        return;
+                                    }
+
+                                    @SuppressWarnings("unchecked")
+                                    List<String> allCats =
+                                            (List<String>) results.values;
+
+                                    clear();
+                                    addAll(allCats);
+                                    notifyDataSetChanged();
+                                }
+                            };
+
+                    @NonNull
+                    @Override
+                    public Filter getFilter() {
+                        return showAllCategoriesFilter;
+                    }
+                };
+
+        headerBinding.categoryDropdown.setAdapter(
+                dropdownAdapter
+        );
+
+        headerBinding.categoryDropdown.setDropDownBackgroundResource(
+                R.drawable.dropdown_glass_background
+        );
+
+        headerBinding.categoryDropdown.setKeyListener(null);
+        headerBinding.categoryDropdown.setFocusable(false);
+        headerBinding.categoryDropdown.setInputType(InputType.TYPE_NULL);
+        headerBinding.categoryDropdown.setThreshold(0);
+
+        headerBinding.categoryDropdownLayout.setHint(
+                "Select Category"
+        );
+
+        headerBinding.categoryDropdown.setText(
+                selectedCategory,
+                false
+        );
+
+        if (repository != null) {
+            repository.getAllCategories(result -> {
+                mainHandler.post(() -> {
+                    if (headerBinding == null || !isAdded()) {
+                        return;
+                    }
+
+                    if (result != null && !result.isEmpty()) {
+                        for (String cat : result) {
+                            if (cat != null && !cat.trim().isEmpty() && !categories.contains(cat.trim())) {
+                                categories.add(cat.trim());
+                            }
+                        }
+                    } else {
+                        String[] defaults = {
+                                "Abstract Concepts & Values",
+                                "Arts & Culture",
+                                "Body & Health",
+                                "Clothing & Accessories",
+                                "Communication & Language",
+                                "Education & Knowledge",
+                                "Emotions & Feelings",
+                                "Food & Drink",
+                                "Greetings & Courtesy",
+                                "Money & Finance",
+                                "Nature & Environment",
+                                "People & Relationships",
+                                "Places & Directions",
+                                "Religion & Spirituality",
+                                "Technology & Science",
+                                "Time & Frequency",
+                                "Transportation & Travel",
+                                "Weather",
+                                "Work & Business"
+                        };
+                        for (String d : defaults) {
+                            if (!categories.contains(d)) {
+                                categories.add(d);
+                            }
+                        }
+                    }
+
+                    dropdownAdapter.notifyDataSetChanged();
+                });
+            });
+        }
+
+        final boolean[] isDropdownOpen = {false};
+
+        View.OnClickListener toggleDropdown = v -> {
+
+            if (headerBinding == null) {
+                return;
+            }
+
+            if (isDropdownOpen[0]) {
+                headerBinding.categoryDropdown.dismissDropDown();
+                isDropdownOpen[0] = false;
+                return;
+            }
+
+            dropdownAdapter.getFilter().filter(
+                    "",
+                    count -> {
+                        if (headerBinding == null) {
+                            return;
+                        }
+
+                        headerBinding.categoryDropdown.setAdapter(
+                                dropdownAdapter
+                        );
+
+                        headerBinding.categoryDropdown.setDropDownBackgroundResource(
+                                R.drawable.dropdown_glass_background
+                        );
+
+                        headerBinding.categoryDropdown.setText(
+                                selectedCategory,
+                                false
+                        );
+
+                        headerBinding.categoryDropdown.showDropDown();
+                        isDropdownOpen[0] = true;
+                    }
+            );
+        };
+
+        headerBinding.categoryDropdown.setOnClickListener(
+                toggleDropdown
+        );
+
+        headerBinding.categoryDropdownLayout.setEndIconOnClickListener(
+                toggleDropdown
+        );
+
+        headerBinding.categoryDropdown.setOnItemClickListener(
+                (parent, itemView, position, id) -> {
+
+                    Object selectedItem =
+                            parent.getItemAtPosition(position);
+
+                    if (selectedItem == null) {
+                        return;
+                    }
+
+                    selectedCategory = selectedItem.toString();
+
+                    headerBinding.categoryDropdown.setText(
+                            selectedCategory,
+                            false
+                    );
+
+                    isDropdownOpen[0] = false;
+
+                    if (pendingSearchQuery.isEmpty()) {
+                        loadOfflinePhrases();
+                    } else {
+                        searchOfflinePhrases(pendingSearchQuery);
+                    }
+                }
+        );
+    }
+
+    // =========================================================
+    // SORTING PANEL
+    // =========================================================
+
+    private void updateSortRadioButtons() {
+        if (headerBinding == null) {
+            return;
+        }
+
+        if (PhrasebookAdapter.SORT_Z_TO_A.equals(selectedSortOrder)) {
+            headerBinding.radioSortZA.setChecked(true);
+        } else {
+            headerBinding.radioSortAZ.setChecked(true);
+        }
+    }
+
+    private void setupFilterPanel() {
+        if (headerBinding == null) {
+            return;
+        }
+
+        headerBinding.phrasebookFilterPanel.setVisibility(
+                View.GONE
+        );
+
+        updateSortRadioButtons();
+
+        headerBinding.buttonPhrasebookFilter.setOnClickListener(v ->
+                animateButtonTap(v, () -> {
+                    if (headerBinding == null) {
+                        return;
+                    }
+
+                    boolean isVisible =
+                            headerBinding.phrasebookFilterPanel.getVisibility()
+                                    == View.VISIBLE;
+
+                    setFilterPanelVisible(!isVisible);
+
+                    if (!isVisible) {
+                        updateSortRadioButtons();
+                    }
+                })
+        );
+
+        headerBinding.sortOrderGroup.setOnCheckedChangeListener(
+                (group, checkedId) -> {
+                    if (headerBinding == null) {
+                        return;
+                    }
+
+                    if (checkedId == headerBinding.radioSortZA.getId()) {
+                        selectedSortOrder = PhrasebookAdapter.SORT_Z_TO_A;
+                    } else if (checkedId == headerBinding.radioSortAZ.getId()) {
+                        selectedSortOrder = PhrasebookAdapter.SORT_A_TO_Z;
+                    }
+                }
+        );
+
+        headerBinding.buttonApplyPhrasebookFilters.setOnClickListener(v ->
+                animateButtonTap(v, () -> {
+                    if (headerBinding == null) {
+                        return;
+                    }
+
+                    selectedSortOrder =
+                            headerBinding.radioSortZA.isChecked()
+                                    ? PhrasebookAdapter.SORT_Z_TO_A
+                                    : PhrasebookAdapter.SORT_A_TO_Z;
+
+                    if (adapter != null) {
+                        adapter.setSortOrder(selectedSortOrder);
+                    }
+
+                    setFilterPanelVisible(false);
+
+                    if (pendingSearchQuery.isEmpty()) {
+                        loadOfflinePhrases();
+                    } else {
+                        searchOfflinePhrases(pendingSearchQuery);
+                    }
+                })
+        );
+
+        headerBinding.buttonClearPhrasebookFilters.setOnClickListener(v ->
+                animateButtonTap(v, () -> {
+                    if (headerBinding == null) {
+                        return;
+                    }
+
+                    selectedSortOrder = PhrasebookAdapter.SORT_A_TO_Z;
+                    updateSortRadioButtons();
+
+                    if (adapter != null) {
+                        adapter.setSortOrder(selectedSortOrder);
+                    }
+
+                    setFilterPanelVisible(false);
+
+                    if (pendingSearchQuery.isEmpty()) {
+                        loadOfflinePhrases();
+                    } else {
+                        searchOfflinePhrases(pendingSearchQuery);
+                    }
+                })
+        );
+    }
+
+    private void setFilterPanelVisible(boolean show) {
+        if (headerBinding == null) {
+            return;
+        }
+
+        View panel = headerBinding.phrasebookFilterPanel;
+        panel.animate().cancel();
+
+        if (show) {
+            panel.setAlpha(0f);
+            panel.setTranslationY(-dpToPx(10f));
+            panel.setVisibility(View.VISIBLE);
+            panel.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(220L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        } else {
+            if (panel.getVisibility() == View.GONE) {
+                return;
+            }
+            panel.animate()
+                    .alpha(0f)
+                    .translationY(-dpToPx(8f))
+                    .setDuration(160L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .withEndAction(() -> {
+                        if (headerBinding != null) {
+                            panel.setVisibility(View.GONE);
+                            panel.setTranslationY(0f);
+                        }
+                    })
+                    .start();
+        }
     }
 
     // =========================================================
@@ -1260,25 +1625,43 @@ public class PhrasebookFragment extends Fragment {
                                             ? items
                                             : new ArrayList<>();
 
+                            boolean hasCategory = selectedCategory != null
+                                    && !selectedCategory.isEmpty()
+                                    && !"All Categories".equalsIgnoreCase(selectedCategory);
+
+                            List<Phrase> displayItems = safeItems;
+                            if (hasCategory) {
+                                displayItems = new ArrayList<>();
+                                for (Phrase p : safeItems) {
+                                    if (p != null && selectedCategory.equalsIgnoreCase(p.getCategory())) {
+                                        displayItems.add(p);
+                                    }
+                                }
+                            }
+
                             // If the online API returned 0 matches for a search query,
                             // fall back to local database search so Daily Phrase entries
                             // (such as full Ilokano sentences) are never wiped out.
-                            if (reset && safeItems.isEmpty() && !requestedQuery.isEmpty()) {
+                            if (reset && displayItems.isEmpty() && (!requestedQuery.isEmpty() || hasCategory)) {
                                 hasMore = false;
                                 adapter.setPaginationState(false, false);
-                                searchOfflinePhrases(requestedQuery);
+                                if (!requestedQuery.isEmpty()) {
+                                    searchOfflinePhrases(requestedQuery);
+                                } else {
+                                    loadOfflinePhrases();
+                                }
                                 return;
                             }
 
                             if (reset) {
 
                                 adapter.filterList(
-                                        new ArrayList<>(safeItems)
+                                        new ArrayList<>(displayItems)
                                 );
 
                             } else {
 
-                                adapter.addItems(safeItems);
+                                adapter.addItems(displayItems);
                             }
 
                             if (!safeItems.isEmpty()) {
@@ -1368,10 +1751,12 @@ public class PhrasebookFragment extends Fragment {
             return;
         }
 
-        repository.getAllPhrases(result -> {
+        boolean hasCategory = selectedCategory != null
+                && !selectedCategory.isEmpty()
+                && !"All Categories".equalsIgnoreCase(selectedCategory);
 
+        PhraseRepository.DatabaseCallback<List<PhraseEntity>> callback = result -> {
             mainHandler.post(() -> {
-
                 if (binding == null
                         || !isAdded()
                         || adapter == null) {
@@ -1385,6 +1770,7 @@ public class PhrasebookFragment extends Fragment {
                     phrases = new ArrayList<>();
                 }
 
+                adapter.setSortOrder(selectedSortOrder);
                 adapter.filterList(phrases);
 
                 updateEmptyState(
@@ -1398,7 +1784,13 @@ public class PhrasebookFragment extends Fragment {
                     );
                 }
             });
-        });
+        };
+
+        if (hasCategory) {
+            repository.getPhrasesByCategory(selectedCategory, callback);
+        } else {
+            repository.getAllPhrases(callback);
+        }
     }
 
     // =========================================================
@@ -1411,10 +1803,12 @@ public class PhrasebookFragment extends Fragment {
             return;
         }
 
-        repository.searchPhrases(query, result -> {
+        boolean hasCategory = selectedCategory != null
+                && !selectedCategory.isEmpty()
+                && !"All Categories".equalsIgnoreCase(selectedCategory);
 
+        PhraseRepository.DatabaseCallback<List<PhraseEntity>> callback = result -> {
             mainHandler.post(() -> {
-
                 if (binding == null
                         || !isAdded()
                         || adapter == null) {
@@ -1433,6 +1827,7 @@ public class PhrasebookFragment extends Fragment {
                     phrases = new ArrayList<>();
                 }
 
+                adapter.setSortOrder(selectedSortOrder);
                 adapter.setSearchQuery(query);
                 adapter.filterList(phrases);
 
@@ -1447,7 +1842,13 @@ public class PhrasebookFragment extends Fragment {
                     );
                 }
             });
-        });
+        };
+
+        if (hasCategory) {
+            repository.searchPhrasesByCategory(query, selectedCategory, callback);
+        } else {
+            repository.searchPhrases(query, callback);
+        }
     }
 
     // =========================================================
@@ -1480,17 +1881,25 @@ public class PhrasebookFragment extends Fragment {
 
         if (phraseCount == 0) {
 
+            boolean hasCategory = selectedCategory != null
+                    && !selectedCategory.isEmpty()
+                    && !"All Categories".equalsIgnoreCase(selectedCategory);
+
             if (query != null && !query.trim().isEmpty()) {
 
                 emptyView.setText(
-                        "No phrases found. Try another search."
+                        hasCategory
+                                ? "No phrases found in \"" + selectedCategory + "\". Try another search."
+                                : "No phrases found. Try another search."
                 );
 
             } else {
 
                 emptyView.setText(
-                        "No phrases available yet. "
-                                + "Connect to the internet to refresh."
+                        hasCategory
+                                ? "No phrases found in \"" + selectedCategory + "\"."
+                                : "No phrases available yet. "
+                                        + "Connect to the internet to refresh."
                 );
             }
 

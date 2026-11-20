@@ -24,6 +24,18 @@ public interface DictionaryDao {
     @Query("SELECT * FROM dictionary WHERE id = :id LIMIT 1")
     DictionaryEntity getWordById(String id);
 
+    @Query("SELECT DISTINCT category FROM dictionary WHERE category IS NOT NULL AND category != '' ORDER BY category ASC")
+    List<String> getAllCategories();
+
+    @Query("SELECT * FROM dictionary WHERE TRIM(category) = TRIM(:category) COLLATE NOCASE ORDER BY ilokanoWord ASC")
+    List<DictionaryEntity> getWordsByCategory(String category);
+
+    @Query("SELECT * FROM dictionary WHERE TRIM(category) = TRIM(:category) COLLATE NOCASE AND (" +
+            "ilokanoWord LIKE '%' || :query || '%' OR " +
+            "englishTranslation LIKE '%' || :query || '%' OR " +
+            "tagalogTranslation LIKE '%' || :query || '%') ORDER BY ilokanoWord ASC")
+    List<DictionaryEntity> searchWordsByCategory(String category, String query);
+
     @Query("SELECT * FROM dictionary WHERE " +
             "ilokanoWord LIKE '%' || :query || '%' OR " +
             "englishTranslation LIKE '%' || :query || '%' OR " +

@@ -176,7 +176,7 @@
                     android:paddingEnd="12dp"
                     android:paddingTop="7dp"
                     android:paddingBottom="7dp"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/cyan_secondary"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:fontFamily="@font/font_label" />

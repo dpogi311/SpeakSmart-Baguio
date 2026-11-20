@@ -92,14 +92,6 @@ public class WordDetailActivity extends AppCompatActivity {
             tagalog = "No Tagalog translation available.";
         }
 
-        if (pos == null || pos.trim().isEmpty()) {
-            pos = "Part of speech not specified";
-        }
-
-        if (category == null || category.trim().isEmpty()) {
-            category = "Category not specified";
-        }
-
         if (definition == null || definition.trim().isEmpty()) {
             definition = "No definition available.";
         }
@@ -111,8 +103,21 @@ public class WordDetailActivity extends AppCompatActivity {
         tvIlokano.setText(ilokanoWord);
         tvEnglish.setText(english);
         tvTagalog.setText(tagalog);
-        tvPartOfSpeech.setText(pos);
-        tvCategory.setText(category);
+
+        if (pos == null || pos.trim().isEmpty() || "Part of speech not specified".equalsIgnoreCase(pos.trim())) {
+            tvPartOfSpeech.setVisibility(View.GONE);
+        } else {
+            tvPartOfSpeech.setVisibility(View.VISIBLE);
+            tvPartOfSpeech.setText(pos.trim());
+        }
+
+        if (category == null || category.trim().isEmpty() || "Category not specified".equalsIgnoreCase(category.trim())) {
+            tvCategory.setVisibility(View.GONE);
+        } else {
+            tvCategory.setVisibility(View.VISIBLE);
+            tvCategory.setText(category.trim());
+        }
+
         tvDefinition.setText(definition);
 
         // Apply saved font-size, high-contrast, and simplified-layout settings.

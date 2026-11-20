@@ -82,7 +82,7 @@
 
         <item name="android:textColor">@color/text_primary</item>
         <item name="android:textColorHint">@color/text_secondary</item>
-        <item name="android:popupBackground">@color/app_surface_elevated</item>
+        <item name="android:popupBackground">@drawable/dropdown_glass_background</item>
         <item name="android:backgroundTint">@color/cyan_primary</item>
         <item name="android:fontFamily">@font/font_body</item>
         <item name="fontFamily">@font/font_body</item>

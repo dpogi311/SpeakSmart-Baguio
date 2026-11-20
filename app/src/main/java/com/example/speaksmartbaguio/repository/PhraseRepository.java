@@ -9,6 +9,8 @@ import com.example.speaksmartbaguio.database.DatabaseClient;
 import com.example.speaksmartbaguio.entity.PhraseEntity;
 import com.example.speaksmartbaguio.mapper.EntityMapper;
 import com.example.speaksmartbaguio.utils.VersionChecker;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +62,85 @@ public class PhraseRepository {
         executorService.execute(() ->
                 callback.onComplete(phraseDao.getAllPhrases())
         );
+    }
+
+    public void getAllCategories(
+            DatabaseCallback<List<String>> callback
+    ) {
+        executorService.execute(() ->
+                callback.onComplete(phraseDao.getAllCategories())
+        );
+    }
+
+    public void getPhrasesByCategory(
+            String category,
+            DatabaseCallback<List<PhraseEntity>> callback
+    ) {
+        executorService.execute(() -> {
+            if (category == null
+                    || category.trim().isEmpty()
+                    || "All Categories".equalsIgnoreCase(category.trim())) {
+                callback.onComplete(phraseDao.getAllPhrases());
+            } else {
+                callback.onComplete(phraseDao.getPhrasesByCategory(category.trim()));
+            }
+        });
+    }
+
+    public void searchPhrasesByCategory(
+            String query,
+            String category,
+            DatabaseCallback<List<PhraseEntity>> callback
+    ) {
+        executorService.execute(() -> {
+            String cleanQuery = query == null ? "" : query.trim();
+            boolean hasCategory = category != null
+                    && !category.trim().isEmpty()
+                    && !"All Categories".equalsIgnoreCase(category.trim());
+
+            if (!hasCategory) {
+                searchPhrases(cleanQuery, callback);
+                return;
+            }
+
+            List<PhraseEntity> daoResults =
+                    phraseDao.searchPhrasesByCategory(category.trim(), cleanQuery);
+
+            if (daoResults != null && !daoResults.isEmpty()) {
+                callback.onComplete(daoResults);
+                return;
+            }
+
+            // Fallback: match in category phrases
+            List<PhraseEntity> categoryPhrases =
+                    phraseDao.getPhrasesByCategory(category.trim());
+            List<PhraseEntity> matched = new ArrayList<>();
+
+            if (categoryPhrases != null && !cleanQuery.isEmpty()) {
+                String lowerQuery = cleanQuery.toLowerCase(Locale.ROOT);
+
+                for (PhraseEntity entity : categoryPhrases) {
+                    if (entity == null) {
+                        continue;
+                    }
+
+                    Phrase phrase = EntityMapper.toPhrase(entity);
+                    if (phrase == null) {
+                        continue;
+                    }
+
+                    if (containsIgnoreCase(phrase.getIlokanoSentence(), lowerQuery)
+                            || containsIgnoreCase(phrase.getIlokanoWord(), lowerQuery)
+                            || containsIgnoreCase(phrase.getEnglishSentence(), lowerQuery)
+                            || containsIgnoreCase(phrase.getEnglishTranslation(), lowerQuery)
+                            || containsIgnoreCase(phrase.getTagalogTranslation(), lowerQuery)) {
+                        matched.add(entity);
+                    }
+                }
+            }
+
+            callback.onComplete(matched);
+        });
     }
 
     public void searchPhrases(
@@ -132,9 +213,40 @@ public class PhraseRepository {
             long version,
             SyncResultCallback callback
     ) {
-        List<PhraseEntity> allPhrases = new ArrayList<>();
-
-        downloadPage(1, version, allPhrases, callback);
+        FirebaseFirestore.getInstance()
+                .collection("phrasebook")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<PhraseEntity> allPhrases = new ArrayList<>();
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        PhraseEntity entity = new PhraseEntity();
+                        entity.setId(doc.getId());
+                        entity.setIlokanoWord(doc.getString("ilokanoWord"));
+                        entity.setEnglishTranslation(doc.getString("englishTranslation"));
+                        entity.setTagalogTranslation(doc.getString("tagalogTranslation"));
+                        entity.setPartOfSpeech(doc.getString("partOfSpeech"));
+                        entity.setCategory(doc.getString("category"));
+                        entity.setIlokanoSentence(doc.getString("ilokanoSentence"));
+                        entity.setEnglishSentence(doc.getString("englishSentence"));
+                        String tts = doc.getString("ttsUrl");
+                        if (tts == null) tts = doc.getString("tts_url");
+                        entity.setTtsUrl(tts);
+                        String updated = doc.getString("updatedAt");
+                        if (updated == null) updated = doc.getString("updated_at");
+                        entity.setUpdatedAt(updated);
+                        allPhrases.add(entity);
+                    }
+                    if (!allPhrases.isEmpty()) {
+                        saveDownloadedPhrases(version, allPhrases, callback);
+                    } else {
+                        List<PhraseEntity> fallbackList = new ArrayList<>();
+                        downloadPage(1, version, fallbackList, callback);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    List<PhraseEntity> fallbackList = new ArrayList<>();
+                    downloadPage(1, version, fallbackList, callback);
+                });
     }
 
     private void downloadPage(

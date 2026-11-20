@@ -229,6 +229,16 @@ public class PhraseAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
             holder.textViewPartOfSpeech.setVisibility(View.GONE);
         }
 
+        String category = phrase.getCategory() != null ? phrase.getCategory().trim() : "";
+        if (holder.textViewCategory != null) {
+            if (!category.isEmpty()) {
+                holder.textViewCategory.setVisibility(View.VISIBLE);
+                holder.textViewCategory.setText(category);
+            } else {
+                holder.textViewCategory.setVisibility(View.GONE);
+            }
+        }
+
         // Open the phrase detail page.
         holder.itemView.setOnClickListener(v ->
                 animateTapBounce(v, 0.97f, () -> {
@@ -368,6 +378,7 @@ public class PhraseAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         TextView textViewIlokano;
         TextView textViewSelectedTranslation;
         TextView textViewPartOfSpeech;
+        TextView textViewCategory;
         ImageView buttonPlay;
 
         PhraseViewHolder(@NonNull View itemView) {
@@ -383,6 +394,10 @@ public class PhraseAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
 
             textViewPartOfSpeech = itemView.findViewById(
                     R.id.textViewPartOfSpeech
+            );
+
+            textViewCategory = itemView.findViewById(
+                    R.id.textViewCategory
             );
 
             buttonPlay = itemView.findViewById(

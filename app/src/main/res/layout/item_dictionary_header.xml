@@ -150,8 +150,64 @@
             android:textStyle="bold"
             android:fontFamily="@font/font_body"
             android:inputType="none"
-            android:focusable="true"
-            android:clickable="true" />
+            android:focusable="false"
+            android:clickable="true"
+            android:popupBackground="@drawable/dropdown_glass_background" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- CATEGORY LABEL -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="CATEGORY"
+        android:textColor="@color/text_secondary"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:fontFamily="@font/font_label"
+        android:letterSpacing="0.10"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp" />
+
+    <!-- CATEGORY DROPDOWN -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/categoryDropdownLayout"
+        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox.ExposedDropdownMenu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:boxBackgroundMode="filled"
+        app:boxBackgroundColor="@color/app_surface"
+        app:boxStrokeColor="@color/dropdown_underline_color"
+        app:boxStrokeWidth="1dp"
+        app:boxStrokeWidthFocused="2dp"
+        app:boxCornerRadiusTopStart="16dp"
+        app:boxCornerRadiusTopEnd="16dp"
+        app:boxCornerRadiusBottomStart="16dp"
+        app:boxCornerRadiusBottomEnd="16dp"
+        app:hintEnabled="false"
+        app:endIconMode="dropdown_menu"
+        app:endIconTint="@color/cyan_primary">
+
+        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+            android:id="@+id/categoryDropdown"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:background="@android:color/transparent"
+            android:paddingStart="16dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="14dp"
+            android:hint="Select Category"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:fontFamily="@font/font_body"
+            android:inputType="none"
+            android:focusable="false"
+            android:clickable="true"
+            android:popupBackground="@drawable/dropdown_glass_background" />
 
     </com.google.android.material.textfield.TextInputLayout>
 

@@ -9,6 +9,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
 import android.text.Editable;
+import android.text.InputType;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.util.TypedValue;
@@ -80,6 +81,7 @@ public class DictionaryFragment extends Fragment {
     private boolean isTtsReady = false;
 
     private String selectedLanguage = "English";
+    private String selectedCategory = "All Categories";
 
     private String selectedSortOrder =
             DictionaryAdapter.SORT_A_TO_Z;
@@ -626,18 +628,18 @@ public class DictionaryFragment extends Fragment {
 
         headerBinding = newHeaderBinding;
 
+        setupSettingsMenuButton();
+        setupLanguageDropdown();
+        setupCategoryDropdown();
+        setupFilterPanel();
+        setupSearch();
+        updateSortRadioButtons();
+
         if (headerInitialized) {
             return;
         }
 
         headerInitialized = true;
-
-        setupSettingsMenuButton();
-        setupLanguageDropdown();
-        setupFilterPanel();
-        setupSearch();
-
-        updateSortRadioButtons();
 
         // Capture incoming search only.
         // Do not notify the adapter during header binding.
@@ -671,7 +673,7 @@ public class DictionaryFragment extends Fragment {
             );
 
             // Preserve existing local-first and online loading.
-            loadWords(true);
+            applyLocalDictionaryFilter();
         });
     }
 
@@ -970,6 +972,184 @@ public class DictionaryFragment extends Fragment {
     }
 
     // =========================================================
+    // CATEGORY DROPDOWN
+    // =========================================================
+
+    private void setupCategoryDropdown() {
+
+        if (headerBinding == null || !isAdded()) {
+            return;
+        }
+
+        final List<String> categories = new ArrayList<>();
+        categories.add("All Categories");
+
+        MaterialAutoCompleteTextView categoryDropdown =
+                headerBinding.categoryDropdown;
+
+        ArrayAdapter<String> categoryAdapter =
+                new ArrayAdapter<String>(
+                        requireContext(),
+                        R.layout.item_language_dropdown,
+                        categories
+                ) {
+
+                    private final Filter showAllCategoriesFilter =
+                            new Filter() {
+
+                                @Override
+                                protected FilterResults performFiltering(
+                                        CharSequence constraint
+                                ) {
+                                    FilterResults results =
+                                            new FilterResults();
+                                    results.values = new ArrayList<>(categories);
+                                    results.count = categories.size();
+                                    return results;
+                                }
+
+                                @Override
+                                protected void publishResults(
+                                        CharSequence constraint,
+                                        FilterResults results
+                                ) {
+                                    if (results == null
+                                            || results.values == null) {
+                                        return;
+                                    }
+
+                                    @SuppressWarnings("unchecked")
+                                    List<String> allCats =
+                                            (List<String>) results.values;
+
+                                    clear();
+                                    addAll(allCats);
+                                    notifyDataSetChanged();
+                                }
+                            };
+
+                    @NonNull
+                    @Override
+                    public Filter getFilter() {
+                        return showAllCategoriesFilter;
+                    }
+                };
+
+        categoryDropdown.setAdapter(categoryAdapter);
+        categoryDropdown.setDropDownBackgroundResource(
+                R.drawable.dropdown_glass_background
+        );
+
+        categoryDropdown.setKeyListener(null);
+        categoryDropdown.setFocusable(false);
+        categoryDropdown.setInputType(InputType.TYPE_NULL);
+        categoryDropdown.setThreshold(0);
+
+        headerBinding.categoryDropdownLayout.setHint("Select Category");
+        categoryDropdown.setText(selectedCategory, false);
+
+        if (repository != null) {
+            repository.getAllCategories(result -> {
+                mainHandler.post(() -> {
+                    if (headerBinding == null || !isAdded()) {
+                        return;
+                    }
+
+                    if (result != null && !result.isEmpty()) {
+                        for (String cat : result) {
+                            if (cat != null && !cat.trim().isEmpty() && !categories.contains(cat.trim())) {
+                                categories.add(cat.trim());
+                            }
+                        }
+                    } else {
+                        String[] defaults = {
+                                "Abstract Concepts & Values",
+                                "Actions & Movement",
+                                "Animals",
+                                "Arts & Culture",
+                                "Body & Health",
+                                "Clothing & Accessories",
+                                "Colors & Shapes",
+                                "Communication & Language",
+                                "Conflict & Security",
+                                "Education & Knowledge",
+                                "Emotions & Feelings",
+                                "Food & Drink",
+                                "Grammar & Function Words",
+                                "Greetings & Courtesy",
+                                "Home & Objects",
+                                "Law & Government",
+                                "Money & Finance",
+                                "Nature & Environment",
+                                "Numbers & Quantity",
+                                "People & Relationships",
+                                "Places & Directions",
+                                "Qualities & Descriptions",
+                                "Religion & Spirituality",
+                                "Sports & Recreation",
+                                "Technology & Science",
+                                "Thinking & Mental States",
+                                "Time & Frequency",
+                                "Transportation & Travel",
+                                "Weather",
+                                "Work & Business"
+                        };
+                        for (String d : defaults) {
+                            if (!categories.contains(d)) {
+                                categories.add(d);
+                            }
+                        }
+                    }
+
+                    categoryAdapter.notifyDataSetChanged();
+                });
+            });
+        }
+
+        final boolean[] isDropdownOpen = {false};
+
+        View.OnClickListener toggleDropdown = v -> {
+            if (headerBinding == null) {
+                return;
+            }
+
+            if (isDropdownOpen[0]) {
+                categoryDropdown.dismissDropDown();
+                isDropdownOpen[0] = false;
+                return;
+            }
+
+            categoryAdapter.getFilter().filter("", count -> {
+                if (headerBinding == null) {
+                    return;
+                }
+                categoryDropdown.setAdapter(categoryAdapter);
+                categoryDropdown.setDropDownBackgroundResource(
+                        R.drawable.dropdown_glass_background
+                );
+                categoryDropdown.setText(selectedCategory, false);
+                categoryDropdown.showDropDown();
+                isDropdownOpen[0] = true;
+            });
+        };
+
+        categoryDropdown.setOnClickListener(toggleDropdown);
+        headerBinding.categoryDropdownLayout.setEndIconOnClickListener(toggleDropdown);
+
+        categoryDropdown.setOnItemClickListener(
+                (parent, itemView, position, id) -> {
+                    Object selectedItem = parent.getItemAtPosition(position);
+                    if (selectedItem == null) return;
+                    selectedCategory = selectedItem.toString();
+                    categoryDropdown.setText(selectedCategory, false);
+                    isDropdownOpen[0] = false;
+
+                    applyLocalDictionaryFilter();
+                }
+        );
+    }
+
+    // =========================================================
     // SORTING PANEL
     // =========================================================
 
@@ -1037,7 +1217,7 @@ public class DictionaryFragment extends Fragment {
 
                     setFilterPanelVisible(false);
 
-                    loadWords(true);
+                    applyLocalDictionaryFilter();
                 })
         );
 
@@ -1062,7 +1242,7 @@ public class DictionaryFragment extends Fragment {
 
                     setFilterPanelVisible(false);
 
-                    loadWords(true);
+                    applyLocalDictionaryFilter();
                 })
         );
     }
@@ -1207,10 +1387,10 @@ public class DictionaryFragment extends Fragment {
                                 dictionaryAdapter.setSearchQuery(query);
                             }
 
-                            loadWords(true);
+                            applyLocalDictionaryFilter();
 
                             Log.d("DictionarySearch",
-                                    "After loadWords: "
+                                    "After applyLocalDictionaryFilter: "
                                             + headerBinding.searchBar.hasFocus());
 
                         }, SEARCH_DELAY);
@@ -1225,6 +1405,73 @@ public class DictionaryFragment extends Fragment {
         headerBinding.searchBar.setOnFocusChangeListener((view, hasFocus) -> {
             Log.d("DictionarySearch", "Search focus changed: " + hasFocus);
         });
+    }
+
+    // =========================================================
+    // LOCAL DICTIONARY FILTERING & SEARCH
+    // =========================================================
+
+    private void applyLocalDictionaryFilter() {
+
+        if (!isAdded() || repository == null) {
+            return;
+        }
+
+        long requestGeneration = ++dataGeneration;
+        String query = pendingSearchQuery == null ? "" : pendingSearchQuery.trim();
+        boolean hasCategory = selectedCategory != null
+                && !selectedCategory.isEmpty()
+                && !"All Categories".equalsIgnoreCase(selectedCategory);
+
+        DictionaryRepository.LoadCallback callback = result -> {
+            mainHandler.post(() -> {
+                if (!isAdded() || binding == null || dictionaryAdapter == null) {
+                    return;
+                }
+                if (requestGeneration != dataGeneration) {
+                    return;
+                }
+
+                List<Word> words = result == null
+                        ? new ArrayList<>()
+                        : EntityMapper.toWordList(result);
+
+                if (!query.isEmpty()) {
+                    dictionaryAdapter.setSearchQuery(query);
+                } else {
+                    dictionaryAdapter.setSearchQuery("");
+                }
+
+                dictionaryAdapter.filterList(words);
+
+                if (headerBinding != null) {
+                    headerBinding.progressBar.setVisibility(View.GONE);
+                    boolean noWords = dictionaryAdapter.getItemCount() <= 1;
+                    String emptyMsg = hasCategory
+                            ? "No dictionary words found in \"" + selectedCategory + "\"."
+                            : "No dictionary words found.";
+                    updateEmptyState(noWords, emptyMsg);
+                }
+            });
+        };
+
+        if (headerBinding != null) {
+            headerBinding.progressBar.setVisibility(View.VISIBLE);
+        }
+
+        if (hasCategory) {
+            if (!query.isEmpty()) {
+                repository.searchWordsByCategory(query, selectedCategory, callback);
+            } else {
+                repository.getWordsByCategory(selectedCategory, callback);
+            }
+        } else {
+            if (!query.isEmpty()) {
+                repository.searchWords(query, callback);
+            } else {
+                repository.getAllWords(callback);
+            }
+        }
     }
 
     // =========================================================

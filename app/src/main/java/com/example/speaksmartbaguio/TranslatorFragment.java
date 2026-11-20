@@ -1,3 +1,4 @@
+
 package com.example.speaksmartbaguio;
 
 import android.app.Activity;
@@ -35,6 +36,8 @@ import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.ArrayAdapter;
 import android.widget.Filter;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -51,6 +54,8 @@ import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.example.speaksmartbaguio.utils.AudioPreferences;
 import com.example.speaksmartbaguio.utils.NetworkUtil;
 import com.example.speaksmartbaguio.utils.SettingsMenuHelper;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.snackbar.BaseTransientBottomBar;
 import com.google.android.material.snackbar.Snackbar;
 
@@ -105,6 +110,7 @@ public class TranslatorFragment extends Fragment {
     private String latestInput = "";
     // Phrasebook matches for the current translation request.
     private List<Phrase> pendingPhraseMatches = new ArrayList<>();
+    private List<SuggestionItem> lastSuggestions = new ArrayList<>();
 
     private String translationMode =
             MODE_ENGLISH_TO_ILOKANO;
@@ -120,13 +126,16 @@ public class TranslatorFragment extends Fragment {
 
         private final String text;
         private final String partOfSpeech;
+        private final String category;
 
         TranslationAlternative(
                 String text,
-                String partOfSpeech
+                String partOfSpeech,
+                String category
         ) {
             this.text = text;
             this.partOfSpeech = partOfSpeech;
+            this.category = category;
         }
     }
 
@@ -868,6 +877,8 @@ public class TranslatorFragment extends Fragment {
                     binding.editTextInput.setText("");
                     binding.originalText.setText("");
                     binding.translatedText.setText("");
+                    binding.noTranslationFoundLayout.setVisibility(View.GONE);
+                    hideSuggestionCards();
 
                     latestInput = "";
 
@@ -1036,6 +1047,8 @@ public class TranslatorFragment extends Fragment {
                         if (input.isEmpty()) {
 
                             binding.translatedText.setText("");
+                            binding.noTranslationFoundLayout.setVisibility(View.GONE);
+                            hideSuggestionCards();
 
                             return;
                         }
@@ -1160,37 +1173,55 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
-        String text = binding.translatedText
-                .getText()
-                .toString()
-                .trim();
+        // If showing fuzzy suggestions, let the user pick the word first before speaking.
+        if (!lastSuggestions.isEmpty() && binding.suggestionContainer.getVisibility() == View.VISIBLE) {
+            showSuggestionPickerDialog();
+            return;
+        }
 
-        if (text.isEmpty()) {
+        if (binding.translatedText.getVisibility() != View.VISIBLE) {
             showMessage("Nothing to speak yet.", false);
             return;
         }
+
+        CharSequence rawText = binding.translatedText.getText();
+        String plainText = rawText != null ? rawText.toString().trim() : "";
+
+        if (plainText.isEmpty()) {
+            showMessage("Nothing to speak yet.", false);
+            return;
+        }
+
+        // Remove all POS/category pill spans directly so any category name is excluded from speech.
+        SpannableStringBuilder cleanBuilder = new SpannableStringBuilder(rawText);
+        TealPillSpan[] pillSpans = cleanBuilder.getSpans(0, cleanBuilder.length(), TealPillSpan.class);
+        if (pillSpans != null) {
+            for (int i = pillSpans.length - 1; i >= 0; i--) {
+                int start = cleanBuilder.getSpanStart(pillSpans[i]);
+                int end = cleanBuilder.getSpanEnd(pillSpans[i]);
+                if (start >= 0 && end > start) {
+                    cleanBuilder.delete(start, end);
+                }
+            }
+        }
+
+        String text = cleanBuilder.toString();
+
+        // Remove the visual header accent marker BEFORE stripping headings.
+        text = text.replace("▌", "");
+
         // Remove module headings from speech.
         text = text.replaceAll(
                 "(?im)^\\s*(Dictionary\\s*\\(words\\)|Phrasebook\\s*\\(phrases\\)|Did you mean\\?|No exact match found\\.)\\s*$",
                 ""
         );
-        // Remove POS labels.
-        text = text.replaceAll(
-                "(?i)\\s*\\(?\\b(noun|verb|adjective|adverb|pronoun|preposition|conjunction|interjection|determiner|article)\\b\\)?",
-                ""
-        );
-        // Remove section headings from speech.
-        text = text.replaceAll(
-                "(?im)^\\s*(Dictionary\\s*\\(words\\)|Phrasebook\\s*\\(phrases\\))\\s*$",
-                ""
-        );
-
-        // Remove the visual header accent marker.
-        text = text.replace("▌", "");
-        // Remove bullet symbols and preserve longer pauses between alternatives.
+        // Remove source word header lines (e.g., "water:").
+        text = text.replaceAll("(?m)^[^•\\n]+:\\s*$", "");
+        // Remove bullet symbols, trim blank lines, and join lines with a natural pause.
         text = text.replace("•", "")
                 .replaceAll("[ \\t]+", " ")
-                .replaceAll(" *\\n+ *", ".......... ")
+                .trim()
+                .replaceAll(" *\\n+ *", ", ")
                 .trim();
 
         if (text.isEmpty()) {
@@ -1327,8 +1358,9 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
-        // Reset Phrasebook results for every new input.
+        // Reset Phrasebook and suggestion results for every new input.
         pendingPhraseMatches = new ArrayList<>();
+        lastSuggestions = new ArrayList<>();
 
         if (!isMultiwordInput(input)) {
             translateDictionaryWordByWord(input);
@@ -2210,17 +2242,26 @@ public class TranslatorFragment extends Fragment {
 
             pos = pos.trim();
 
+            String category = word.getCategory();
+            if (category == null) {
+                category = "";
+            }
+            category = category.trim();
+
             String uniqueKey =
                     normalizeForExactMatch(output)
                             + "|"
-                            + pos.toLowerCase(Locale.ROOT);
+                            + pos.toLowerCase(Locale.ROOT)
+                            + "|"
+                            + category.toLowerCase(Locale.ROOT);
 
             if (seen.add(uniqueKey)) {
 
                 alternatives.add(
                         new TranslationAlternative(
                                 output,
-                                pos
+                                pos,
+                                category
                         )
                 );
             }
@@ -2282,12 +2323,15 @@ public class TranslatorFragment extends Fragment {
 
             result.append("•  ");
 
-            result.append(
-                    appendPosMarker(
-                            capitalizeSentence(alternative.text),
-                            alternative.partOfSpeech
-                    )
+            String formattedText = appendPosMarker(
+                    capitalizeSentence(alternative.text),
+                    alternative.partOfSpeech
             );
+            formattedText = appendPosMarker(
+                    formattedText,
+                    alternative.category
+            );
+            result.append(formattedText);
         }
 
         return result.toString();
@@ -2370,7 +2414,7 @@ public class TranslatorFragment extends Fragment {
         );
 
         if ("No translation found.".equals(grouped)) {
-            suggestNearestFromDatabase(input);
+            translateOffline(input);
         } else {
             showTranslation(grouped);
         }
@@ -2393,8 +2437,6 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
-        String[] words = trimmedInput.split("\\s+");
-
         repository.getAllWords(entities -> {
 
             if (!isCurrentInput(input)) {
@@ -2404,58 +2446,72 @@ public class TranslatorFragment extends Fragment {
             List<Word> dictionary =
                     EntityMapper.toWordList(entities);
 
-            String[] translatedParts =
-                    new String[words.length];
-
             String searchField = getDictionarySearchField();
-
-            for (int i = 0; i < words.length; i++) {
-
-                String originalWord = words[i];
-
-                String clean = originalWord
-                        .replaceAll("[^\\p{L}\\p{N}]", "")
-                        .toLowerCase(Locale.ROOT);
-
-                if (clean.isEmpty()) {
-
-                    translatedParts[i] = originalWord;
-
-                    continue;
-                }
-
-                List<Word> matches =
-                        filterExactDictionaryMatches(
-                                clean,
-                                searchField,
-                                dictionary
-                        );
-
-                List<TranslationAlternative> alternatives =
-                        getDictionaryAlternatives(matches);
-
-                translatedParts[i] =
-                        alternatives.isEmpty()
-                                ? ""
-                                : formatWordAlternatives(
-                                originalWord,
-                                alternatives,
-                                words.length == 1
-                        );
-            }
+            String fullNormalized = normalizeForExactMatch(trimmedInput);
+            List<Word> fullMatches = fullNormalized.isEmpty()
+                    ? new ArrayList<>()
+                    : filterExactDictionaryMatches(fullNormalized, searchField, dictionary);
+            List<TranslationAlternative> fullAlternatives =
+                    getDictionaryAlternatives(fullMatches);
 
             StringBuilder translatedSentence =
                     new StringBuilder();
 
-            for (String part : translatedParts) {
+            if (!fullAlternatives.isEmpty()) {
+                translatedSentence.append(formatWordAlternatives(
+                        trimmedInput,
+                        fullAlternatives,
+                        true
+                ));
+            } else {
+                String[] words = trimmedInput.split("\\s+");
+                String[] translatedParts = new String[words.length];
 
-                if (part != null && !part.trim().isEmpty()) {
+                for (int i = 0; i < words.length; i++) {
 
-                    if (translatedSentence.length() > 0) {
-                        translatedSentence.append("\n\n");
+                    String originalWord = words[i];
+
+                    String clean = originalWord
+                            .replaceAll("[^\\p{L}\\p{N}]", "")
+                            .toLowerCase(Locale.ROOT);
+
+                    if (clean.isEmpty()) {
+
+                        translatedParts[i] = originalWord;
+
+                        continue;
                     }
 
-                    translatedSentence.append(part);
+                    List<Word> matches =
+                            filterExactDictionaryMatches(
+                                    clean,
+                                    searchField,
+                                    dictionary
+                            );
+
+                    List<TranslationAlternative> alternatives =
+                            getDictionaryAlternatives(matches);
+
+                    translatedParts[i] =
+                            alternatives.isEmpty()
+                                    ? ""
+                                    : formatWordAlternatives(
+                                    originalWord,
+                                    alternatives,
+                                    words.length == 1
+                            );
+                }
+
+                for (String part : translatedParts) {
+
+                    if (part != null && !part.trim().isEmpty()) {
+
+                        if (translatedSentence.length() > 0) {
+                            translatedSentence.append("\n\n");
+                        }
+
+                        translatedSentence.append(part);
+                    }
                 }
             }
 
@@ -2465,6 +2521,34 @@ public class TranslatorFragment extends Fragment {
                     );
 
             if ("No translation found.".equals(finalTranslation)) {
+                if (pendingPhraseMatches.isEmpty() && phraseRepository != null) {
+                    phraseRepository.getAllPhrases(phraseEntities -> {
+                        if (!isCurrentInput(input)) {
+                            return;
+                        }
+                        List<Phrase> allPhrases = EntityMapper.toPhraseList(phraseEntities);
+                        List<Phrase> exactPhrases = new ArrayList<>();
+                        for (Phrase p : allPhrases) {
+                            if (p != null && isSuitablePhrase(p)
+                                    && getPhraseMatchScore(fullNormalized, p) >= 1.0) {
+                                exactPhrases.add(p);
+                            }
+                        }
+                        if (!exactPhrases.isEmpty()) {
+                            pendingPhraseMatches = exactPhrases;
+                            String phraseTranslation = buildGroupedTranslation("");
+                            if (!isAdded()) return;
+                            requireActivity().runOnUiThread(() -> {
+                                if (isCurrentInput(input)) {
+                                    showTranslation(phraseTranslation);
+                                }
+                            });
+                        } else {
+                            suggestNearestFromDatabase(input);
+                        }
+                    });
+                    return;
+                }
                 suggestNearestFromDatabase(input);
                 return;
             }
@@ -2626,39 +2710,26 @@ public class TranslatorFragment extends Fragment {
                 titleStart++;
             }
 
-            // Add a teal accent marker.
-            styled.insert(titleStart, "▌ ");
-
-            int markerStart = titleStart;
-            int titleTextStart = titleStart + 2;
-            int titleEnd = titleTextStart + line.length();
-
-            // Teal accent marker.
-            styled.setSpan(
-                    new ForegroundColorSpan(TEAL_COLOR),
-                    markerStart,
-                    titleTextStart,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            );
+            int titleEnd = titleStart + line.length();
 
             // Header text styling.
             styled.setSpan(
                     new ForegroundColorSpan(TEAL_COLOR),
-                    titleTextStart,
+                    titleStart,
                     titleEnd,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             );
 
             styled.setSpan(
                     new StyleSpan(Typeface.BOLD),
-                    titleTextStart,
+                    titleStart,
                     titleEnd,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             );
 
             styled.setSpan(
                     new RelativeSizeSpan(1.12f),
-                    titleTextStart,
+                    titleStart,
                     titleEnd,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             );
@@ -2668,7 +2739,7 @@ public class TranslatorFragment extends Fragment {
                     new BackgroundColorSpan(
                             Color.argb(28, 13, 163, 150)
                     ),
-                    markerStart,
+                    titleStart,
                     titleEnd,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             );
@@ -2705,9 +2776,11 @@ public class TranslatorFragment extends Fragment {
                 String output = getPhraseOutput(phrase);
 
                 if (output != null && !output.trim().isEmpty()) {
-                    uniquePhrases.add(
-                            capitalizeSentence(output.trim())
+                    String formattedPhrase = appendPosMarker(
+                            capitalizeSentence(output.trim()),
+                            phrase.getCategory()
                     );
+                    uniquePhrases.add(formattedPhrase);
                 }
             }
         }
@@ -2755,20 +2828,82 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
-        binding.translatedText.setText(
-                buildStyledTranslation(translation)
-        );
+        boolean isNoExactMatchWithSuggestions = translation != null
+                && translation.contains("Did you mean?")
+                && !lastSuggestions.isEmpty();
+
+        boolean isNoTranslationFound = translation == null
+                || translation.trim().isEmpty()
+                || "No translation found.".equalsIgnoreCase(translation.trim());
 
         float density = getResources().getDisplayMetrics().density;
-        binding.translatedText.animate().cancel();
-        binding.translatedText.setAlpha(0f);
-        binding.translatedText.setTranslationY(10f * density);
-        binding.translatedText.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(220L)
-                .setInterpolator(new DecelerateInterpolator())
-                .start();
+
+        if (isNoExactMatchWithSuggestions) {
+            binding.translatedText.setVisibility(View.GONE);
+            binding.noTranslationFoundLayout.setVisibility(View.GONE);
+
+            binding.noMatchBannerLayout.setVisibility(View.VISIBLE);
+            binding.didYouMeanHeaderLayout.setVisibility(View.VISIBLE);
+
+            renderSuggestionCards();
+
+            binding.noMatchBannerLayout.animate().cancel();
+            binding.noMatchBannerLayout.setAlpha(0f);
+            binding.noMatchBannerLayout.setTranslationY(10f * density);
+            binding.noMatchBannerLayout.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(220L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+
+            binding.didYouMeanHeaderLayout.animate().cancel();
+            binding.didYouMeanHeaderLayout.setAlpha(0f);
+            binding.didYouMeanHeaderLayout.setTranslationY(10f * density);
+            binding.didYouMeanHeaderLayout.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(220L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+
+        } else if (isNoTranslationFound) {
+            binding.translatedText.setVisibility(View.GONE);
+            binding.noMatchBannerLayout.setVisibility(View.GONE);
+            binding.didYouMeanHeaderLayout.setVisibility(View.GONE);
+            hideSuggestionCards();
+
+            binding.noTranslationFoundLayout.setVisibility(View.VISIBLE);
+            binding.noTranslationFoundLayout.animate().cancel();
+            binding.noTranslationFoundLayout.setAlpha(0f);
+            binding.noTranslationFoundLayout.setTranslationY(10f * density);
+            binding.noTranslationFoundLayout.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(220L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        } else {
+            binding.noMatchBannerLayout.setVisibility(View.GONE);
+            binding.didYouMeanHeaderLayout.setVisibility(View.GONE);
+            binding.noTranslationFoundLayout.setVisibility(View.GONE);
+            hideSuggestionCards();
+
+            binding.translatedText.setVisibility(View.VISIBLE);
+            binding.translatedText.setText(
+                    buildStyledTranslation(translation)
+            );
+
+            binding.translatedText.animate().cancel();
+            binding.translatedText.setAlpha(0f);
+            binding.translatedText.setTranslationY(10f * density);
+            binding.translatedText.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(220L)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        }
     }
 
     // ---------------------------------------------------------
@@ -2859,13 +2994,31 @@ public class TranslatorFragment extends Fragment {
     private static class SuggestionItem {
         final String source;
         final String target;
+        final String ilokano;
+        final String english;
+        final String tagalog;
         final String partOfSpeech;
+        final String category;
+        final String definition;
+        final String exampleSentence;
+        final String ttsUrl;
+        final boolean isPhrase;
         final double score;
 
-        SuggestionItem(String source, String target, String partOfSpeech, double score) {
-            this.source = source;
-            this.target = target;
+        SuggestionItem(String source, String target, String ilokano, String english, String tagalog,
+                       String partOfSpeech, String category, String definition, String exampleSentence,
+                       String ttsUrl, boolean isPhrase, double score) {
+            this.source = source != null ? source.trim() : "";
+            this.target = target != null ? target.trim() : "";
+            this.ilokano = ilokano != null ? ilokano.trim() : "";
+            this.english = english != null ? english.trim() : "";
+            this.tagalog = tagalog != null ? tagalog.trim() : "";
             this.partOfSpeech = partOfSpeech != null ? partOfSpeech.trim() : "";
+            this.category = category != null ? category.trim() : "";
+            this.definition = definition != null ? definition.trim() : "";
+            this.exampleSentence = exampleSentence != null ? exampleSentence.trim() : "";
+            this.ttsUrl = ttsUrl != null ? ttsUrl.trim() : "";
+            this.isPhrase = isPhrase;
             this.score = score;
         }
     }
@@ -2945,7 +3098,15 @@ public class TranslatorFragment extends Fragment {
                         suggestions.add(new SuggestionItem(
                                 source,
                                 target,
+                                word.getIlokanoWord(),
+                                word.getEnglishTranslation(),
+                                word.getTagalogTranslation(),
                                 word.getPartOfSpeech(),
+                                word.getCategory(),
+                                word.getDefinition(),
+                                "",
+                                word.getTtsUrl(),
+                                false,
                                 score
                         ));
                     }
@@ -2967,10 +3128,22 @@ public class TranslatorFragment extends Fragment {
                 if (bestScore > 0.0) {
                     String key = normalizeForExactMatch(source) + "|" + normalizeForExactMatch(target);
                     if (seen.add(key)) {
+                        String phraseSentence = phrase.getIlokanoSentence() != null && !phrase.getIlokanoSentence().trim().isEmpty()
+                                ? phrase.getIlokanoSentence()
+                                : phrase.getEnglishSentence();
+
                         suggestions.add(new SuggestionItem(
                                 source,
                                 target,
+                                phrase.getIlokanoWord(),
+                                phrase.getEnglishTranslation(),
+                                phrase.getTagalogTranslation(),
                                 phrase.getPartOfSpeech(),
+                                phrase.getCategory(),
+                                "",
+                                phraseSentence,
+                                phrase.getTtsUrl(),
+                                true,
                                 bestScore
                         ));
                     }
@@ -2987,25 +3160,9 @@ public class TranslatorFragment extends Fragment {
             return cmp != 0 ? cmp : a.source.compareToIgnoreCase(b.source);
         });
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("No exact match found.\n\n");
-        sb.append("Did you mean?\n\n");
+        lastSuggestions = new ArrayList<>(suggestions);
 
-        for (int i = 0; i < suggestions.size(); i++) {
-            SuggestionItem item = suggestions.get(i);
-            if (i > 0) {
-                sb.append("\n\n");
-            }
-            sb.append("•  ")
-                    .append(capitalizeSentence(item.source))
-                    .append("  →  ")
-                    .append(appendPosMarker(
-                            capitalizeSentence(item.target),
-                            item.partOfSpeech
-                    ));
-        }
-
-        return sb.toString();
+        return "No exact match found.\n\nDid you mean? Tap a suggestion below:";
     }
 
     @Nullable
@@ -3155,5 +3312,248 @@ public class TranslatorFragment extends Fragment {
         }
 
         return prev[lenB];
+    }
+
+    private void showSuggestionPickerDialog() {
+        if (!isAdded() || binding == null || lastSuggestions.isEmpty()) {
+            return;
+        }
+
+        final List<SuggestionItem> items = new ArrayList<>(lastSuggestions);
+        String[] labels = new String[items.size()];
+        for (int i = 0; i < items.size(); i++) {
+            SuggestionItem item = items.get(i);
+            labels[i] = capitalizeSentence(item.source)
+                    + "  →  "
+                    + capitalizeSentence(item.target);
+        }
+
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Did you mean? Pick one to speak")
+                .setItems(labels, (dialog, which) -> {
+                    if (!isAdded() || binding == null || which < 0 || which >= items.size()) {
+                        return;
+                    }
+                    SuggestionItem chosen = items.get(which);
+                    binding.editTextInput.setText(chosen.source);
+                    binding.editTextInput.setSelection(chosen.source.length());
+                    speakWithAndroidTts(chosen.target);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void renderSuggestionCards() {
+        if (!isAdded() || binding == null) {
+            return;
+        }
+
+        LinearLayout container = binding.suggestionContainer;
+        container.removeAllViews();
+
+        if (lastSuggestions.isEmpty()) {
+            container.setVisibility(View.GONE);
+            return;
+        }
+
+        LayoutInflater inflater = LayoutInflater.from(requireContext());
+
+        for (SuggestionItem item : lastSuggestions) {
+            View cardView = inflater.inflate(
+                    R.layout.item_translator_suggestion,
+                    container,
+                    false
+            );
+
+            TextView tvSource = cardView.findViewById(R.id.tvSuggestionSource);
+            TextView tvTarget = cardView.findViewById(R.id.tvSuggestionTarget);
+            TextView tvPos = cardView.findViewById(R.id.tvSuggestionPos);
+            TextView tvCategory = cardView.findViewById(R.id.tvSuggestionCategory);
+            View layoutBadges = cardView.findViewById(R.id.layoutBadges);
+
+            tvSource.setText(capitalizeSentence(item.source));
+            tvTarget.setText(capitalizeSentence(item.target));
+
+            boolean hasPos = item.partOfSpeech != null && !item.partOfSpeech.trim().isEmpty();
+            boolean hasCategory = item.category != null && !item.category.trim().isEmpty();
+
+            if (hasPos) {
+                tvPos.setVisibility(View.VISIBLE);
+                tvPos.setText(item.partOfSpeech.trim());
+            } else {
+                tvPos.setVisibility(View.GONE);
+            }
+
+            if (hasCategory) {
+                tvCategory.setVisibility(View.VISIBLE);
+                tvCategory.setText(item.category.trim());
+            } else {
+                tvCategory.setVisibility(View.GONE);
+            }
+
+            if (!hasPos && !hasCategory) {
+                layoutBadges.setVisibility(View.GONE);
+            } else {
+                layoutBadges.setVisibility(View.VISIBLE);
+            }
+
+            cardView.setOnClickListener(v -> {
+                if (!isAdded() || binding == null) {
+                    return;
+                }
+                animateButtonTap(v, () -> {
+                    showSuggestionDetailSheet(item);
+                });
+            });
+
+            AccessibilityPreferences.applyToViewTree(
+                    requireContext(),
+                    cardView
+            );
+
+            container.addView(cardView);
+        }
+
+        container.setVisibility(View.VISIBLE);
+    }
+
+    private void showSuggestionDetailSheet(SuggestionItem item) {
+        if (!isAdded() || getContext() == null || item == null) {
+            return;
+        }
+
+        BottomSheetDialog sheetDialog = new BottomSheetDialog(requireContext());
+        View sheetView = LayoutInflater.from(requireContext()).inflate(
+                R.layout.bottom_sheet_suggestion_detail,
+                null
+        );
+        sheetDialog.setContentView(sheetView);
+
+        // Allow our custom rounded background drawable (bg_bottom_sheet) to show cleanly
+        View bottomSheetInternal = sheetDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+        if (bottomSheetInternal != null) {
+            bottomSheetInternal.setBackgroundResource(android.R.color.transparent);
+        }
+
+        TextView tvTitle = sheetView.findViewById(R.id.tvSheetTitle);
+        TextView tvTypeLabel = sheetView.findViewById(R.id.tvSheetTypeLabel);
+        TextView tvIlokano = sheetView.findViewById(R.id.tvSheetIlokano);
+        ImageButton btnSpeak = sheetView.findViewById(R.id.btnSheetSpeak);
+        TextView tvPos = sheetView.findViewById(R.id.tvSheetPos);
+        TextView tvCategory = sheetView.findViewById(R.id.tvSheetCategory);
+        TextView tvEnglish = sheetView.findViewById(R.id.tvSheetEnglish);
+        TextView tvTagalog = sheetView.findViewById(R.id.tvSheetTagalog);
+        View cardDefinition = sheetView.findViewById(R.id.cardSheetDefinition);
+        TextView tvDefinitionHeading = sheetView.findViewById(R.id.tvSheetDefinitionHeading);
+        TextView tvDefinition = sheetView.findViewById(R.id.tvSheetDefinition);
+        MaterialButton btnBackAction = sheetView.findViewById(R.id.btnSheetBackAction);
+        MaterialButton btnUseAction = sheetView.findViewById(R.id.btnSheetUseAction);
+
+        if (tvTitle != null) {
+            tvTitle.setText(item.isPhrase ? "Phrase Description" : "Word Description");
+        }
+        if (tvTypeLabel != null) {
+            tvTypeLabel.setText(item.isPhrase ? "ILOKANO PHRASE" : "ILOKANO WORD");
+        }
+
+        // Ilokano word / phrase
+        final String ilokanoText = !item.ilokano.isEmpty() ? item.ilokano : item.source;
+        if (tvIlokano != null) {
+            tvIlokano.setText(capitalizeSentence(ilokanoText));
+        }
+
+        if (btnSpeak != null) {
+            btnSpeak.setOnClickListener(v -> animateButtonTap(v, () -> {
+                speakWithAndroidTts(ilokanoText);
+            }));
+        }
+
+        // Badges: Part of Speech & Category
+        boolean hasPos = !item.partOfSpeech.isEmpty();
+        if (tvPos != null) {
+            if (hasPos) {
+                tvPos.setVisibility(View.VISIBLE);
+                tvPos.setText(item.partOfSpeech);
+            } else {
+                tvPos.setVisibility(View.GONE);
+            }
+        }
+
+        boolean hasCat = !item.category.isEmpty();
+        if (tvCategory != null) {
+            if (hasCat) {
+                tvCategory.setVisibility(View.VISIBLE);
+                tvCategory.setText(item.category);
+            } else {
+                tvCategory.setVisibility(View.GONE);
+            }
+        }
+
+        // English translation
+        String engText = !item.english.isEmpty() ? item.english : (translationMode != null && translationMode.contains("English") ? item.target : "");
+        if (tvEnglish != null) {
+            tvEnglish.setText(!engText.isEmpty() ? capitalizeSentence(engText) : "—");
+        }
+
+        // Tagalog translation
+        String tagText = !item.tagalog.isEmpty() ? item.tagalog : (translationMode != null && translationMode.contains("Tagalog") ? item.target : "");
+        if (tvTagalog != null) {
+            tvTagalog.setText(!tagText.isEmpty() ? capitalizeSentence(tagText) : "—");
+        }
+
+        // Definition or Example Sentence
+        if (cardDefinition != null && tvDefinition != null && tvDefinitionHeading != null) {
+            if (item.isPhrase) {
+                String sentence = !item.exampleSentence.isEmpty() ? item.exampleSentence : "";
+                if (!sentence.isEmpty()) {
+                    cardDefinition.setVisibility(View.VISIBLE);
+                    tvDefinitionHeading.setText("EXAMPLE SENTENCE");
+                    tvDefinition.setText(sentence);
+                } else {
+                    cardDefinition.setVisibility(View.GONE);
+                }
+            } else {
+                String def = !item.definition.isEmpty() ? item.definition : "";
+                if (!def.isEmpty()) {
+                    cardDefinition.setVisibility(View.VISIBLE);
+                    tvDefinitionHeading.setText("DEFINITION");
+                    tvDefinition.setText(def);
+                } else {
+                    cardDefinition.setVisibility(View.GONE);
+                }
+            }
+        }
+
+        // Back button handler - dismiss the sheet and return directly to suggestions!
+        if (btnBackAction != null) {
+            btnBackAction.setOnClickListener(v -> animateButtonTap(v, sheetDialog::dismiss));
+        }
+
+        // Use button - confirms this suggestion and applies it
+        if (btnUseAction != null) {
+            btnUseAction.setText(item.isPhrase ? "Use Phrase ✓" : "Use Word ✓");
+            btnUseAction.setOnClickListener(v -> animateButtonTap(v, () -> {
+                sheetDialog.dismiss();
+                hideSuggestionCards();
+                if (binding != null) {
+                    binding.editTextInput.setText(item.source);
+                    binding.editTextInput.setSelection(item.source.length());
+                }
+            }));
+        }
+
+        AccessibilityPreferences.applyToViewTree(requireContext(), sheetView);
+
+        sheetDialog.show();
+    }
+
+    private void hideSuggestionCards() {
+        if (binding == null) {
+            return;
+        }
+        binding.noMatchBannerLayout.setVisibility(View.GONE);
+        binding.didYouMeanHeaderLayout.setVisibility(View.GONE);
+        binding.suggestionContainer.removeAllViews();
+        binding.suggestionContainer.setVisibility(View.GONE);
     }
 }

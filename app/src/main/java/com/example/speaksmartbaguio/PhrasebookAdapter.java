@@ -35,12 +35,17 @@ import com.example.speaksmartbaguio.repository.FavoriteRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.google.android.material.snackbar.Snackbar;
 
+import java.text.Collator;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
 public class PhrasebookAdapter
         extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+
+    public static final String SORT_A_TO_Z = "A–Z";
+    public static final String SORT_Z_TO_A = "Z–A";
 
     private static final int TYPE_ITEM = 0;
     private static final int TYPE_FOOTER = 1;
@@ -54,6 +59,9 @@ public class PhrasebookAdapter
 
     private String searchQuery = "";
     private String selectedLanguage = "English";
+    private String sortOrder = SORT_A_TO_Z;
+    private final Collator collator =
+            Collator.getInstance(new Locale("fil", "PH"));
 
     private boolean isLoading = false;
     private boolean hasMore = true;
@@ -433,6 +441,16 @@ public class PhrasebookAdapter
             holder.textViewPartOfSpeech.setText(
                     getHighlightedText(partOfSpeech, searchQuery)
             );
+        }
+
+        String category = safeText(phrase.getCategory());
+        if (holder.textViewCategory != null) {
+            if (category.trim().isEmpty()) {
+                holder.textViewCategory.setVisibility(View.GONE);
+            } else {
+                holder.textViewCategory.setVisibility(View.VISIBLE);
+                holder.textViewCategory.setText(category.trim());
+            }
         }
 
         // Open phrase details.
@@ -915,11 +933,62 @@ public class PhrasebookAdapter
         return items.size() + 1;
     }
 
+    // ---------------------------------------------------------
+    // SORTING
+    // ---------------------------------------------------------
+
+    public void setSortOrder(String order) {
+        final String newOrder = SORT_Z_TO_A.equals(order)
+                ? SORT_Z_TO_A
+                : SORT_A_TO_Z;
+
+        runWhenRecyclerViewIsReady(() -> {
+            if (newOrder.equals(sortOrder)) {
+                return;
+            }
+            sortOrder = newOrder;
+            if (!items.isEmpty()) {
+                List<Phrase> sorted = new ArrayList<>(items);
+                sortPhrases(sorted);
+                filterList(sorted);
+            }
+        });
+    }
+
+    public String getSortOrder() {
+        return sortOrder;
+    }
+
+    private void sortPhrases(List<Phrase> phrases) {
+        if (phrases == null || phrases.isEmpty()) {
+            return;
+        }
+
+        Collections.sort(phrases, (first, second) -> {
+            String firstWord = safeText(first.getIlokanoWord()).trim();
+            String secondWord = safeText(second.getIlokanoWord()).trim();
+
+            int result = collator.compare(firstWord, secondWord);
+
+            if (result == 0) {
+                result = firstWord.compareToIgnoreCase(secondWord);
+            }
+
+            if (SORT_Z_TO_A.equals(sortOrder)) {
+                return -Integer.signum(result);
+            }
+
+            return result;
+        });
+    }
+
     public void filterList(List<Phrase> filteredList) {
 
         List<Phrase> safeList = filteredList != null
                 ? new ArrayList<>(filteredList)
                 : new ArrayList<>();
+
+        sortPhrases(safeList);
 
         runWhenRecyclerViewIsReady(() -> {
 
@@ -1270,6 +1339,7 @@ public class PhrasebookAdapter
         TextView textViewIlokano;
         TextView textViewSelected;
         TextView textViewPartOfSpeech;
+        TextView textViewCategory;
         TextView buttonFavorite;
 
         ImageButton buttonPlayAudio;
@@ -1292,6 +1362,10 @@ public class PhrasebookAdapter
 
             textViewPartOfSpeech = itemView.findViewById(
                     R.id.textViewPartOfSpeech
+            );
+
+            textViewCategory = itemView.findViewById(
+                    R.id.textViewCategory
             );
 
             buttonFavorite = itemView.findViewById(
