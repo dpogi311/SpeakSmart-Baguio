@@ -2,9 +2,12 @@
 package com.example.speaksmartbaguio;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -29,11 +32,13 @@ import android.text.style.ReplacementSpan;
 import android.text.style.StyleSpan;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Filter;
 import android.widget.ImageButton;
@@ -52,6 +57,7 @@ import com.example.speaksmartbaguio.repository.DictionaryRepository;
 import com.example.speaksmartbaguio.repository.PhraseRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.example.speaksmartbaguio.utils.AudioPreferences;
+import com.example.speaksmartbaguio.utils.IlokanoTtsHelper;
 import com.example.speaksmartbaguio.utils.NetworkUtil;
 import com.example.speaksmartbaguio.utils.SettingsMenuHelper;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
@@ -80,6 +86,9 @@ public class TranslatorFragment extends Fragment {
     // Internal markers used to identify POS text before styling.
     private static final char POS_START_MARKER = '\uFFF0';
     private static final char POS_END_MARKER = '\uFFF1';
+
+    private static final int MAX_SUGGESTIONS = 10;
+    private static final double MIN_SUGGESTION_SCORE = 0.45;
 
     private static final String MODE_ENGLISH_TO_ILOKANO =
             "English  ⇄  Ilokano";
@@ -347,6 +356,9 @@ public class TranslatorFragment extends Fragment {
                 requireContext(),
                 view
         );
+
+        CharSequence currentInput = binding.editTextInput.getText();
+        updateSubmitButtonState(currentInput != null ? currentInput.toString() : "");
     }
 
     // ---------------------------------------------------------
@@ -1036,36 +1048,40 @@ public class TranslatorFragment extends Fragment {
 
                         String input = s.toString().trim();
 
-                        binding.originalText.setText(input);
-
                         latestInput = input;
 
                         stopTextToSpeech();
 
                         searchHandler.removeCallbacksAndMessages(null);
 
+                        updateSubmitButtonState(input);
+
                         if (input.isEmpty()) {
 
+                            binding.translationLoadingLayout.setVisibility(View.GONE);
+                            binding.originalText.setText("");
                             binding.translatedText.setText("");
                             binding.noTranslationFoundLayout.setVisibility(View.GONE);
                             hideSuggestionCards();
-
-                            return;
                         }
-
-                        searchRunnable =
-                                () -> translateTextWordByWord(input);
-
-                        searchHandler.postDelayed(
-                                searchRunnable,
-                                400
-                        );
                     }
 
                     @Override
                     public void afterTextChanged(Editable s) {
                     }
                 }
+        );
+
+        binding.editTextInput.setOnKeyListener((v, keyCode, event) -> {
+            if (keyCode == KeyEvent.KEYCODE_ENTER && event != null && event.getAction() == KeyEvent.ACTION_DOWN) {
+                submitTranslation(true);
+                return true;
+            }
+            return false;
+        });
+
+        binding.btnTranslateEnter.setOnClickListener(
+                v -> animateButtonTap(v, () -> submitTranslation(true))
         );
 
         binding.micButton.setOnClickListener(
@@ -1075,6 +1091,124 @@ public class TranslatorFragment extends Fragment {
         binding.ttsButton.setOnClickListener(
                 v -> animateButtonTap(v, this::speakTranslation)
         );
+
+        binding.btnCopyTranslation.setOnClickListener(
+                v -> animateButtonTap(v, this::copyTranslatedText)
+        );
+
+        CharSequence initialText = binding.editTextInput.getText();
+        updateSubmitButtonState(initialText != null ? initialText.toString() : "");
+    }
+
+    private void updateSubmitButtonState(@Nullable String input) {
+        if (binding == null || !isAdded()) {
+            return;
+        }
+        boolean hasText = input != null && !input.trim().isEmpty();
+        binding.btnTranslateEnter.setEnabled(hasText);
+        binding.btnTranslateEnter.setClickable(hasText);
+        binding.btnTranslateEnter.setBackgroundTintList(
+                ColorStateList.valueOf(
+                        ContextCompat.getColor(
+                                requireContext(),
+                                hasText ? R.color.cyan_primary : R.color.divider_color
+                        )
+                )
+        );
+        binding.btnTranslateEnter.setTextColor(
+                ContextCompat.getColor(
+                        requireContext(),
+                        hasText ? R.color.text_on_cyan : R.color.text_disabled
+                )
+        );
+    }
+
+    private void copyTranslatedText() {
+        if (binding == null || !isAdded()) {
+            return;
+        }
+        if (binding.translatedText.getVisibility() != View.VISIBLE) {
+            showMessage("Nothing to copy yet.", false);
+            return;
+        }
+        CharSequence raw = binding.translatedText.getText();
+        if (raw == null || raw.toString().trim().isEmpty()) {
+            showMessage("Nothing to copy yet.", false);
+            return;
+        }
+
+        // Remove decorative POS pills and markers before copying to clipboard.
+        SpannableStringBuilder clean = new SpannableStringBuilder(raw);
+        TealPillSpan[] pills = clean.getSpans(0, clean.length(), TealPillSpan.class);
+        if (pills != null) {
+            for (int i = pills.length - 1; i >= 0; i--) {
+                int start = clean.getSpanStart(pills[i]);
+                int end = clean.getSpanEnd(pills[i]);
+                if (start >= 0 && end > start) {
+                    clean.delete(start, end);
+                }
+            }
+        }
+        String textToCopy = clean.toString()
+                .replace("▌", "")
+                .replaceAll("[ \\t]+\\n", "\n")
+                .trim();
+
+        if (textToCopy.isEmpty()) {
+            showMessage("Nothing to copy yet.", false);
+            return;
+        }
+
+        ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard != null) {
+            clipboard.setPrimaryClip(ClipData.newPlainText("SpeakSmart Translation", textToCopy));
+            showMessage("Translation copied to clipboard.", false);
+        }
+    }
+
+    private void submitTranslation(boolean scrollToResults) {
+        if (binding == null || !isAdded()) {
+            return;
+        }
+
+        CharSequence rawText = binding.editTextInput.getText();
+        String input = rawText != null ? rawText.toString().trim() : "";
+
+        if (input.isEmpty()) {
+            showMessage("Please enter a word or phrase first.", false);
+            return;
+        }
+
+        latestInput = input;
+        stopTextToSpeech();
+        searchHandler.removeCallbacksAndMessages(null);
+
+        InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(binding.editTextInput.getWindowToken(), 0);
+        }
+        binding.editTextInput.clearFocus();
+
+        binding.originalText.setText(input);
+        translateTextWordByWord(input);
+
+        if (scrollToResults) {
+            scrollToResultCards();
+        }
+    }
+
+    private void scrollToResultCards() {
+        if (binding == null || !isAdded()) {
+            return;
+        }
+        binding.translatorScrollView.post(() -> {
+            if (binding == null || !isAdded()) {
+                return;
+            }
+            int offsetPx = Math.round(12f * getResources().getDisplayMetrics().density);
+            int targetY = Math.max(0, binding.cardOriginalText.getTop() - offsetPx);
+            binding.translatorScrollView.smoothScrollTo(0, targetY);
+        });
     }
 
     // ---------------------------------------------------------
@@ -1161,7 +1295,12 @@ public class TranslatorFragment extends Fragment {
 
             if (results != null && !results.isEmpty()) {
 
-                binding.editTextInput.setText(results.get(0));
+                String spoken = results.get(0);
+                binding.editTextInput.setText(spoken);
+                if (spoken != null) {
+                    binding.editTextInput.setSelection(spoken.length());
+                }
+                submitTranslation(true);
             }
         }
     }
@@ -1249,13 +1388,21 @@ public class TranslatorFragment extends Fragment {
 
                 stopTextToSpeech();
 
+                String speechText = text;
+                if (isIlokanoOutputMode()) {
+                    IlokanoTtsHelper.configureForIlokano(tts);
+                    speechText = IlokanoTtsHelper.normalizeIlokanoForSpeech(text);
+                } else {
+                    setTTSLanguage();
+                }
+
                 AudioPreferences.applyToTextToSpeech(
                         requireContext(),
                         tts
                 );
 
                 int result = tts.speak(
-                        text,
+                        speechText,
                         TextToSpeech.QUEUE_FLUSH,
                         null,
                         "ttsTranslation"
@@ -1274,6 +1421,53 @@ public class TranslatorFragment extends Fragment {
                 Log.e(
                         TAG,
                         "Android TTS playback failed.",
+                        e
+                );
+
+                showMessage(
+                        "Speech is unavailable on this device.",
+                        true
+                );
+            }
+
+        } else {
+
+            showMessage(
+                    "Speech is still initializing. Please try again.",
+                    false
+            );
+        }
+    }
+
+    private void speakIlokanoWithTts(String ilokanoText) {
+
+        if (binding == null || !isAdded()) {
+            return;
+        }
+
+        if (tts != null) {
+
+            try {
+
+                int result = IlokanoTtsHelper.speakIlokano(
+                        requireContext(),
+                        tts,
+                        ilokanoText,
+                        "ttsIlokano"
+                );
+
+                if (result == TextToSpeech.ERROR) {
+                    showMessage(
+                            "Unable to play speech. Check your installed TTS voice.",
+                            true
+                    );
+                }
+
+            } catch (Exception e) {
+
+                Log.e(
+                        TAG,
+                        "Android TTS Ilokano playback failed.",
                         e
                 );
 
@@ -1352,26 +1546,29 @@ public class TranslatorFragment extends Fragment {
     // ---------------------------------------------------------
 
 
+    private void showLoadingState() {
+        if (binding == null || !isAdded()) {
+            return;
+        }
+        binding.translatedText.setVisibility(View.GONE);
+        binding.noTranslationFoundLayout.setVisibility(View.GONE);
+        hideSuggestionCards();
+        binding.translationLoadingLayout.setVisibility(View.VISIBLE);
+    }
+
     private void translateTextWordByWord(String input) {
 
         if (!isCurrentInput(input) || input.trim().isEmpty()) {
             return;
         }
 
+        showLoadingState();
+
         // Reset Phrasebook and suggestion results for every new input.
         pendingPhraseMatches = new ArrayList<>();
         lastSuggestions = new ArrayList<>();
 
-        if (!isMultiwordInput(input)) {
-            translateDictionaryWordByWord(input);
-            return;
-        }
-
-        if (NetworkUtil.isOnline(requireContext())) {
-
-            searchOnlinePhrasebook(input);
-
-        } else {
+        if (isMultiwordInput(input)) {
 
             searchOfflinePhrasebook(input, phrases -> {
 
@@ -1382,8 +1579,12 @@ public class TranslatorFragment extends Fragment {
                 pendingPhraseMatches =
                         getSuitablePhrases(phrases);
 
-                continueToDictionary(input);
+                translateOffline(input, true);
             });
+
+        } else {
+
+            translateOffline(input, true);
         }
     }
 
@@ -2426,6 +2627,10 @@ public class TranslatorFragment extends Fragment {
     // ---------------------------------------------------------
 
     private void translateOffline(String input) {
+        translateOffline(input, false);
+    }
+
+    private void translateOffline(String input, boolean allowOnlineFallback) {
 
         if (!isCurrentInput(input)) {
             return;
@@ -2445,6 +2650,23 @@ public class TranslatorFragment extends Fragment {
 
             List<Word> dictionary =
                     EntityMapper.toWordList(entities);
+
+            if (dictionary.isEmpty()
+                    && allowOnlineFallback
+                    && isAdded()
+                    && NetworkUtil.isOnline(requireContext())) {
+                requireActivity().runOnUiThread(() -> {
+                    if (!isCurrentInput(input)) {
+                        return;
+                    }
+                    if (isMultiwordInput(input)) {
+                        searchOnlinePhrasebook(input);
+                    } else {
+                        translateDictionaryWordByWord(input);
+                    }
+                });
+                return;
+            }
 
             String searchField = getDictionarySearchField();
             String fullNormalized = normalizeForExactMatch(trimmedInput);
@@ -2828,6 +3050,8 @@ public class TranslatorFragment extends Fragment {
             return;
         }
 
+        binding.translationLoadingLayout.setVisibility(View.GONE);
+
         boolean isNoExactMatchWithSuggestions = translation != null
                 && translation.contains("Did you mean?")
                 && !lastSuggestions.isEmpty();
@@ -3092,7 +3316,7 @@ public class TranslatorFragment extends Fragment {
                 if (source == null || target == null) continue;
 
                 double score = scoreFuzzyMatch(normalizedInput, source);
-                if (score > 0.0) {
+                if (score >= MIN_SUGGESTION_SCORE) {
                     String key = normalizeForExactMatch(source) + "|" + normalizeForExactMatch(target);
                     if (seen.add(key)) {
                         suggestions.add(new SuggestionItem(
@@ -3123,9 +3347,9 @@ public class TranslatorFragment extends Fragment {
 
                 double fuzzyScore = scoreFuzzyMatch(normalizedInput, source);
                 double diceScore = calculatePhraseSimilarity(normalizedInput, source);
-                double bestScore = Math.max(fuzzyScore, diceScore >= 0.35 ? diceScore : -1.0);
+                double bestScore = Math.max(fuzzyScore, diceScore >= MIN_SUGGESTION_SCORE ? diceScore : -1.0);
 
-                if (bestScore > 0.0) {
+                if (bestScore >= MIN_SUGGESTION_SCORE) {
                     String key = normalizeForExactMatch(source) + "|" + normalizeForExactMatch(target);
                     if (seen.add(key)) {
                         String phraseSentence = phrase.getIlokanoSentence() != null && !phrase.getIlokanoSentence().trim().isEmpty()
@@ -3159,6 +3383,10 @@ public class TranslatorFragment extends Fragment {
             int cmp = Double.compare(b.score, a.score);
             return cmp != 0 ? cmp : a.source.compareToIgnoreCase(b.source);
         });
+
+        if (suggestions.size() > MAX_SUGGESTIONS) {
+            suggestions = new ArrayList<>(suggestions.subList(0, MAX_SUGGESTIONS));
+        }
 
         lastSuggestions = new ArrayList<>(suggestions);
 
@@ -3257,9 +3485,11 @@ public class TranslatorFragment extends Fragment {
 
         int maxLen = Math.max(normalizedInput.length(), normalizedCandidate.length());
         int maxAllowedDist = maxLen <= 3 ? 1 : Math.max(2, maxLen / 3);
-        int dist = levenshteinDistance(normalizedInput, normalizedCandidate);
-        if (dist <= maxAllowedDist) {
-            return 1.0 - ((double) dist / maxLen);
+        if (Math.abs(normalizedInput.length() - normalizedCandidate.length()) <= maxAllowedDist) {
+            int dist = levenshteinDistance(normalizedInput, normalizedCandidate);
+            if (dist <= maxAllowedDist) {
+                return 1.0 - ((double) dist / maxLen);
+            }
         }
 
         // Also check individual words inside a multi-word input or candidate.
@@ -3268,6 +3498,7 @@ public class TranslatorFragment extends Fragment {
         double bestWordScore = -1.0;
         for (String iw : inputWords) {
             if (iw.length() < 2) continue;
+            if (inputWords.length > 1 && iw.length() < 3) continue;
             for (String cw : candidateWords) {
                 if (cw.length() < 2) continue;
                 if (cw.startsWith(iw)) {
@@ -3276,6 +3507,9 @@ public class TranslatorFragment extends Fragment {
                 }
                 int wMax = Math.max(iw.length(), cw.length());
                 int wAllowed = wMax <= 3 ? 1 : Math.max(2, wMax / 3);
+                if (Math.abs(iw.length() - cw.length()) > wAllowed) {
+                    continue;
+                }
                 int wDist = levenshteinDistance(iw, cw);
                 if (wDist <= wAllowed) {
                     double s = 0.75 * (1.0 - ((double) wDist / wMax));
@@ -3337,6 +3571,7 @@ public class TranslatorFragment extends Fragment {
                     SuggestionItem chosen = items.get(which);
                     binding.editTextInput.setText(chosen.source);
                     binding.editTextInput.setSelection(chosen.source.length());
+                    submitTranslation(true);
                     speakWithAndroidTts(chosen.target);
                 })
                 .setNegativeButton("Cancel", null)
@@ -3464,7 +3699,7 @@ public class TranslatorFragment extends Fragment {
 
         if (btnSpeak != null) {
             btnSpeak.setOnClickListener(v -> animateButtonTap(v, () -> {
-                speakWithAndroidTts(ilokanoText);
+                speakIlokanoWithTts(ilokanoText);
             }));
         }
 
@@ -3538,6 +3773,7 @@ public class TranslatorFragment extends Fragment {
                 if (binding != null) {
                     binding.editTextInput.setText(item.source);
                     binding.editTextInput.setSelection(item.source.length());
+                    submitTranslation(true);
                 }
             }));
         }

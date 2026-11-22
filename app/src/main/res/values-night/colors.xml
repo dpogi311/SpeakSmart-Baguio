@@ -43,6 +43,11 @@
     <color name="input_stroke">#526571</color>
     <color name="input_stroke_focused">#00E5FF</color>
 
+    <!-- SPEAKER / ICON CIRCLE BUTTON -->
+    <color name="speaker_button_fill">#1B3A44</color>
+    <color name="speaker_button_stroke">#00D2E5</color>
+    <color name="speaker_button_ripple">#3300E5FF</color>
+
     <!-- ==========================================
          LEGACY COLORS
          ========================================== -->
@@ -58,6 +63,10 @@
     <color name="success">#4CAF78</color>
     <color name="warning">#FFC45C</color>
     <color name="error">#FF6B6B</color>
+
+    <color name="status_success">#4CAF78</color>
+    <color name="status_warning">#FFC45C</color>
+    <color name="status_error">#FF6B6B</color>
 
     <!-- ==========================================
          SYSTEM BARS

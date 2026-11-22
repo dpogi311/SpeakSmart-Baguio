@@ -3,7 +3,6 @@ package com.example.speaksmartbaguio;
 import android.animation.ObjectAnimator;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Html;
 import android.view.View;
@@ -16,6 +15,10 @@ import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+
+import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
+import com.example.speaksmartbaguio.utils.ThemeManager;
 
 public class FirstTimeGuideActivity extends AppCompatActivity {
     public static final String EXTRA_FROM_SETTINGS = "from_settings";
@@ -35,8 +38,8 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
             R.layout.item_guide_page_5   // Page 5 - Pronunciation
     };
 
-    private final int COLOR_BRIGHT_TEAL = Color.rgb(8, 212, 194);
-    private final int COLOR_MUTED = Color.rgb(105, 130, 134);
+    private int colorBrightTeal;
+    private int colorMuted;
 
     private HorizontalScrollView pageScroller;
     private LinearLayout pagesContainer;
@@ -52,8 +55,12 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        ThemeManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_first_time_guide);
+
+        colorBrightTeal = ContextCompat.getColor(this, R.color.cyan_primary);
+        colorMuted = ContextCompat.getColor(this, R.color.text_disabled);
 
         initializeViews();
         setupPages();
@@ -95,9 +102,10 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
                 );
                 if (layout == R.layout.item_guide_page_1) {
                     TextView title = page.findViewById(R.id.tvGuideTitle);
+                    String accentHex = String.format("#%06X", (0xFFFFFF & colorBrightTeal));
 
                     title.setText(Html.fromHtml(
-                            "Welcome to <font color='#08D4C2'>Speak Smart Baguio</font>",
+                            "Welcome to <font color='" + accentHex + "'>Speak Smart Baguio</font>",
                             Html.FROM_HTML_MODE_LEGACY
                     ));
                 }
@@ -115,6 +123,7 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
             pageScroller.scrollTo(0, 0);
 
             updateNavigation();
+            AccessibilityPreferences.applyToViewTree(this, getWindow().getDecorView());
             animatePageReveal(0);
         });
     }
@@ -130,7 +139,7 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
             dot.setText("●");
             dot.setTextSize(13);
             dot.setPadding(7, 5, 7, 5);
-            dot.setTextColor(COLOR_MUTED);
+            dot.setTextColor(colorMuted);
 
             dotsContainer.addView(dot);
         }
@@ -145,7 +154,7 @@ public class FirstTimeGuideActivity extends AppCompatActivity {
             TextView dot = (TextView) dotsContainer.getChildAt(i);
             boolean isActive = (i == currentPage);
 
-            dot.setTextColor(isActive ? COLOR_BRIGHT_TEAL : COLOR_MUTED);
+            dot.setTextColor(isActive ? colorBrightTeal : colorMuted);
             dot.setTextSize(isActive ? 15 : 12);
 
             dot.animate().cancel();

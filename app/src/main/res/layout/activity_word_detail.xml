@@ -127,7 +127,7 @@
                         android:focusable="true"
                         android:stateListAnimator="@null"
                         android:tooltipText="Listen to pronunciation"
-                        app:tint="@color/cyan_primary" />
+                        app:tint="@color/cyan_deep" />
 
                 </LinearLayout>
 

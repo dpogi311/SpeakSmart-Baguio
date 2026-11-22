@@ -9,10 +9,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -31,9 +33,21 @@ public class FavoritesAdapter
         void onFavoriteRemoved();
     }
 
+    public interface OnFavoriteClickListener {
+        void onFavoriteClick(FavoriteEntity favorite);
+    }
+
+    public interface OnFavoriteSpeakListener {
+        void onFavoriteSpeak(FavoriteEntity favorite);
+    }
+
     private final List<FavoriteEntity> favorites = new ArrayList<>();
     private final FavoriteRepository repository;
     private final OnFavoriteRemovedListener removeListener;
+    @Nullable
+    private final OnFavoriteClickListener clickListener;
+    @Nullable
+    private final OnFavoriteSpeakListener speakListener;
 
     private RecyclerView attachedRecyclerView;
     private int lastAnimatedPosition = -1;
@@ -42,8 +56,19 @@ public class FavoritesAdapter
             FavoriteRepository repository,
             OnFavoriteRemovedListener removeListener
     ) {
+        this(repository, removeListener, null, null);
+    }
+
+    public FavoritesAdapter(
+            FavoriteRepository repository,
+            OnFavoriteRemovedListener removeListener,
+            @Nullable OnFavoriteClickListener clickListener,
+            @Nullable OnFavoriteSpeakListener speakListener
+    ) {
         this.repository = repository;
         this.removeListener = removeListener;
+        this.clickListener = clickListener;
+        this.speakListener = speakListener;
     }
 
     @Override
@@ -136,6 +161,34 @@ public class FavoritesAdapter
         holder.buttonRemoveFavorite.setContentDescription(
                 "Remove " + ilokano + " from Favorites"
         );
+
+        holder.buttonSpeakFavorite.setContentDescription(
+                "Play pronunciation for " + ilokano
+        );
+
+        holder.buttonSpeakFavorite.setOnClickListener(v -> {
+            v.animate().cancel();
+            v.animate()
+                    .scaleX(0.86f)
+                    .scaleY(0.86f)
+                    .setDuration(70L)
+                    .withEndAction(() -> v.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(100L)
+                            .setInterpolator(new OvershootInterpolator(1.3f))
+                            .start())
+                    .start();
+            if (speakListener != null) {
+                speakListener.onFavoriteSpeak(favorite);
+            }
+        });
+
+        holder.itemView.setOnClickListener(v -> {
+            if (clickListener != null) {
+                clickListener.onFavoriteClick(favorite);
+            }
+        });
 
         holder.buttonRemoveFavorite.setOnClickListener(v -> {
             holder.buttonRemoveFavorite.setEnabled(false);
@@ -286,6 +339,7 @@ public class FavoritesAdapter
         TextView textFavoriteIlokano;
         TextView textFavoriteEnglish;
         TextView textFavoriteTagalog;
+        ImageButton buttonSpeakFavorite;
         TextView buttonRemoveFavorite;
 
         FavoriteViewHolder(@NonNull View itemView) {
@@ -305,6 +359,10 @@ public class FavoritesAdapter
 
             textFavoriteTagalog = itemView.findViewById(
                     R.id.textFavoriteTagalog
+            );
+
+            buttonSpeakFavorite = itemView.findViewById(
+                    R.id.buttonSpeakFavorite
             );
 
             buttonRemoveFavorite = itemView.findViewById(

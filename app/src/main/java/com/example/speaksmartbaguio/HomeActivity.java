@@ -2,6 +2,7 @@ package com.example.speaksmartbaguio;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -26,6 +27,7 @@ import android.view.animation.OvershootInterpolator;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 
 import com.example.speaksmartbaguio.databinding.ActivityHomeBinding;
@@ -78,6 +80,7 @@ public class HomeActivity extends AppCompatActivity {
         setupNavigation();
         setupDailyPhraseCard();
         setupSyncIndicator();
+        setupAiAssistantFab();
         animateHomeEntrance();
 
         loadDailyPhrase();
@@ -259,6 +262,28 @@ public class HomeActivity extends AppCompatActivity {
 
         startActivity(intent);
         overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+    }
+
+
+    // =========================================================
+    // AI ASSISTANT FLOATING BUTTON
+    // =========================================================
+
+    private void setupAiAssistantFab() {
+        if (binding == null || binding.fabAiAssistant == null) {
+            return;
+        }
+        binding.fabAiAssistant.setOnClickListener(v -> {
+            if (isNavigating) {
+                return;
+            }
+            isNavigating = true;
+            animateCardTap(v, () -> {
+                Intent intent = new Intent(this, AiAssistantActivity.class);
+                startActivity(intent);
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+            });
+        });
     }
 
 
@@ -658,7 +683,19 @@ public class HomeActivity extends AppCompatActivity {
         SpannableStringBuilder builder =
                 new SpannableStringBuilder();
 
-        int dividerColor = Color.parseColor("#33FFFFFF");
+        boolean isNightMode = (getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+
+        int dividerColor = ContextCompat.getColor(this, R.color.divider_color);
+
+        int enBgColor = Color.parseColor(isNightMode ? "#3338BDF8" : "#E0F2FE");
+        int enBorderColor = Color.parseColor(isNightMode ? "#8038BDF8" : "#0284C7");
+        int enTextColor = Color.parseColor(isNightMode ? "#E0F2FE" : "#0369A1");
+
+        int tlBgColor = Color.parseColor(isNightMode ? "#33FBBF24" : "#FEF3C7");
+        int tlBorderColor = Color.parseColor(isNightMode ? "#80FBBF24" : "#D97706");
+        int tlTextColor = Color.parseColor(isNightMode ? "#FEF3C7" : "#B45309");
 
         // Top divider separating the Ilokano title from the translations.
         appendDividerLine(
@@ -672,9 +709,9 @@ public class HomeActivity extends AppCompatActivity {
                     builder,
                     "EN",
                     labelFont,
-                    Color.parseColor("#3338BDF8"), // Soft Sky Blue fill
-                    Color.parseColor("#8038BDF8"), // Sky Blue border
-                    Color.parseColor("#E0F2FE"),   // Crisp light badge text
+                    enBgColor,
+                    enBorderColor,
+                    enTextColor,
                     cleanEnglish
             );
         }
@@ -693,9 +730,9 @@ public class HomeActivity extends AppCompatActivity {
                     builder,
                     "TL",
                     labelFont,
-                    Color.parseColor("#33FBBF24"), // Warm Amber/Gold fill
-                    Color.parseColor("#80FBBF24"), // Amber/Gold border
-                    Color.parseColor("#FEF3C7"),   // Crisp warm badge text
+                    tlBgColor,
+                    tlBorderColor,
+                    tlTextColor,
                     cleanTagalog
             );
         }

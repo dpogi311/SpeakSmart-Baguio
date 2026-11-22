@@ -5,6 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="14dp"
+    android:clickable="true"
+    android:focusable="true"
     app:cardBackgroundColor="@color/app_surface"
     app:cardCornerRadius="20dp"
     app:cardElevation="0dp"
@@ -87,7 +89,34 @@
                 android:fontFamily="@font/font_body"
                 android:lineSpacingExtra="3dp" />
 
+            <TextView
+                android:id="@+id/textFavoriteDetailsHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Tap to view details"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp"
+                android:fontFamily="@font/font_label" />
+
         </LinearLayout>
+
+        <!-- SPEAK PRONUNCIATION BUTTON -->
+
+        <ImageButton
+            android:id="@+id/buttonSpeakFavorite"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="6dp"
+            android:padding="10dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_sound"
+            android:scaleType="centerInside"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="Play pronunciation"
+            android:importantForAccessibility="yes"
+            app:tint="@color/cyan_primary" />
 
         <!-- REMOVE FAVORITE BUTTON -->
 
@@ -95,7 +124,7 @@
             android:id="@+id/buttonRemoveFavorite"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="4dp"
             android:gravity="center"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:text="♥"

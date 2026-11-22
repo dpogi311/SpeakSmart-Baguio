@@ -29,6 +29,11 @@
     <color name="input_stroke">#AABBC4</color>
     <color name="input_stroke_focused">#00B8D4</color>
 
+    <!-- SPEAKER / ICON CIRCLE BUTTON -->
+    <color name="speaker_button_fill">#E0F7FA</color>
+    <color name="speaker_button_stroke">#0097A7</color>
+    <color name="speaker_button_ripple">#3300B8D4</color>
+
     <!-- LEGACY COLORS -->
     <color name="primary_teal">#00B8D4</color>
     <color name="accent_teal">#0097A7</color>

@@ -4,7 +4,7 @@
     android:id="@+id/guideRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#060D10"
+    android:background="@color/app_background"
     android:orientation="vertical"
     android:paddingStart="22dp"
     android:paddingTop="16dp"
@@ -25,7 +25,7 @@
             android:fontFamily="@font/font_label"
             android:letterSpacing="0.16"
             android:text="QUICK GUIDE"
-            android:textColor="#08D4C2"
+            android:textColor="@color/cyan_primary"
             android:textSize="11sp"
             android:textStyle="bold" />
 
@@ -43,7 +43,7 @@
             android:paddingStart="14dp"
             android:paddingEnd="14dp"
             android:text="Skip"
-            android:textColor="#9BB4B8"
+            android:textColor="@color/text_secondary"
             android:textSize="13sp"
             android:textStyle="bold" />
 
@@ -94,14 +94,14 @@
             android:insetBottom="0dp"
             android:text="‹  Back"
             android:textAllCaps="false"
-            android:textColor="#CFE2E5"
+            android:textColor="@color/text_primary"
             android:textSize="15sp"
             android:textStyle="bold"
-            app:backgroundTint="#0E1C21"
+            app:backgroundTint="@color/app_surface"
             app:cornerRadius="999dp"
             app:elevation="0dp"
             app:rippleColor="#2608D4C2"
-            app:strokeColor="#1D3840"
+            app:strokeColor="@color/border_cyan"
             app:strokeWidth="1dp" />
 
         <View
@@ -118,10 +118,10 @@
             android:insetBottom="0dp"
             android:text="Next  ›"
             android:textAllCaps="false"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/text_on_cyan"
             android:textSize="15sp"
             android:textStyle="bold"
-            app:backgroundTint="#0DA396"
+            app:backgroundTint="@color/cyan_primary"
             app:cornerRadius="999dp"
             app:elevation="4dp"
             app:rippleColor="#33FFFFFF" />

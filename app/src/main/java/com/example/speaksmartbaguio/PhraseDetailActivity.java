@@ -17,9 +17,8 @@ import androidx.core.content.res.ResourcesCompat;
 
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.example.speaksmartbaguio.utils.AudioPreferences;
+import com.example.speaksmartbaguio.utils.IlokanoTtsHelper;
 import com.google.android.material.snackbar.Snackbar;
-
-import java.util.Locale;
 
 public class PhraseDetailActivity extends AppCompatActivity {
 
@@ -265,42 +264,7 @@ public class PhraseDetailActivity extends AppCompatActivity {
     }
 
     private boolean setBestAvailableLanguage() {
-
-        if (tts == null) {
-            return false;
-        }
-
-        Locale[] preferredLocales = {
-                new Locale("fil", "PH"),
-                new Locale("tl", "PH"),
-                new Locale("en", "PH"),
-                Locale.US
-        };
-
-        for (Locale locale : preferredLocales) {
-
-            try {
-                int availability = tts.isLanguageAvailable(locale);
-
-                if (availability != TextToSpeech.LANG_MISSING_DATA
-                        && availability != TextToSpeech.LANG_NOT_SUPPORTED) {
-
-                    int result = tts.setLanguage(locale);
-
-                    if (result != TextToSpeech.LANG_MISSING_DATA
-                            && result != TextToSpeech.LANG_NOT_SUPPORTED) {
-
-                        Log.d(TAG, "Selected TTS language: " + locale);
-                        return true;
-                    }
-                }
-
-            } catch (Exception e) {
-                Log.w(TAG, "Unable to select TTS language: " + locale, e);
-            }
-        }
-
-        return false;
+        return IlokanoTtsHelper.configureForIlokano(tts);
     }
 
     private void speakIlokanoPhrase() {
@@ -317,14 +281,10 @@ public class PhraseDetailActivity extends AppCompatActivity {
             return;
         }
 
-        tts.stop();
-
-        AudioPreferences.applyToTextToSpeech(this, tts);
-
-        int result = tts.speak(
+        int result = IlokanoTtsHelper.speakIlokano(
+                this,
+                tts,
                 ilokanoPhrase.trim(),
-                TextToSpeech.QUEUE_FLUSH,
-                null,
                 "phrase_detail_" + System.currentTimeMillis()
         );
 

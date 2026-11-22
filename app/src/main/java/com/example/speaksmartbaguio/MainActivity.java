@@ -74,6 +74,14 @@ public class MainActivity extends AppCompatActivity {
 
         BottomNavigationView navView = binding.navView;
 
+        if (binding.fabAiAssistant != null) {
+            binding.fabAiAssistant.setOnClickListener(v -> {
+                Intent aiIntent = new Intent(this, AiAssistantActivity.class);
+                startActivity(aiIntent);
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+            });
+        }
+
 
         // =================================================
         // BOTTOM NAVIGATION

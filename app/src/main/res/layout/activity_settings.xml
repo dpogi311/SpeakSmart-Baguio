@@ -80,10 +80,10 @@
                 <TextView
                     android:layout_width="44dp"
                     android:layout_height="44dp"
-                    android:background="@color/app_surface_pressed"
+                    android:background="@drawable/bg_settings_icon_tile"
                     android:gravity="center"
                     android:text="◐"
-                    android:textColor="@color/cyan_primary"
+                    android:textColor="@color/cyan_deep"
                     android:textSize="21sp"
                     android:textStyle="bold" />
 
@@ -146,10 +146,10 @@
                 <TextView
                     android:layout_width="44dp"
                     android:layout_height="44dp"
-                    android:background="@color/app_surface_pressed"
+                    android:background="@drawable/bg_settings_icon_tile"
                     android:gravity="center"
                     android:text="Aa"
-                    android:textColor="@color/cyan_primary"
+                    android:textColor="@color/cyan_deep"
                     android:textSize="17sp"
                     android:textStyle="bold" />
 
@@ -211,10 +211,10 @@
                 <TextView
                     android:layout_width="44dp"
                     android:layout_height="44dp"
-                    android:background="@color/app_surface_pressed"
+                    android:background="@drawable/bg_settings_icon_tile"
                     android:gravity="center"
                     android:text="♫"
-                    android:textColor="@color/cyan_primary"
+                    android:textColor="@color/cyan_deep"
                     android:textSize="21sp"
                     android:textStyle="bold" />
 
@@ -276,10 +276,10 @@
                 <TextView
                     android:layout_width="44dp"
                     android:layout_height="44dp"
-                    android:background="@color/app_surface_pressed"
+                    android:background="@drawable/bg_settings_icon_tile"
                     android:gravity="center"
                     android:text="文"
-                    android:textColor="@color/cyan_primary"
+                    android:textColor="@color/cyan_deep"
                     android:textSize="20sp"
                     android:textStyle="bold" />
 
@@ -340,10 +340,10 @@
                 <TextView
                     android:layout_width="44dp"
                     android:layout_height="44dp"
-                    android:background="@color/app_surface_pressed"
+                    android:background="@drawable/bg_settings_icon_tile"
                     android:gravity="center"
                     android:text="\?"
-                    android:textColor="@color/cyan_primary"
+                    android:textColor="@color/cyan_deep"
                     android:textSize="21sp"
                     android:textStyle="bold" />
 
@@ -404,10 +404,10 @@
                 <TextView
                     android:layout_width="44dp"
                     android:layout_height="44dp"
-                    android:background="@color/app_surface_pressed"
+                    android:background="@drawable/bg_settings_icon_tile"
                     android:gravity="center"
                     android:text="i"
-                    android:textColor="@color/cyan_primary"
+                    android:textColor="@color/cyan_deep"
                     android:textSize="21sp"
                     android:textStyle="bold" />
 

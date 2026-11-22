@@ -15,10 +15,10 @@
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="230dp"
-        app:cardBackgroundColor="#0D1C21"
+        app:cardBackgroundColor="@color/app_surface"
         app:cardCornerRadius="26dp"
         app:cardElevation="0dp"
-        app:strokeColor="#1D4049"
+        app:strokeColor="@color/border_cyan"
         app:strokeWidth="1dp">
 
         <LinearLayout
@@ -43,7 +43,7 @@
                 android:fontFamily="@font/font_label"
                 android:letterSpacing="0.16"
                 android:text="TRANSLATOR"
-                android:textColor="#E2F1F3"
+                android:textColor="@color/cyan_secondary"
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
@@ -59,7 +59,7 @@
         android:fontFamily="@font/font_label"
         android:letterSpacing="0.14"
         android:text="BREAK THE LANGUAGE BARRIER"
-        android:textColor="#08D4C2"
+        android:textColor="@color/cyan_secondary"
         android:textSize="11sp"
         android:textStyle="bold" />
 
@@ -73,7 +73,7 @@
         android:gravity="center"
         android:lineSpacingExtra="4dp"
         android:text="Translate with Ease"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/text_primary"
         android:textSize="26sp"
         android:textStyle="bold" />
 
@@ -89,7 +89,7 @@
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
         android:text="Translate between English, Tagalog, and Benguet Ilokano. Understand words and phrases with a simple and convenient translation experience."
-        android:textColor="#9BB4B8"
+        android:textColor="@color/text_secondary"
         android:textSize="15sp" />
 
 </LinearLayout>

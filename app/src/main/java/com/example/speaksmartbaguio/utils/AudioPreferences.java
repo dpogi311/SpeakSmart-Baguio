@@ -15,7 +15,7 @@ public final class AudioPreferences {
     public static final float RATE_FAST = 1.05f;
 
     public static final float PITCH_DEEP = 0.85f;
-    public static final float PITCH_NATURAL = 0.95f;
+    public static final float PITCH_NATURAL = 1.0f;
     public static final float PITCH_BRIGHT = 1.10f;
 
     private AudioPreferences() {
@@ -42,6 +42,9 @@ public final class AudioPreferences {
 
     public static float getVoicePitch(Context context) {
         float pitch = prefs(context).getFloat(KEY_VOICE_PITCH, PITCH_NATURAL);
+        if (pitch == 0.95f) {
+            return PITCH_NATURAL;
+        }
         if (pitch != PITCH_DEEP && pitch != PITCH_NATURAL && pitch != PITCH_BRIGHT) {
             return PITCH_NATURAL;
         }

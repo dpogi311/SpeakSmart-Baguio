@@ -1,9 +1,11 @@
 package com.example.speaksmartbaguio;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -18,20 +20,30 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.speaksmartbaguio.entity.FavoriteEntity;
+import com.example.speaksmartbaguio.mapper.EntityMapper;
+import com.example.speaksmartbaguio.repository.DictionaryRepository;
 import com.example.speaksmartbaguio.repository.FavoriteRepository;
+import com.example.speaksmartbaguio.repository.PhraseRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
+import com.example.speaksmartbaguio.utils.IlokanoTtsHelper;
 import com.example.speaksmartbaguio.utils.SettingsMenuHelper;
 import com.google.android.material.snackbar.Snackbar;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class FavoritesFragment extends Fragment {
+
+    private static final String FILTER_ALL = "ALL";
+    private static final String FILTER_WORDS = "WORDS";
+    private static final String FILTER_PHRASES = "PHRASES";
 
     private RecyclerView recyclerViewFavorites;
     private FrameLayout favoritesListContainer;
@@ -39,12 +51,24 @@ public class FavoritesFragment extends Fragment {
     private ProgressBar progressFavorites;
     private TextView textFavoritesCount;
 
+    private TextView chipFavoritesAll;
+    private TextView chipFavoritesWords;
+    private TextView chipFavoritesPhrases;
+
     private TextView scrollToTopButton;
     private RecyclerView.OnScrollListener scrollToTopScrollListener;
     private boolean isScrollToTopVisible = false;
 
     private FavoriteRepository favoriteRepository;
+    private DictionaryRepository dictionaryRepository;
+    private PhraseRepository phraseRepository;
     private FavoritesAdapter favoritesAdapter;
+
+    private TextToSpeech tts;
+    private boolean ttsReady = false;
+
+    private String selectedFilter = FILTER_ALL;
+    private final List<FavoriteEntity> allFavorites = new ArrayList<>();
 
     private boolean isLoadingFavorites = false;
     private boolean hasAnimatedInitialContent = false;
@@ -92,6 +116,18 @@ public class FavoritesFragment extends Fragment {
                 R.id.textFavoritesCount
         );
 
+        chipFavoritesAll = view.findViewById(
+                R.id.chipFavoritesAll
+        );
+
+        chipFavoritesWords = view.findViewById(
+                R.id.chipFavoritesWords
+        );
+
+        chipFavoritesPhrases = view.findViewById(
+                R.id.chipFavoritesPhrases
+        );
+
         // Connect the shared Settings popup to the gear button.
         View settingsButton = view.findViewById(
                 R.id.buttonSettingsMenu
@@ -112,14 +148,24 @@ public class FavoritesFragment extends Fragment {
         favoriteRepository = new FavoriteRepository(
                 requireContext().getApplicationContext()
         );
+        dictionaryRepository = new DictionaryRepository(
+                requireContext().getApplicationContext()
+        );
+        phraseRepository = new PhraseRepository(
+                requireContext().getApplicationContext()
+        );
 
         favoritesAdapter = new FavoritesAdapter(
                 favoriteRepository,
-                this::loadFavorites
+                this::loadFavorites,
+                this::openFavoriteDetails,
+                this::speakFavorite
         );
 
         recyclerViewFavorites.setAdapter(favoritesAdapter);
 
+        setupFilterChips();
+        initTextToSpeech();
         setupScrollToTopButton();
         animatePageEntrance(view);
 
@@ -210,8 +256,8 @@ public class FavoritesFragment extends Fragment {
         favoritesListContainer.addView(recyclerViewFavorites, listParams);
 
         int sizePx = dpToPx(48f);
-        int bottomMarginPx = dpToPx(16f);
-        int endMarginPx = dpToPx(16f);
+        int bottomMarginPx = dpToPx(86f);
+        int endMarginPx = dpToPx(20f);
 
         scrollToTopButton = new TextView(requireContext());
         scrollToTopButton.setId(View.generateViewId());
@@ -459,6 +505,176 @@ public class FavoritesFragment extends Fragment {
     }
 
     // ---------------------------------------------------------
+    // FILTER CHIPS, TTS & DETAIL NAVIGATION
+    // ---------------------------------------------------------
+
+    private void setupFilterChips() {
+        if (chipFavoritesAll != null) {
+            chipFavoritesAll.setOnClickListener(v -> animateButtonTap(v, () -> selectFilter(FILTER_ALL)));
+        }
+        if (chipFavoritesWords != null) {
+            chipFavoritesWords.setOnClickListener(v -> animateButtonTap(v, () -> selectFilter(FILTER_WORDS)));
+        }
+        if (chipFavoritesPhrases != null) {
+            chipFavoritesPhrases.setOnClickListener(v -> animateButtonTap(v, () -> selectFilter(FILTER_PHRASES)));
+        }
+        updateFilterChipStyles();
+    }
+
+    private void selectFilter(String filter) {
+        if (filter.equals(selectedFilter)) {
+            return;
+        }
+        selectedFilter = filter;
+        updateFilterChipStyles();
+        applyFavoriteFilter();
+    }
+
+    private void updateFilterChipStyles() {
+        if (!isAdded()) {
+            return;
+        }
+        styleFilterChip(chipFavoritesAll, FILTER_ALL.equals(selectedFilter));
+        styleFilterChip(chipFavoritesWords, FILTER_WORDS.equals(selectedFilter));
+        styleFilterChip(chipFavoritesPhrases, FILTER_PHRASES.equals(selectedFilter));
+    }
+
+    private void styleFilterChip(@Nullable TextView chip, boolean active) {
+        if (chip == null || !isAdded()) {
+            return;
+        }
+        int padH = dpToPx(14f);
+        int padV = dpToPx(7f);
+        if (active) {
+            GradientDrawable activeBg = new GradientDrawable();
+            activeBg.setShape(GradientDrawable.RECTANGLE);
+            activeBg.setCornerRadius(dpToPx(16f));
+            activeBg.setColor(ContextCompat.getColor(requireContext(), R.color.cyan_primary));
+            chip.setBackground(activeBg);
+            chip.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_on_cyan));
+        } else {
+            chip.setBackgroundResource(R.drawable.dropdown_glass_background);
+            chip.setTextColor(ContextCompat.getColor(requireContext(), R.color.cyan_secondary));
+        }
+        chip.setPadding(padH, padV, padH, padV);
+    }
+
+    private void initTextToSpeech() {
+        if (!isAdded()) {
+            return;
+        }
+        tts = new TextToSpeech(requireContext().getApplicationContext(), status -> {
+            if (!isAdded() || tts == null) {
+                return;
+            }
+            if (status == TextToSpeech.SUCCESS) {
+                ttsReady = true;
+                IlokanoTtsHelper.configureForIlokano(tts);
+            }
+        });
+    }
+
+    private void speakFavorite(@Nullable FavoriteEntity favorite) {
+        if (favorite == null || !isAdded()) {
+            return;
+        }
+        String text = favorite.getIlokanoText() == null ? "" : favorite.getIlokanoText().trim();
+        if (text.isEmpty()) {
+            showFavoritesMessage("Pronunciation is unavailable.");
+            return;
+        }
+        if (tts == null || !ttsReady) {
+            showFavoritesMessage("Speech is still initializing. Please try again.");
+            return;
+        }
+        int result = IlokanoTtsHelper.speakIlokano(
+                requireContext(),
+                tts,
+                text,
+                "fav_tts_" + System.currentTimeMillis()
+        );
+        if (result == TextToSpeech.ERROR) {
+            showFavoritesMessage("Unable to generate pronunciation.");
+        }
+    }
+
+    private void openFavoriteDetails(@Nullable FavoriteEntity favorite) {
+        if (favorite == null || !isAdded() || getActivity() == null) {
+            return;
+        }
+
+        String ilokano = favorite.getIlokanoText().trim();
+        String english = favorite.getEnglishText().trim();
+        String tagalog = favorite.getTagalogText().trim();
+        boolean isDict = FavoriteRepository.TYPE_DICTIONARY.equals(favorite.getType());
+
+        if (isDict && dictionaryRepository != null) {
+            dictionaryRepository.searchWords(ilokano, entities -> {
+                Word matched = null;
+                List<Word> words = EntityMapper.toWordList(entities);
+                for (Word w : words) {
+                    if (w != null && w.getIlokanoWord().trim().equalsIgnoreCase(ilokano)) {
+                        matched = w;
+                        if (w.getEnglishTranslation().trim().equalsIgnoreCase(english)) {
+                            break;
+                        }
+                    }
+                }
+                final Word finalWord = matched;
+                if (!isAdded() || getActivity() == null) {
+                    return;
+                }
+                getActivity().runOnUiThread(() -> {
+                    if (!isAdded() || getActivity() == null) {
+                        return;
+                    }
+                    Intent intent = new Intent(requireContext(), WordDetailActivity.class);
+                    intent.putExtra("ilokano", finalWord != null ? finalWord.getIlokanoWord() : ilokano);
+                    intent.putExtra("english", finalWord != null && !finalWord.getEnglishTranslation().isEmpty() ? finalWord.getEnglishTranslation() : english);
+                    intent.putExtra("tagalog", finalWord != null && !finalWord.getTagalogTranslation().isEmpty() ? finalWord.getTagalogTranslation() : tagalog);
+                    intent.putExtra("pos", finalWord != null ? finalWord.getPartOfSpeech() : "");
+                    intent.putExtra("category", finalWord != null ? finalWord.getCategory() : "");
+                    intent.putExtra("definition", finalWord != null ? finalWord.getDefinition() : "");
+                    startActivity(intent);
+                    requireActivity().overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                });
+            });
+        } else if (phraseRepository != null) {
+            phraseRepository.searchPhrases(ilokano, entities -> {
+                Phrase matched = null;
+                List<Phrase> phrases = EntityMapper.toPhraseList(entities);
+                for (Phrase p : phrases) {
+                    if (p != null && p.getIlokanoWord().trim().equalsIgnoreCase(ilokano)) {
+                        matched = p;
+                        if (p.getEnglishTranslation().trim().equalsIgnoreCase(english)) {
+                            break;
+                        }
+                    }
+                }
+                final Phrase finalPhrase = matched;
+                if (!isAdded() || getActivity() == null) {
+                    return;
+                }
+                getActivity().runOnUiThread(() -> {
+                    if (!isAdded() || getActivity() == null) {
+                        return;
+                    }
+                    Intent intent = new Intent(requireContext(), PhraseDetailActivity.class);
+                    intent.putExtra("ilokano", finalPhrase != null ? finalPhrase.getIlokanoWord() : ilokano);
+                    intent.putExtra("english", finalPhrase != null && !finalPhrase.getEnglishTranslation().isEmpty() ? finalPhrase.getEnglishTranslation() : english);
+                    intent.putExtra("tagalog", finalPhrase != null && !finalPhrase.getTagalogTranslation().isEmpty() ? finalPhrase.getTagalogTranslation() : tagalog);
+                    intent.putExtra("pos", finalPhrase != null ? finalPhrase.getPartOfSpeech() : "");
+                    intent.putExtra("category", finalPhrase != null ? finalPhrase.getCategory() : "");
+                    intent.putExtra("sentence", finalPhrase != null ? finalPhrase.getIlokanoSentence() : "");
+                    intent.putExtra("englishSentence", finalPhrase != null ? finalPhrase.getEnglishSentence() : "");
+                    startActivity(intent);
+                    requireActivity().overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                });
+            });
+        }
+    }
+
+    // ---------------------------------------------------------
     // DISPLAY FAVORITES
     // ---------------------------------------------------------
 
@@ -473,9 +689,40 @@ public class FavoritesFragment extends Fragment {
             return;
         }
 
-        favoritesAdapter.setFavorites(favorites);
+        allFavorites.clear();
+        allFavorites.addAll(favorites);
+        applyFavoriteFilter();
+    }
 
-        int count = favorites.size();
+    private void applyFavoriteFilter() {
+        if (favoritesAdapter == null
+                || textFavoritesCount == null
+                || layoutFavoritesEmpty == null
+                || recyclerViewFavorites == null) {
+            return;
+        }
+
+        List<FavoriteEntity> filtered = new ArrayList<>();
+        for (FavoriteEntity item : allFavorites) {
+            if (item == null) {
+                continue;
+            }
+            if (FILTER_WORDS.equals(selectedFilter)) {
+                if (FavoriteRepository.TYPE_DICTIONARY.equals(item.getType())) {
+                    filtered.add(item);
+                }
+            } else if (FILTER_PHRASES.equals(selectedFilter)) {
+                if (FavoriteRepository.TYPE_PHRASEBOOK.equals(item.getType())) {
+                    filtered.add(item);
+                }
+            } else {
+                filtered.add(item);
+            }
+        }
+
+        favoritesAdapter.setFavorites(filtered);
+
+        int count = filtered.size();
         String newCountText = count == 1
                 ? "1 saved item"
                 : count + " saved items";
@@ -493,7 +740,7 @@ public class FavoritesFragment extends Fragment {
                     .start();
         }
 
-        boolean isEmpty = favorites.isEmpty();
+        boolean isEmpty = filtered.isEmpty();
 
         if (isEmpty) {
             boolean wasEmptyHidden = layoutFavoritesEmpty.getVisibility() != View.VISIBLE;
@@ -530,6 +777,7 @@ public class FavoritesFragment extends Fragment {
                     requireContext(),
                     currentView
             );
+            updateFilterChipStyles();
         }
     }
 
@@ -581,6 +829,17 @@ public class FavoritesFragment extends Fragment {
             }
         }
 
+        ttsReady = false;
+        if (tts != null) {
+            try {
+                tts.stop();
+                tts.shutdown();
+            } catch (Exception ignored) {
+            }
+            tts = null;
+        }
+
+        allFavorites.clear();
         isScrollToTopVisible = false;
         hasAnimatedInitialContent = false;
         scrollToTopScrollListener = null;
@@ -589,6 +848,9 @@ public class FavoritesFragment extends Fragment {
         layoutFavoritesEmpty = null;
         progressFavorites = null;
         textFavoritesCount = null;
+        chipFavoritesAll = null;
+        chipFavoritesWords = null;
+        chipFavoritesPhrases = null;
         favoritesAdapter = null;
 
         isLoadingFavorites = false;

@@ -26,6 +26,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
@@ -836,19 +837,9 @@ public class PhrasebookAdapter
             holder.footerText.setVisibility(View.VISIBLE);
             holder.footerText.setText("Loading more phrases...");
             holder.footerText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-            holder.footerText.setTextColor(Color.parseColor("#E0F2FE"));
+            holder.footerText.setTextColor(ContextCompat.getColor(context, R.color.cyan_primary));
 
-            // Subtle frosted status pill around the loading text.
-            GradientDrawable loadingPill = new GradientDrawable();
-            loadingPill.setShape(GradientDrawable.RECTANGLE);
-            loadingPill.setCornerRadius(dpToPx(context, 999f));
-            loadingPill.setColor(Color.parseColor("#661E293B"));
-            loadingPill.setStroke(
-                    dpToPx(context, 1f),
-                    Color.parseColor("#4D70D6ED")
-            );
-
-            holder.footerText.setBackground(loadingPill);
+            holder.footerText.setBackgroundResource(R.drawable.dropdown_glass_background);
             holder.footerText.setPadding(
                     dpToPx(context, 18f),
                     dpToPx(context, 8f),
@@ -866,19 +857,9 @@ public class PhrasebookAdapter
             holder.footerText.setVisibility(View.VISIBLE);
             holder.footerText.setText("LOAD MORE PHRASES");
             holder.footerText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-            holder.footerText.setTextColor(Color.parseColor("#E0F2FE"));
+            holder.footerText.setTextColor(ContextCompat.getColor(context, R.color.cyan_primary));
 
-            // Sleek interactive Frosted Teal/Cyan Pill Button.
-            GradientDrawable loadMorePill = new GradientDrawable();
-            loadMorePill.setShape(GradientDrawable.RECTANGLE);
-            loadMorePill.setCornerRadius(dpToPx(context, 999f));
-            loadMorePill.setColor(Color.parseColor("#3306B8A8"));
-            loadMorePill.setStroke(
-                    dpToPx(context, 1.5f),
-                    Color.parseColor("#9970D6ED")
-            );
-
-            holder.footerText.setBackground(loadMorePill);
+            holder.footerText.setBackgroundResource(R.drawable.dropdown_glass_background);
             holder.footerText.setPadding(
                     dpToPx(context, 24f),
                     dpToPx(context, 11f),

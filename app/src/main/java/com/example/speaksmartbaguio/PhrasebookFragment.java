@@ -41,6 +41,7 @@ import com.example.speaksmartbaguio.mapper.EntityMapper;
 import com.example.speaksmartbaguio.repository.PhraseRepository;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.example.speaksmartbaguio.utils.AudioPreferences;
+import com.example.speaksmartbaguio.utils.IlokanoTtsHelper;
 import com.example.speaksmartbaguio.utils.NetworkUtil;
 import com.example.speaksmartbaguio.utils.SettingsMenuHelper;
 import com.google.android.material.snackbar.Snackbar;
@@ -393,8 +394,8 @@ public class PhrasebookFragment extends Fragment {
         ViewGroup rootGroup = (ViewGroup) root;
 
         int sizePx = dpToPx(48f);
-        int bottomMarginPx = dpToPx(24f);
-        int endMarginPx = dpToPx(28f);
+        int bottomMarginPx = dpToPx(86f);
+        int endMarginPx = dpToPx(20f);
 
         scrollToTopButton = new TextView(requireContext());
         scrollToTopButton.setId(View.generateViewId());
@@ -1958,17 +1959,10 @@ public class PhrasebookFragment extends Fragment {
 
         try {
 
-            tts.stop();
-
-            AudioPreferences.applyToTextToSpeech(
+            int result = IlokanoTtsHelper.speakIlokano(
                     requireContext(),
-                    tts
-            );
-
-            int result = tts.speak(
+                    tts,
                     ilokanoText.trim(),
-                    TextToSpeech.QUEUE_FLUSH,
-                    null,
                     "phrasebook_word_" + System.currentTimeMillis()
             );
 

@@ -20,6 +20,22 @@
         app:defaultNavHost="true"
         app:navGraph="@navigation/mobile_navigation" />
 
+    <!-- FLOATING AI ASSISTANT BUTTON -->
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabAiAssistant"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/nav_view"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:contentDescription="Open SpeakSmart AI Assistant"
+        app:backgroundTint="@color/cyan_primary"
+        app:elevation="6dp"
+        app:srcCompat="@drawable/ic_ai_sparkle"
+        app:tint="@color/text_on_cyan" />
+
     <!-- BOTTOM NAVIGATION BAR -->
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
