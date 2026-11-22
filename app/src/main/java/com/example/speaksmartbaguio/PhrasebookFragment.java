@@ -15,10 +15,13 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Filter;
 import android.widget.FrameLayout;
@@ -1460,6 +1463,62 @@ public class PhrasebookFragment extends Fragment {
                     }
                 }
         );
+
+        headerBinding.searchBar.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH
+                    || actionId == EditorInfo.IME_ACTION_DONE
+                    || actionId == EditorInfo.IME_ACTION_GO
+                    || actionId == EditorInfo.IME_ACTION_NEXT) {
+                performImmediateSearch(v);
+                return true;
+            }
+            if (event != null
+                    && (event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+                    || event.getKeyCode() == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+                if (event.getAction() == KeyEvent.ACTION_UP) {
+                    performImmediateSearch(v);
+                }
+                return true;
+            }
+            return false;
+        });
+
+        // Consume Enter key events before TextView.onKeyUp runs focusSearch(FOCUS_DOWN).
+        headerBinding.searchBar.setOnKeyListener((v, keyCode, event) -> {
+            if (keyCode == KeyEvent.KEYCODE_ENTER
+                    || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                if (event != null && event.getAction() == KeyEvent.ACTION_UP && headerBinding != null) {
+                    performImmediateSearch(headerBinding.searchBar);
+                }
+                return true;
+            }
+            return false;
+        });
+    }
+
+    private void performImmediateSearch(@Nullable TextView view) {
+        if (!isAdded() || binding == null || view == null) {
+            return;
+        }
+
+        searchHandler.removeCallbacks(searchRunnable);
+
+        pendingSearchQuery = view.getText() == null
+                ? ""
+                : view.getText().toString().trim();
+
+        if (adapter != null) {
+            adapter.setSearchQuery(pendingSearchQuery);
+        }
+
+        searchRunnable.run();
+
+        InputMethodManager imm = (InputMethodManager)
+                requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+        }
+        view.clearFocus();
     }
 
     // =========================================================

@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.util.TypedValue;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -131,6 +132,25 @@ public class AiAssistantActivity extends AppCompatActivity {
         etAiInput.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_SEND) {
                 sendCurrentInput();
+                return true;
+            }
+            if (event != null
+                    && (event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+                    || event.getKeyCode() == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+                if (event.getAction() == KeyEvent.ACTION_UP) {
+                    sendCurrentInput();
+                }
+                return true;
+            }
+            return false;
+        });
+
+        etAiInput.setOnKeyListener((v, keyCode, event) -> {
+            if (keyCode == KeyEvent.KEYCODE_ENTER
+                    || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                if (event != null && event.getAction() == KeyEvent.ACTION_UP) {
+                    sendCurrentInput();
+                }
                 return true;
             }
             return false;
@@ -385,11 +405,12 @@ public class AiAssistantActivity extends AppCompatActivity {
     }
 
     private void sendMessage(String text) {
+        int userIndex = messages.size();
         messages.add(new ChatMessage(true, text, null, false));
         int typingIndex = messages.size();
         messages.add(new ChatMessage(false, "Thinking...", null, true));
-        adapter.notifyDataSetChanged();
-        rvChatMessages.scrollToPosition(messages.size() - 1);
+        adapter.notifyItemRangeInserted(userIndex, 2);
+        rvChatMessages.scrollToPosition(typingIndex);
 
         aiEngine.ask(text, reply -> {
             if (activityDestroyed || isFinishing()) {
@@ -397,12 +418,14 @@ public class AiAssistantActivity extends AppCompatActivity {
             }
             if (typingIndex >= 0 && typingIndex < messages.size() && messages.get(typingIndex).isTyping) {
                 messages.remove(typingIndex);
+                adapter.notifyItemRemoved(typingIndex);
             }
+            int replyIndex = messages.size();
             messages.add(new ChatMessage(false, reply.message, reply.card, false));
+            adapter.notifyItemInserted(replyIndex);
             tvAiStatus.setText(reply.fromCloud ? "Cloud AI • Grounded" : "Smart Ilokano Assistant");
-            adapter.notifyDataSetChanged();
-            rvChatMessages.scrollToPosition(messages.size() - 1);
-            persistCurrentConversation();
+            rvChatMessages.scrollToPosition(replyIndex);
+            rvChatMessages.post(this::persistCurrentConversation);
         });
     }
 

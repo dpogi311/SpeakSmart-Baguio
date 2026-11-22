@@ -9,10 +9,13 @@ import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.text.InputType;
 import android.util.TypedValue;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
@@ -82,6 +85,7 @@ public class PhraseListFragment extends Fragment {
 
         setupTextToSpeech();
         setupLanguageDropdown();
+        setupSearch();
         setupRecyclerView();
         registerPreferenceListener();
         animatePageEntrance(root);
@@ -255,6 +259,54 @@ public class PhraseListFragment extends Fragment {
                     }
                 }
         );
+    }
+
+    private void setupSearch() {
+        if (binding == null) {
+            return;
+        }
+
+        binding.searchBar.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH
+                    || actionId == EditorInfo.IME_ACTION_DONE
+                    || actionId == EditorInfo.IME_ACTION_GO
+                    || actionId == EditorInfo.IME_ACTION_NEXT) {
+                hideKeyboardAndClearFocus(v);
+                return true;
+            }
+            if (event != null
+                    && (event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+                    || event.getKeyCode() == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+                if (event.getAction() == KeyEvent.ACTION_UP) {
+                    hideKeyboardAndClearFocus(v);
+                }
+                return true;
+            }
+            return false;
+        });
+
+        binding.searchBar.setOnKeyListener((v, keyCode, event) -> {
+            if (keyCode == KeyEvent.KEYCODE_ENTER
+                    || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                if (event != null && event.getAction() == KeyEvent.ACTION_UP && binding != null) {
+                    hideKeyboardAndClearFocus(binding.searchBar);
+                }
+                return true;
+            }
+            return false;
+        });
+    }
+
+    private void hideKeyboardAndClearFocus(@Nullable View view) {
+        if (!isAdded() || view == null) {
+            return;
+        }
+        InputMethodManager imm = (InputMethodManager)
+                requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+        }
+        view.clearFocus();
     }
 
     private void setupRecyclerView() {

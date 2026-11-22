@@ -1,18 +1,19 @@
 package com.example.speaksmartbaguio.utils;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.speaksmartbaguio.BuildConfig;
-import com.example.speaksmartbaguio.Phrase;
-import com.example.speaksmartbaguio.Word;
-import com.example.speaksmartbaguio.mapper.EntityMapper;
-import com.example.speaksmartbaguio.repository.DictionaryRepository;
-import com.example.speaksmartbaguio.repository.PhraseRepository;
+import com.example.speaksmartbaguio.database.AppDatabase;
+import com.example.speaksmartbaguio.database.DatabaseClient;
+import com.example.speaksmartbaguio.entity.DictionaryEntity;
+import com.example.speaksmartbaguio.entity.PhraseEntity;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -25,6 +26,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.MediaType;
@@ -34,6 +37,9 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class IlokanoAiEngine {
+
+    private static final String TIMING_TAG = "AiTiming";
+    private static final String VERSION_PREFS = "app_versions";
 
     public static class EntryCard {
         public final String ilokano;
@@ -76,6 +82,38 @@ public class IlokanoAiEngine {
         void onReply(AiReply reply);
     }
 
+    private static final class IndexedEntry {
+        final EntryCard card;
+        final String normIlo;
+        final String normEn;
+        final String normTl;
+        final String lowerCat;
+        final String lowerEn;
+        final boolean isPhrase;
+        final int wordCountIlo;
+
+        IndexedEntry(EntryCard card, boolean isPhrase) {
+            this.card = card;
+            this.isPhrase = isPhrase;
+            this.normIlo = normalize(card.ilokano);
+            this.normEn = normalize(card.english);
+            this.normTl = normalize(card.tagalog);
+            this.lowerCat = card.category.toLowerCase(Locale.ROOT);
+            this.lowerEn = card.english.toLowerCase(Locale.ROOT);
+            this.wordCountIlo = countWords(this.normIlo);
+        }
+    }
+
+    private static final class ScoredCard {
+        final EntryCard card;
+        final double score;
+
+        ScoredCard(EntryCard card, double score) {
+            this.card = card;
+            this.score = score;
+        }
+    }
+
     private static final MediaType JSON_MEDIA = MediaType.get("application/json; charset=utf-8");
 
     /**
@@ -84,51 +122,66 @@ public class IlokanoAiEngine {
      */
     private static final boolean ENABLE_CLOUD_AI = false;
 
+    // Single background thread serializes index loading and query evaluation without locking.
+    private static final ExecutorService AI_EXECUTOR = Executors.newSingleThreadExecutor();
+    private static List<IndexedEntry> sharedIndex = new ArrayList<>();
+    private static List<IndexedEntry> sharedPhrases = new ArrayList<>();
+    private static List<EntryCard> sharedQuizPool = new ArrayList<>();
+    private static String sharedVersionKey = "";
+
+    private static final Set<String> SIMPLE_GREETINGS = new HashSet<>(Arrays.asList(
+            "hi", "hello", "hey", "kumusta", "naimbag",
+            "good morning", "good afternoon", "good evening"
+    ));
+
+    private static final List<String> BAGUIO_TIP_KEYWORDS = Arrays.asList(
+            "please", "thank", "excuse", "where", "how much", "stop"
+    );
+
+    private static final String[] QUESTION_PREFIXES = {
+            "how ", "what ", "what's ", "whats ", "where ", "when ", "why ", "who ",
+            "translate ", "meaning of ", "tell me ", "give me ", "show me ", "can you ",
+            "teach me ", "quiz", "help", "baguio", "hello", "hi", "hey"
+    };
+
+    private static final int QUIZ_LENGTH = 5;
+
     private final Context appContext;
-    private final DictionaryRepository dictionaryRepository;
-    private final PhraseRepository phraseRepository;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Random random = new Random();
-    private final OkHttpClient httpClient;
-
-    private List<Word> cachedWords = new ArrayList<>();
-    private List<Phrase> cachedPhrases = new ArrayList<>();
-    private boolean dataLoaded = false;
 
     @Nullable
-    private EntryCard pendingQuizCard = null;
+    private OkHttpClient httpClient;
+
+    // Quiz state is accessed only on AI_EXECUTOR (and reset cleanly in resetSession).
+    @Nullable
+    private volatile EntryCard pendingQuizCard = null;
+    private int quizQuestionNumber = 0;
+    private int quizCorrect = 0;
+    private int quizStreak = 0;
+    private int quizBestStreak = 0;
+    private final Set<String> quizAsked = new HashSet<>();
 
     public IlokanoAiEngine(Context context) {
         this.appContext = context.getApplicationContext();
-        this.dictionaryRepository = new DictionaryRepository(appContext);
-        this.phraseRepository = new PhraseRepository(appContext);
-        this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(4, TimeUnit.SECONDS)
-                .readTimeout(6, TimeUnit.SECONDS)
-                .writeTimeout(4, TimeUnit.SECONDS)
-                .build();
         preloadData(null);
     }
 
     public void preloadData(@Nullable Runnable onReady) {
-        dictionaryRepository.getAllWords(wordEntities -> {
-            cachedWords = EntityMapper.toWordList(wordEntities);
-            phraseRepository.getAllPhrases(phraseEntities -> {
-                cachedPhrases = EntityMapper.toPhraseList(phraseEntities);
-                dataLoaded = true;
-                if (onReady != null) {
-                    mainHandler.post(onReady);
-                }
-            });
+        AI_EXECUTOR.execute(() -> {
+            ensureIndexLoaded();
+            if (onReady != null) {
+                mainHandler.post(onReady);
+            }
         });
     }
 
     public void resetSession() {
-        resetQuizState();
+        AI_EXECUTOR.execute(this::resetQuizState);
     }
 
     public void ask(String userInput, @NonNull ReplyCallback callback) {
-        String trimmed = userInput != null ? userInput.trim() : "";
+        final String trimmed = userInput != null ? userInput.trim() : "";
         if (trimmed.isEmpty()) {
             mainHandler.post(() -> callback.onReply(new AiReply(
                     "Type or speak a question — for example, \"How do you say thank you?\", \"Travel phrases\", or \"Quiz me!\"",
@@ -138,120 +191,217 @@ public class IlokanoAiEngine {
             return;
         }
 
-        if (!dataLoaded) {
-            preloadData(() -> processQuery(trimmed, callback));
-        } else {
-            processQuery(trimmed, callback);
-        }
+        final long startNs = System.nanoTime();
+        AI_EXECUTOR.execute(() -> {
+            ensureIndexLoaded();
+            processQuery(trimmed, callback, startNs);
+        });
     }
 
-    private void processQuery(String query, ReplyCallback callback) {
+    private void ensureIndexLoaded() {
+        SharedPreferences prefs = appContext.getSharedPreferences(VERSION_PREFS, Context.MODE_PRIVATE);
+        long dictVer = prefs.getLong("dictionaryVersion", 0L);
+        long phraseVer = prefs.getLong("phrasebookVersion", 0L);
+        String versionKey = dictVer + ":" + phraseVer;
+
+        if (!sharedIndex.isEmpty() && versionKey.equals(sharedVersionKey)) {
+            return;
+        }
+
+        long loadStartNs = System.nanoTime();
+        AppDatabase db = DatabaseClient.getInstance(appContext);
+        List<PhraseEntity> phraseEntities = db.phraseDao().getAllPhrases();
+        List<DictionaryEntity> wordEntities = db.dictionaryDao().getAllWords();
+
+        int estimatedSize = (phraseEntities != null ? phraseEntities.size() : 0)
+                + (wordEntities != null ? wordEntities.size() : 0);
+
+        List<IndexedEntry> indexList = new ArrayList<>(estimatedSize);
+        List<IndexedEntry> phraseList = new ArrayList<>(phraseEntities != null ? phraseEntities.size() : 0);
+        List<EntryCard> quizList = new ArrayList<>();
+
+        if (phraseEntities != null) {
+            for (PhraseEntity p : phraseEntities) {
+                if (p == null) continue;
+                String extra = !safe(p.getIlokanoSentence()).isEmpty()
+                        ? p.getIlokanoSentence()
+                        : p.getEnglishSentence();
+                EntryCard card = new EntryCard(
+                        p.getIlokanoWord(),
+                        p.getEnglishTranslation(),
+                        p.getTagalogTranslation(),
+                        p.getPartOfSpeech(),
+                        p.getCategory(),
+                        extra,
+                        p.getTtsUrl(),
+                        true
+                );
+                IndexedEntry entry = new IndexedEntry(card, true);
+                indexList.add(entry);
+                phraseList.add(entry);
+                if (entry.wordCountIlo >= 1 && entry.wordCountIlo <= 3
+                        && !card.ilokano.isEmpty() && !card.english.isEmpty()) {
+                    quizList.add(card);
+                }
+            }
+        }
+
+        if (wordEntities != null) {
+            for (DictionaryEntity w : wordEntities) {
+                if (w == null) continue;
+                EntryCard card = new EntryCard(
+                        w.getIlokanoWord(),
+                        w.getEnglishTranslation(),
+                        w.getTagalogTranslation(),
+                        w.getPartOfSpeech(),
+                        w.getCategory(),
+                        w.getDefinition(),
+                        w.getTtsUrl(),
+                        false
+                );
+                IndexedEntry entry = new IndexedEntry(card, false);
+                indexList.add(entry);
+                if (entry.wordCountIlo >= 1 && entry.wordCountIlo <= 3
+                        && !card.ilokano.isEmpty() && !card.english.isEmpty()) {
+                    quizList.add(card);
+                }
+            }
+        }
+
+        sharedIndex = indexList;
+        sharedPhrases = phraseList;
+        sharedQuizPool = quizList;
+        sharedVersionKey = versionKey;
+
+        long loadMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - loadStartNs);
+        Log.d(TIMING_TAG, "Indexed " + indexList.size() + " entries (" + quizList.size()
+                + " quiz candidates) in " + loadMs + " ms [v=" + versionKey + "]");
+    }
+
+    private void processQuery(String query, ReplyCallback callback, long startNs) {
         String lower = query.toLowerCase(Locale.ROOT).trim();
 
-        // 1. Quiz in progress: grade answers, handle "stop", or leave quiz for normal questions
+        // 1. Active quiz grading, stop commands, or mid-quiz question exit
         if (pendingQuizCard != null) {
             if (isQuizStopCommand(lower)) {
                 int answered = Math.max(0, quizQuestionNumber - 1);
                 AiReply stopReply = new AiReply(buildQuizSummary(answered, false), null, false);
                 resetQuizState();
-                mainHandler.post(() -> callback.onReply(stopReply));
+                deliverReply(query, stopReply, callback, startNs);
                 return;
             }
             if (!looksLikeQuestionOrCommand(lower)) {
                 AiReply quizFeedback = handleQuizAnswer(query);
-                mainHandler.post(() -> callback.onReply(quizFeedback));
+                deliverReply(query, quizFeedback, callback, startNs);
                 return;
             }
-            // Clearly a normal question: end the quiz quietly and answer it below.
             if (!containsAny(lower, "quiz", "test me", "practice", "challenge")) {
                 resetQuizState();
             }
         }
 
-        // 2. Quiz request
+        // 2. Start quiz
         if (containsAny(lower, "quiz", "test me", "practice", "challenge")) {
             AiReply quizPrompt = buildQuizQuestion();
-            mainHandler.post(() -> callback.onReply(quizPrompt));
+            deliverReply(query, quizPrompt, callback, startNs);
             return;
         }
 
-        // 3. Gather best local matches for grounding (both offline fallback and cloud context)
-        List<ScoredCard> topMatches = findBestMatches(query, 4);
-        EntryCard primaryCard = topMatches.isEmpty() ? null : topMatches.get(0).card;
-
-        // 4. Try optional cloud endpoint if online and not a simple local greeting/tip
-        if (ENABLE_CLOUD_AI && NetworkUtil.isOnline(appContext) && !isSimpleGreeting(lower)) {
-            tryCloudAssistant(query, topMatches, cloudReply -> {
-                if (cloudReply != null) {
-                    mainHandler.post(() -> callback.onReply(new AiReply(cloudReply, primaryCard, true)));
-                } else {
-                    AiReply localReply = buildLocalReply(query, lower, topMatches);
-                    mainHandler.post(() -> callback.onReply(localReply));
-                }
-            });
+        // 3. Fast intents before running any full search (when local AI is active)
+        if (!ENABLE_CLOUD_AI || isSimpleGreeting(lower) || !NetworkUtil.isOnline(appContext)) {
+            AiReply localReply = buildLocalReply(query, lower, null);
+            deliverReply(query, localReply, callback, startNs);
             return;
         }
 
-        // 5. Offline / immediate local smart reply
-        AiReply localReply = buildLocalReply(query, lower, topMatches);
-        mainHandler.post(() -> callback.onReply(localReply));
+        // 4. Optional Cloud AI path (grounded by a single local search)
+        List<ScoredCard> topMatches = findBestMatches(extractSearchPhrase(query), 4);
+        if (topMatches.isEmpty()) {
+            topMatches = findBestMatches(query, 4);
+        }
+        final List<ScoredCard> contextMatches = topMatches;
+        final EntryCard primaryCard = contextMatches.isEmpty() ? null : contextMatches.get(0).card;
+
+        tryCloudAssistant(query, contextMatches, cloudReply -> {
+            if (cloudReply != null) {
+                deliverReply(query, new AiReply(cloudReply, primaryCard, true), callback, startNs);
+            } else {
+                AiReply fallback = buildLocalReply(query, lower, contextMatches);
+                deliverReply(query, fallback, callback, startNs);
+            }
+        });
     }
 
-    private void tryCloudAssistant(String query, List<ScoredCard> contextMatches, java.util.function.Consumer<String> onResult) {
-        new Thread(() -> {
-            try {
-                String baseUrl = BuildConfig.API_BASE_URL;
-                if (baseUrl == null || baseUrl.trim().isEmpty()) {
-                    onResult.accept(null);
-                    return;
-                }
-                String url = baseUrl.endsWith("/") ? baseUrl + "api/v1/assistant" : baseUrl + "/api/v1/assistant";
+    private void deliverReply(String query, AiReply reply, ReplyCallback callback, long startNs) {
+        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
+        Log.d(TIMING_TAG, "Query \"" + query + "\" answered in " + elapsedMs + " ms");
+        mainHandler.post(() -> callback.onReply(reply));
+    }
 
-                JSONObject payload = new JSONObject();
-                payload.put("message", query);
+    private synchronized OkHttpClient getHttpClient() {
+        if (httpClient == null) {
+            httpClient = new OkHttpClient.Builder()
+                    .connectTimeout(4, TimeUnit.SECONDS)
+                    .readTimeout(6, TimeUnit.SECONDS)
+                    .writeTimeout(4, TimeUnit.SECONDS)
+                    .build();
+        }
+        return httpClient;
+    }
 
-                JSONArray contextArray = new JSONArray();
-                for (ScoredCard sc : contextMatches) {
-                    JSONObject item = new JSONObject();
-                    item.put("ilokano", sc.card.ilokano);
-                    item.put("english", sc.card.english);
-                    item.put("tagalog", sc.card.tagalog);
-                    item.put("category", sc.card.category);
-                    item.put("partOfSpeech", sc.card.partOfSpeech);
-                    contextArray.put(item);
-                }
-                payload.put("context", contextArray);
+    private void tryCloudAssistant(String query, List<ScoredCard> contextMatches,
+                                   java.util.function.Consumer<String> onResult) {
+        try {
+            String baseUrl = BuildConfig.API_BASE_URL;
+            if (baseUrl == null || baseUrl.trim().isEmpty()) {
+                onResult.accept(null);
+                return;
+            }
+            String url = baseUrl.endsWith("/") ? baseUrl + "api/v1/assistant" : baseUrl + "/api/v1/assistant";
 
-                RequestBody body = RequestBody.create(payload.toString(), JSON_MEDIA);
-                Request.Builder builder = new Request.Builder()
-                        .url(url)
-                        .post(body)
-                        .addHeader("Content-Type", "application/json");
+            JSONObject payload = new JSONObject();
+            payload.put("message", query);
 
-                if (BuildConfig.API_SECRET_KEY != null && !BuildConfig.API_SECRET_KEY.trim().isEmpty()) {
-                    builder.addHeader("x-api-key", BuildConfig.API_SECRET_KEY);
-                }
+            JSONArray contextArray = new JSONArray();
+            for (ScoredCard sc : contextMatches) {
+                JSONObject item = new JSONObject();
+                item.put("ilokano", sc.card.ilokano);
+                item.put("english", sc.card.english);
+                item.put("tagalog", sc.card.tagalog);
+                item.put("category", sc.card.category);
+                item.put("partOfSpeech", sc.card.partOfSpeech);
+                contextArray.put(item);
+            }
+            payload.put("context", contextArray);
 
-                try (Response response = httpClient.newCall(builder.build()).execute()) {
-                    if (response.isSuccessful() && response.body() != null) {
-                        String respStr = response.body().string();
-                        JSONObject json = new JSONObject(respStr);
-                        String reply = json.optString("reply", "").trim();
-                        if (!reply.isEmpty()) {
-                            onResult.accept(reply);
-                            return;
-                        }
+            RequestBody body = RequestBody.create(payload.toString(), JSON_MEDIA);
+            Request.Builder builder = new Request.Builder()
+                    .url(url)
+                    .post(body)
+                    .addHeader("Content-Type", "application/json");
+
+            if (BuildConfig.API_SECRET_KEY != null && !BuildConfig.API_SECRET_KEY.trim().isEmpty()) {
+                builder.addHeader("x-api-key", BuildConfig.API_SECRET_KEY);
+            }
+
+            try (Response response = getHttpClient().newCall(builder.build()).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    JSONObject json = new JSONObject(response.body().string());
+                    String reply = json.optString("reply", "").trim();
+                    if (!reply.isEmpty()) {
+                        onResult.accept(reply);
+                        return;
                     }
                 }
-            } catch (Exception ignored) {
-                // Endpoint optional; silently fall back to local smart assistant.
             }
-            onResult.accept(null);
-        }).start();
+        } catch (Exception ignored) {
+            // Endpoint optional; fall back cleanly to local smart assistant.
+        }
+        onResult.accept(null);
     }
 
-    private AiReply buildLocalReply(String rawQuery, String lower, List<ScoredCard> matches) {
-        // Greetings
+    private AiReply buildLocalReply(String rawQuery, String lower, @Nullable List<ScoredCard> precomputedMatches) {
+        // Simple greetings
         if (isSimpleGreeting(lower)) {
             return new AiReply(
                     "Naimbag nga aldaw! (Good day!)\n\n"
@@ -261,16 +411,6 @@ public class IlokanoAiEngine {
                             + "• \"Baguio tips\" for local etiquette\n"
                             + "• \"Quiz me!\" to practice vocabulary",
                     null,
-                    false
-            );
-        }
-
-        // Thanks
-        if (containsAny(lower, "thank you", "thanks", "agyamanak", "salamat")) {
-            EntryCard thankCard = findExactOrBest("thank you");
-            return new AiReply(
-                    "Awan aniaman! (You're welcome!)\nIn Ilokano, you can say \"Agyamanak\" (Thank you) or \"Agyamanak unay\" (Thank you very much).",
-                    thankCard,
                     false
             );
         }
@@ -301,9 +441,19 @@ public class IlokanoAiEngine {
             }
         }
 
+        // Thanks
+        if (containsAny(lower, "thank you", "thanks", "agyamanak", "salamat")) {
+            EntryCard thankCard = findExactOrBest("thank you");
+            return new AiReply(
+                    "Awan aniaman! (You're welcome!)\nIn Ilokano, you can say \"Agyamanak\" (Thank you) or \"Agyamanak unay\" (Thank you very much).",
+                    thankCard,
+                    false
+            );
+        }
+
         // Baguio City cultural & communication tips
         if (containsAny(lower, "baguio", "jeepney", "etiquette", "culture", "tips")) {
-            EntryCard tipCard = findByTopicKeywords(Arrays.asList("please", "thank", "excuse", "where", "how much", "stop"));
+            EntryCard tipCard = findByTopicKeywords(BAGUIO_TIP_KEYWORDS);
             StringBuilder sb = new StringBuilder();
             sb.append("Baguio Local Communication Tips:\n\n");
             sb.append("• Politeness: Add \"Apo\" when speaking respectfully to elders, vendors, or drivers (e.g., \"Agyamanak, Apo\").\n");
@@ -315,7 +465,7 @@ public class IlokanoAiEngine {
             return new AiReply(sb.toString(), tipCard, false);
         }
 
-        // Topic / Category browsing
+        // Topic / Category browsing (matches standardized 30 categories)
         String matchedCategory = detectCategoryIntent(lower);
         if (matchedCategory != null) {
             List<EntryCard> categoryCards = findByCategoryOrTopic(matchedCategory, 4);
@@ -331,14 +481,11 @@ public class IlokanoAiEngine {
             }
         }
 
-        // Translation / "How do you say X" / General lookup
+        // Translation / "How do you say X" / General lookup — run single search on extracted phrase
         String cleanedTarget = extractSearchPhrase(rawQuery);
-        List<ScoredCard> targetMatches = cleanedTarget.equalsIgnoreCase(rawQuery)
-                ? matches
-                : findBestMatches(cleanedTarget, 4);
-
-        if (targetMatches.isEmpty() && !matches.isEmpty()) {
-            targetMatches = matches;
+        List<ScoredCard> targetMatches = findBestMatches(cleanedTarget, 4);
+        if (targetMatches.isEmpty() && !cleanedTarget.equalsIgnoreCase(rawQuery)) {
+            targetMatches = precomputedMatches != null ? precomputedMatches : findBestMatches(rawQuery, 4);
         }
 
         if (!targetMatches.isEmpty()) {
@@ -371,16 +518,8 @@ public class IlokanoAiEngine {
     }
 
     // ---------------------------------------------------------
-    // QUIZ MODE (5-question rounds with score and streak)
+    // QUIZ MODE (5-question rounds with O(1) selection)
     // ---------------------------------------------------------
-
-    private static final int QUIZ_LENGTH = 5;
-
-    private int quizQuestionNumber = 0;
-    private int quizCorrect = 0;
-    private int quizStreak = 0;
-    private int quizBestStreak = 0;
-    private final Set<String> quizAsked = new HashSet<>();
 
     private void resetQuizState() {
         pendingQuizCard = null;
@@ -419,21 +558,21 @@ public class IlokanoAiEngine {
                 + (card.category.isEmpty() ? "" : "\nHint: Category is " + card.category + ".");
     }
 
-    /** Prefers short entries (1-3 words) that have not been asked this round. */
     @Nullable
     private EntryCard pickQuizCard() {
-        for (int attempt = 0; attempt < 40; attempt++) {
-            EntryCard card = pickRandomCard();
-            if (card == null) {
-                return null;
-            }
-            String key = normalize(card.ilokano);
-            int wordCount = key.isEmpty() ? 0 : key.split(" ").length;
-            if (!quizAsked.contains(key) && wordCount > 0 && wordCount <= 3) {
+        int poolSize = sharedQuizPool.size();
+        if (poolSize == 0) {
+            return pickRandomCard();
+        }
+        int start = random.nextInt(poolSize);
+        int maxProbe = Math.min(poolSize, 32);
+        for (int offset = 0; offset < maxProbe; offset++) {
+            EntryCard card = sharedQuizPool.get((start + offset) % poolSize);
+            if (!quizAsked.contains(normalize(card.ilokano))) {
                 return card;
             }
         }
-        return pickRandomCard();
+        return sharedQuizPool.get(start);
     }
 
     private boolean isQuizStopCommand(String lower) {
@@ -442,18 +581,9 @@ public class IlokanoAiEngine {
                 || lower.equals("end");
     }
 
-    /**
-     * True when the message is clearly a normal question or command instead of a quiz answer,
-     * so asking "How do you say water?" mid-quiz is not graded as a wrong answer.
-     */
     private boolean looksLikeQuestionOrCommand(String lower) {
         if (lower.contains("?")) return true;
-        String[] prefixes = {
-                "how ", "what ", "what's ", "whats ", "where ", "when ", "why ", "who ",
-                "translate ", "meaning of ", "tell me ", "give me ", "show me ", "can you ",
-                "teach me ", "quiz", "help", "baguio", "hello", "hi", "hey"
-        };
-        for (String p : prefixes) {
+        for (String p : QUESTION_PREFIXES) {
             String word = p.trim();
             if (lower.equals(word) || lower.startsWith(word + " ")) return true;
         }
@@ -466,11 +596,23 @@ public class IlokanoAiEngine {
         for (String variant : variants) {
             String normTarget = normalize(variant);
             if (normTarget.isEmpty()) continue;
-            if (scoreSimilarity(normUser, normTarget) >= 0.80) return true;
+            if (normUser.equals(normTarget)) return true;
+            if (scoreSimilarityUnbounded(normUser, normTarget) >= 0.80) return true;
             if (normUser.length() >= 3 && normTarget.contains(normUser)
                     && normUser.length() >= normTarget.length() * 0.7) return true;
         }
-        return scoreSimilarity(normUser, normalize(rawTarget)) >= 0.80;
+        return scoreSimilarityUnbounded(normUser, normalize(rawTarget)) >= 0.80;
+    }
+
+    private double scoreSimilarityUnbounded(String a, String b) {
+        int maxLen = Math.max(a.length(), b.length());
+        if (maxLen == 0) return 0.0;
+        int minLen = Math.min(a.length(), b.length());
+        int[] prev = new int[minLen + 1];
+        int[] curr = new int[minLen + 1];
+        int maxDist = (int) Math.floor(0.25 * maxLen);
+        int dist = boundedLevenshtein(a, b, maxDist, prev, curr);
+        return dist < 0 ? 0.0 : 1.0 - ((double) dist / maxLen);
     }
 
     private AiReply handleQuizAnswer(String userAnswer) {
@@ -548,71 +690,149 @@ public class IlokanoAiEngine {
     }
 
     // ---------------------------------------------------------
-    // SEARCH & MATCHING HELPERS
+    // TWO-PASS INDEXED SEARCH & PRUNED LEVENSHTEIN
     // ---------------------------------------------------------
-
-    private static class ScoredCard {
-        final EntryCard card;
-        final double score;
-
-        ScoredCard(EntryCard card, double score) {
-            this.card = card;
-            this.score = score;
-        }
-    }
 
     private List<ScoredCard> findBestMatches(String query, int limit) {
         String normQuery = normalize(query);
-        if (normQuery.isEmpty()) return Collections.emptyList();
+        if (normQuery.isEmpty() || sharedIndex.isEmpty()) {
+            return Collections.emptyList();
+        }
 
-        List<ScoredCard> results = new ArrayList<>();
+        List<ScoredCard> fastMatches = new ArrayList<>();
+        Set<IndexedEntry> seenFast = null;
+        double topFastScore = 0.0;
 
-        for (Phrase p : cachedPhrases) {
-            if (p == null) continue;
+        // Pass 1: Fast string match across pre-normalized index (no Levenshtein)
+        for (int i = 0, size = sharedIndex.size(); i < size; i++) {
+            IndexedEntry entry = sharedIndex.get(i);
             double score = Math.max(
-                    scoreField(normQuery, p.getEnglishTranslation()),
-                    Math.max(scoreField(normQuery, p.getIlokanoWord()), scoreField(normQuery, p.getTagalogTranslation()))
+                    scoreFieldFast(normQuery, entry.normEn),
+                    Math.max(scoreFieldFast(normQuery, entry.normIlo), scoreFieldFast(normQuery, entry.normTl))
             );
-            if (score >= 0.42) {
-                String extra = !safe(p.getIlokanoSentence()).isEmpty() ? p.getIlokanoSentence() : p.getEnglishSentence();
-                results.add(new ScoredCard(new EntryCard(
-                        p.getIlokanoWord(),
-                        p.getEnglishTranslation(),
-                        p.getTagalogTranslation(),
-                        p.getPartOfSpeech(),
-                        p.getCategory(),
-                        extra,
-                        p.getTtsUrl(),
-                        true
-                ), score + 0.03)); // slight boost for full phrases
+            if (score > 0.0) {
+                double boosted = score + (entry.isPhrase ? 0.03 : 0.0);
+                if (boosted > topFastScore) topFastScore = boosted;
+                fastMatches.add(new ScoredCard(entry.card, boosted));
+                if (seenFast == null) seenFast = new HashSet<>();
+                seenFast.add(entry);
             }
         }
 
-        for (Word w : cachedWords) {
-            if (w == null) continue;
-            double score = Math.max(
-                    scoreField(normQuery, w.getEnglishTranslation()),
-                    Math.max(scoreField(normQuery, w.getIlokanoWord()), scoreField(normQuery, w.getTagalogTranslation()))
+        if (fastMatches.size() >= limit || topFastScore >= 0.85) {
+            Collections.sort(fastMatches, (a, b) -> Double.compare(b.score, a.score));
+            return fastMatches.size() > limit
+                    ? new ArrayList<>(fastMatches.subList(0, limit))
+                    : fastMatches;
+        }
+
+        // Pass 2: Typo fallback only when Pass 1 did not find enough or strong matches
+        int queryLen = normQuery.length();
+        int[] prev = new int[queryLen + 1];
+        int[] curr = new int[queryLen + 1];
+
+        for (int i = 0, size = sharedIndex.size(); i < size; i++) {
+            IndexedEntry entry = sharedIndex.get(i);
+            if (seenFast != null && seenFast.contains(entry)) {
+                continue;
+            }
+            double minThreshold = entry.isPhrase ? 0.42 : 0.45;
+            double fuzzyScore = Math.max(
+                    scoreFieldFuzzy(normQuery, entry.normEn, minThreshold, prev, curr),
+                    Math.max(
+                            scoreFieldFuzzy(normQuery, entry.normIlo, minThreshold, prev, curr),
+                            scoreFieldFuzzy(normQuery, entry.normTl, minThreshold, prev, curr)
+                    )
             );
-            if (score >= 0.45) {
-                results.add(new ScoredCard(new EntryCard(
-                        w.getIlokanoWord(),
-                        w.getEnglishTranslation(),
-                        w.getTagalogTranslation(),
-                        w.getPartOfSpeech(),
-                        w.getCategory(),
-                        w.getDefinition(),
-                        w.getTtsUrl(),
-                        false
-                ), score));
+            if (fuzzyScore >= minThreshold) {
+                fastMatches.add(new ScoredCard(entry.card, fuzzyScore + (entry.isPhrase ? 0.03 : 0.0)));
             }
         }
 
-        Collections.sort(results, (a, b) -> Double.compare(b.score, a.score));
-        if (results.size() > limit) {
-            return new ArrayList<>(results.subList(0, limit));
+        Collections.sort(fastMatches, (a, b) -> Double.compare(b.score, a.score));
+        return fastMatches.size() > limit
+                ? new ArrayList<>(fastMatches.subList(0, limit))
+                : fastMatches;
+    }
+
+    private static double scoreFieldFast(String normQuery, String normField) {
+        if (normField.isEmpty()) return 0.0;
+        if (normField.equals(normQuery)) return 1.0;
+        if (normField.startsWith(normQuery)) return 0.90;
+        int idx = normField.indexOf(normQuery);
+        if (idx >= 0) {
+            boolean startBoundary = idx == 0 || normField.charAt(idx - 1) == ' ';
+            int endPos = idx + normQuery.length();
+            boolean endBoundary = endPos == normField.length() || normField.charAt(endPos) == ' ';
+            return (startBoundary && endBoundary) ? 0.84 : 0.80;
         }
-        return results;
+        if (normField.length() >= 3 && normQuery.contains(normField)) {
+            return 0.72;
+        }
+        return 0.0;
+    }
+
+    private static double scoreFieldFuzzy(String normQuery, String normField, double minScore,
+                                          int[] prev, int[] curr) {
+        int fLen = normField.length();
+        if (fLen == 0) return 0.0;
+        int qLen = normQuery.length();
+        int maxLen = Math.max(qLen, fLen);
+        int maxDist = (int) Math.floor((1.0 - minScore) * maxLen);
+        if (Math.abs(qLen - fLen) > maxDist) {
+            return 0.0;
+        }
+        int dist = boundedLevenshtein(normQuery, normField, maxDist, prev, curr);
+        if (dist < 0) return 0.0;
+        return 1.0 - ((double) dist / maxLen);
+    }
+
+    /**
+     * Computes edit distance using reusable 1D rows sized to min(len(a), len(b)) + 1.
+     * Returns -1 immediately if the edit distance cannot stay within maxDist.
+     */
+    private static int boundedLevenshtein(String a, String b, int maxDist, int[] prev, int[] curr) {
+        String longStr = a.length() >= b.length() ? a : b;
+        String shortStr = a.length() >= b.length() ? b : a;
+        int lenL = longStr.length();
+        int lenS = shortStr.length();
+
+        if (lenL - lenS > maxDist) return -1;
+        if (prev.length <= lenS) {
+            prev = new int[lenS + 1];
+            curr = new int[lenS + 1];
+        }
+
+        for (int j = 0; j <= lenS; j++) {
+            prev[j] = j;
+        }
+
+        for (int i = 1; i <= lenL; i++) {
+            curr[0] = i;
+            int rowMin = i;
+            char ca = longStr.charAt(i - 1);
+
+            for (int j = 1; j <= lenS; j++) {
+                int cost = ca == shortStr.charAt(j - 1) ? 0 : 1;
+                int val = Math.min(
+                        Math.min(prev[j] + 1, curr[j - 1] + 1),
+                        prev[j - 1] + cost
+                );
+                curr[j] = val;
+                if (val < rowMin) rowMin = val;
+            }
+
+            if (rowMin > maxDist) {
+                return -1;
+            }
+
+            int[] tmp = prev;
+            prev = curr;
+            curr = tmp;
+        }
+
+        int finalDist = prev[lenS];
+        return finalDist <= maxDist ? finalDist : -1;
     }
 
     @Nullable
@@ -623,14 +843,11 @@ public class IlokanoAiEngine {
 
     @Nullable
     private EntryCard findByTopicKeywords(List<String> keywords) {
-        for (Phrase p : cachedPhrases) {
-            if (p == null) continue;
-            String eng = safe(p.getEnglishTranslation()).toLowerCase(Locale.ROOT);
-            for (String kw : keywords) {
-                if (eng.contains(kw)) {
-                    String extra = !safe(p.getIlokanoSentence()).isEmpty() ? p.getIlokanoSentence() : p.getEnglishSentence();
-                    return new EntryCard(p.getIlokanoWord(), p.getEnglishTranslation(), p.getTagalogTranslation(),
-                            p.getPartOfSpeech(), p.getCategory(), extra, p.getTtsUrl(), true);
+        for (int i = 0, size = sharedPhrases.size(); i < size; i++) {
+            IndexedEntry entry = sharedPhrases.get(i);
+            for (int k = 0, kSize = keywords.size(); k < kSize; k++) {
+                if (entry.lowerEn.contains(keywords.get(k))) {
+                    return entry.card;
                 }
             }
         }
@@ -639,75 +856,42 @@ public class IlokanoAiEngine {
 
     private List<EntryCard> findByCategoryOrTopic(String topic, int limit) {
         String lowerTopic = topic.toLowerCase(Locale.ROOT);
-        List<EntryCard> matches = new ArrayList<>();
+        List<EntryCard> matches = new ArrayList<>(limit);
 
-        for (Phrase p : cachedPhrases) {
-            if (p == null) continue;
-            String cat = safe(p.getCategory()).toLowerCase(Locale.ROOT);
-            String eng = safe(p.getEnglishTranslation()).toLowerCase(Locale.ROOT);
-            if (cat.contains(lowerTopic) || eng.contains(lowerTopic)) {
-                String extra = !safe(p.getIlokanoSentence()).isEmpty() ? p.getIlokanoSentence() : p.getEnglishSentence();
-                matches.add(new EntryCard(p.getIlokanoWord(), p.getEnglishTranslation(), p.getTagalogTranslation(),
-                        p.getPartOfSpeech(), p.getCategory(), extra, p.getTtsUrl(), true));
+        for (int i = 0, size = sharedIndex.size(); i < size; i++) {
+            IndexedEntry entry = sharedIndex.get(i);
+            if (entry.lowerCat.contains(lowerTopic) || entry.lowerEn.contains(lowerTopic)) {
+                matches.add(entry.card);
                 if (matches.size() >= limit) return matches;
             }
         }
-
-        for (Word w : cachedWords) {
-            if (w == null) continue;
-            String cat = safe(w.getCategory()).toLowerCase(Locale.ROOT);
-            String eng = safe(w.getEnglishTranslation()).toLowerCase(Locale.ROOT);
-            if (cat.contains(lowerTopic) || eng.contains(lowerTopic)) {
-                matches.add(new EntryCard(w.getIlokanoWord(), w.getEnglishTranslation(), w.getTagalogTranslation(),
-                        w.getPartOfSpeech(), w.getCategory(), w.getDefinition(), w.getTtsUrl(), false));
-                if (matches.size() >= limit) return matches;
-            }
-        }
-
         return matches;
     }
 
     @Nullable
     private EntryCard pickRandomCard() {
-        List<EntryCard> pool = new ArrayList<>();
-        for (Phrase p : cachedPhrases) {
-            if (p != null && !safe(p.getIlokanoWord()).isEmpty() && !safe(p.getEnglishTranslation()).isEmpty()) {
-                String extra = !safe(p.getIlokanoSentence()).isEmpty() ? p.getIlokanoSentence() : p.getEnglishSentence();
-                pool.add(new EntryCard(p.getIlokanoWord(), p.getEnglishTranslation(), p.getTagalogTranslation(),
-                        p.getPartOfSpeech(), p.getCategory(), extra, p.getTtsUrl(), true));
-            }
-        }
-        for (Word w : cachedWords) {
-            if (w != null && !safe(w.getIlokanoWord()).isEmpty() && !safe(w.getEnglishTranslation()).isEmpty()) {
-                pool.add(new EntryCard(w.getIlokanoWord(), w.getEnglishTranslation(), w.getTagalogTranslation(),
-                        w.getPartOfSpeech(), w.getCategory(), w.getDefinition(), w.getTtsUrl(), false));
-            }
-        }
-        if (pool.isEmpty()) return null;
-        return pool.get(random.nextInt(pool.size()));
+        int size = sharedIndex.size();
+        if (size == 0) return null;
+        return sharedIndex.get(random.nextInt(size)).card;
     }
 
     @Nullable
     private String detectCategoryIntent(String lower) {
-        if (containsAny(lower, "greeting", "greetings", "hello phrases")) return "Greeting";
-        if (containsAny(lower, "travel", "direction", "directions", "commute", "transport")) return "Travel";
-        if (containsAny(lower, "food", "dining", "eat", "restaurant", "hungry")) return "Food";
-        if (containsAny(lower, "market", "shopping", "buy", "price")) return "Shopping";
-        if (containsAny(lower, "emergency", "help phrase", "hospital", "police")) return "Emergency";
-        if (containsAny(lower, "number", "numbers", "count")) return "Number";
-        if (containsAny(lower, "family", "relatives")) return "Family";
+        if (containsAny(lower, "greeting", "greetings", "hello phrases", "courtesy")) return "Greetings & Courtesy";
+        if (containsAny(lower, "travel", "direction", "directions", "commute", "transport")) return "Transportation & Travel";
+        if (containsAny(lower, "food", "dining", "eat", "restaurant", "hungry")) return "Food & Drink";
+        if (containsAny(lower, "market", "shopping", "buy", "price", "money")) return "Money & Finance";
+        if (containsAny(lower, "emergency", "help phrase", "police", "safety", "security")) return "Conflict & Security";
+        if (containsAny(lower, "hospital", "sick", "health", "doctor", "medicine")) return "Body & Health";
+        if (containsAny(lower, "weather", "rain", "fog", "cold")) return "Weather";
+        if (containsAny(lower, "color", "colors", "shape")) return "Colors & Shapes";
+        if (containsAny(lower, "number", "numbers", "count")) return "Numbers & Quantity";
+        if (containsAny(lower, "family", "relatives", "friends")) return "People & Relationships";
         return null;
     }
 
     private boolean isSimpleGreeting(String lower) {
-        Set<String> greetings = new HashSet<>(Arrays.asList(
-                "hi", "hello", "hey", "kumusta", "naimbag", "good morning", "good afternoon", "good evening"
-        ));
-        return greetings.contains(lower);
-    }
-
-    private boolean isExplicitCommand(String lower) {
-        return containsAny(lower, "quiz", "test me", "baguio", "help", "travel", "food", "greetings", "random");
+        return SIMPLE_GREETINGS.contains(lower);
     }
 
     private String extractSearchPhrase(String raw) {
@@ -719,42 +903,37 @@ public class IlokanoAiEngine {
         return s.isEmpty() ? raw.trim() : s;
     }
 
-    private double scoreField(String normQuery, String fieldValue) {
-        String normField = normalize(fieldValue);
-        if (normField.isEmpty()) return 0.0;
-        if (normField.equals(normQuery)) return 1.0;
-        if (normField.startsWith(normQuery)) return 0.90;
-        if (normField.contains(normQuery)) return 0.80;
-        if (normQuery.contains(normField) && normField.length() >= 3) return 0.72;
-        return scoreSimilarity(normQuery, normField);
-    }
-
-    private double scoreSimilarity(String a, String b) {
-        if (a.isEmpty() || b.isEmpty()) return 0.0;
-        int maxLen = Math.max(a.length(), b.length());
-        int dist = levenshtein(a, b);
-        return 1.0 - ((double) dist / maxLen);
-    }
-
-    private int levenshtein(String a, String b) {
-        int[][] dp = new int[a.length() + 1][b.length() + 1];
-        for (int i = 0; i <= a.length(); i++) dp[i][0] = i;
-        for (int j = 0; j <= b.length(); j++) dp[0][j] = j;
-        for (int i = 1; i <= a.length(); i++) {
-            for (int j = 1; j <= b.length(); j++) {
-                int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
-                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + cost);
+    private static int countWords(String normalized) {
+        if (normalized.isEmpty()) return 0;
+        int count = 1;
+        for (int i = 0, len = normalized.length(); i < len; i++) {
+            if (normalized.charAt(i) == ' ') {
+                count++;
             }
         }
-        return dp[a.length()][b.length()];
+        return count;
     }
 
     private static String normalize(String text) {
-        if (text == null) return "";
-        return text.toLowerCase(Locale.ROOT)
-                .replaceAll("[^\\p{L}\\p{N}\\s]", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
+        if (text == null || text.isEmpty()) return "";
+        int len = text.length();
+        StringBuilder sb = new StringBuilder(len);
+        boolean lastSpace = true;
+        for (int i = 0; i < len; i++) {
+            char c = text.charAt(i);
+            if (Character.isLetterOrDigit(c)) {
+                sb.append(Character.toLowerCase(c));
+                lastSpace = false;
+            } else if (!lastSpace) {
+                sb.append(' ');
+                lastSpace = true;
+            }
+        }
+        int outLen = sb.length();
+        if (outLen > 0 && sb.charAt(outLen - 1) == ' ') {
+            sb.setLength(outLen - 1);
+        }
+        return sb.toString();
     }
 
     private static boolean containsAny(String haystack, String... needles) {
