@@ -1228,7 +1228,7 @@ public class TranslatorFragment extends Fragment {
 
         switch (translationMode) {
 
-            case MODE_ILOKANO_TO_ENGLISH:
+            case MODE_ENGLISH_TO_ILOKANO:
 
                 intent.putExtra(
                         RecognizerIntent.EXTRA_LANGUAGE,
@@ -1239,6 +1239,8 @@ public class TranslatorFragment extends Fragment {
 
             default:
 
+                // Tagalog input uses fil-PH; Ilokano modes also fall back to fil-PH
+                // because Google Speech Recognition does not provide an ilo-PH model.
                 intent.putExtra(
                         RecognizerIntent.EXTRA_LANGUAGE,
                         "fil-PH"
