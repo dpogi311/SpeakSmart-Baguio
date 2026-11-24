@@ -30,8 +30,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.speaksmartbaguio.utils.AccessibilityPreferences;
 import com.example.speaksmartbaguio.utils.AudioPreferences;
 import com.example.speaksmartbaguio.utils.ChatHistoryStore;
+import com.example.speaksmartbaguio.utils.CloudGeminiService;
 import com.example.speaksmartbaguio.utils.IlokanoAiEngine;
 import com.example.speaksmartbaguio.utils.IlokanoTtsHelper;
+import com.example.speaksmartbaguio.utils.NetworkUtil;
 import com.example.speaksmartbaguio.utils.ThemeManager;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
@@ -122,6 +124,11 @@ public class AiAssistantActivity extends AppCompatActivity {
 
         setupQuickPrompts();
         addWelcomeMessage();
+        updateStatusLabel(false);
+
+        tvAiStatus.setClickable(true);
+        tvAiStatus.setFocusable(true);
+        tvAiStatus.setOnClickListener(v -> handleStatusBannerClick());
 
         btnAiBack.setOnClickListener(v -> finish());
         btnAiHistory.setOnClickListener(v -> showHistorySheet());
@@ -162,9 +169,9 @@ public class AiAssistantActivity extends AppCompatActivity {
     private void setupQuickPrompts() {
         String[] prompts = new String[]{
                 "How to say thank you?",
-                "Greetings",
-                "Travel phrases",
-                "Food & Dining",
+                "Market dialogue",
+                "Ilokano grammar",
+                "Food & Drink",
                 "Baguio tips",
                 "Quiz me!"
         };
@@ -196,12 +203,68 @@ public class AiAssistantActivity extends AppCompatActivity {
         }
     }
 
+    private void handleStatusBannerClick() {
+        String cloudErr = CloudGeminiService.getLastErrorMessage();
+        if (CloudGeminiService.isEnabled(this) && cloudErr != null) {
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("Cloud Gemini Fallback Active")
+                    .setMessage(
+                            "SpeakSmart AI replied using the Offline Trained NLU because Cloud Gemini could not complete the request:\n\n"
+                                    + cloudErr
+                                    + "\n\nNote: For debug builds, ensure your Firebase App Check debug token is registered in Firebase Console."
+                    )
+                    .setPositiveButton("Retry Cloud", (d, w) ->
+                            applyCloudModeSelection(true, "Hybrid AI re-armed (Gemini + Trained Offline NLU)"))
+                    .setNegativeButton("Offline Only", (d, w) ->
+                            applyCloudModeSelection(false, "Offline Trained AI mode selected"))
+                    .setNeutralButton("Close", null)
+                    .show();
+            return;
+        }
+
+        boolean nextState = !CloudGeminiService.isEnabled(this);
+        applyCloudModeSelection(
+                nextState,
+                nextState
+                        ? "Hybrid AI enabled (Gemini + Trained Offline NLU)"
+                        : "Offline Trained AI mode selected"
+        );
+    }
+
+    private void applyCloudModeSelection(boolean enabled, String toastMessage) {
+        CloudGeminiService.setEnabled(this, enabled);
+        CloudGeminiService.clearLastError();
+        updateStatusLabel(false);
+        Toast.makeText(this, toastMessage, Toast.LENGTH_SHORT).show();
+    }
+
+    private void updateStatusLabel(boolean lastFromCloud) {
+        if (tvAiStatus == null) {
+            return;
+        }
+        boolean enabled = CloudGeminiService.isEnabled(this);
+        boolean online = NetworkUtil.isOnline(this);
+        String cloudErr = CloudGeminiService.getLastErrorMessage();
+        if (lastFromCloud) {
+            tvAiStatus.setText("Hybrid AI • Gemini + Grounded (Tap to switch)");
+        } else if (enabled && online && cloudErr != null) {
+            tvAiStatus.setText("Offline NLU Fallback • Cloud unavailable (Tap for info)");
+        } else if (enabled && online) {
+            tvAiStatus.setText("Hybrid AI Ready (Gemini + Offline NLU)");
+        } else if (enabled) {
+            tvAiStatus.setText("Trained Offline AI • 3,941 entries");
+        } else {
+            tvAiStatus.setText("Offline AI Mode • Trained NLU (Tap to enable Cloud)");
+        }
+    }
+
     private void addWelcomeMessage() {
         messages.clear();
         messages.add(new ChatMessage(
                 false,
-                "Naimbag nga aldaw! I'm SpeakSmart AI, Your Companion in Learning Ilokano and Baguio Languages.\n\n"
-                        + "Ask me how to say a word or phrase, browse topics like Travel or Food, or tap or type \"Quiz me!\" to practice.",
+                "Naimbag nga aldaw! I'm SpeakSmart AI, your Benguet Ilokano & Baguio companion.\n\n"
+                        + "I now combine our trained NLU engine (3,941 entries, 30 topics, Ilokano affixes & follow-up memory)"
+                        + " with optional Gemini hybrid reasoning when online. Try a prompt below or ask any question!",
                 null,
                 false
         ));
@@ -209,9 +272,10 @@ public class AiAssistantActivity extends AppCompatActivity {
     }
 
     private void resetConversation() {
+        CloudGeminiService.clearLastError();
         aiEngine.resetSession();
         addWelcomeMessage();
-        tvAiStatus.setText("Ilokano & Baguio Companion");
+        updateStatusLabel(false);
     }
 
     // ---------------------------------------------------------
@@ -280,9 +344,10 @@ public class AiAssistantActivity extends AppCompatActivity {
 
     private void beginFreshConversation() {
         currentConversationId = UUID.randomUUID().toString();
+        CloudGeminiService.clearLastError();
         aiEngine.resetSession();
         addWelcomeMessage();
-        tvAiStatus.setText("Ilokano & Baguio Companion");
+        updateStatusLabel(false);
     }
 
     private void loadConversation(ChatHistoryStore.Conversation conversation) {
@@ -290,9 +355,10 @@ public class AiAssistantActivity extends AppCompatActivity {
             persistCurrentConversation();
         }
         currentConversationId = conversation.id;
-        aiEngine.resetSession();
 
         messages.clear();
+        List<CloudGeminiService.ChatTurn> turns = new ArrayList<>();
+        IlokanoAiEngine.EntryCard recentCard = null;
         for (int i = 0; i < conversation.messages.length(); i++) {
             JSONObject obj = conversation.messages.optJSONObject(i);
             if (obj == null) continue;
@@ -304,14 +370,19 @@ public class AiAssistantActivity extends AppCompatActivity {
                         c.optString("pos"), c.optString("cat"), c.optString("ex"),
                         c.optString("tts"), c.optBoolean("ph", false)
                 );
+                recentCard = card;
             }
-            messages.add(new ChatMessage(obj.optBoolean("u"), obj.optString("t"), card, false));
+            boolean isUser = obj.optBoolean("u");
+            String text = obj.optString("t");
+            messages.add(new ChatMessage(isUser, text, card, false));
+            turns.add(new CloudGeminiService.ChatTurn(isUser, text));
         }
+        aiEngine.syncHistoryFromMessages(turns, recentCard);
         adapter.notifyDataSetChanged();
         if (!messages.isEmpty()) {
             rvChatMessages.scrollToPosition(messages.size() - 1);
         }
-        tvAiStatus.setText("Ilokano & Baguio Companion");
+        updateStatusLabel(false);
     }
 
     private void showHistorySheet() {
@@ -423,7 +494,7 @@ public class AiAssistantActivity extends AppCompatActivity {
             int replyIndex = messages.size();
             messages.add(new ChatMessage(false, reply.message, reply.card, false));
             adapter.notifyItemInserted(replyIndex);
-            tvAiStatus.setText(reply.fromCloud ? "Cloud AI • Grounded" : "Smart Ilokano Assistant");
+            updateStatusLabel(reply.fromCloud);
             rvChatMessages.scrollToPosition(replyIndex);
             rvChatMessages.post(this::persistCurrentConversation);
         });

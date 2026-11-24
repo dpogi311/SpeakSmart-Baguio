@@ -887,8 +887,9 @@ public class TranslatorFragment extends Fragment {
                     stopTextToSpeech();
 
                     binding.editTextInput.setText("");
-                    binding.originalText.setText("");
+                    binding.translationLoadingLayout.setVisibility(View.GONE);
                     binding.translatedText.setText("");
+                    binding.translatedText.setVisibility(View.VISIBLE);
                     binding.noTranslationFoundLayout.setVisibility(View.GONE);
                     hideSuggestionCards();
 
@@ -896,16 +897,61 @@ public class TranslatorFragment extends Fragment {
 
                     searchHandler.removeCallbacksAndMessages(null);
 
+                    updateLanguageDirectionChips();
                     setTTSLanguage();
                 }
         );
 
+        updateLanguageDirectionChips();
         setTTSLanguage();
     }
 
     // ---------------------------------------------------------
     // OUTPUT LANGUAGE HELPERS
     // ---------------------------------------------------------
+
+    private void updateLanguageDirectionChips() {
+
+        if (binding == null) {
+            return;
+        }
+
+        String sourceLang;
+        String targetLang;
+        String hintText;
+
+        switch (translationMode) {
+
+            case MODE_ILOKANO_TO_ENGLISH:
+                sourceLang = "Ilokano";
+                targetLang = "English";
+                hintText = "Type an Ilokano word or phrase...";
+                break;
+
+            case MODE_ILOKANO_TO_TAGALOG:
+                sourceLang = "Ilokano";
+                targetLang = "Tagalog";
+                hintText = "Type an Ilokano word or phrase...";
+                break;
+
+            case MODE_TAGALOG_TO_ILOKANO:
+                sourceLang = "Tagalog";
+                targetLang = "Ilokano";
+                hintText = "Type a Tagalog word or phrase...";
+                break;
+
+            case MODE_ENGLISH_TO_ILOKANO:
+            default:
+                sourceLang = "English";
+                targetLang = "Ilokano";
+                hintText = "Type an English word or phrase...";
+                break;
+        }
+
+        binding.sourceLanguageChip.setText(sourceLang);
+        binding.targetLanguageChip.setText(targetLang);
+        binding.editTextInput.setHint(hintText);
+    }
 
     private boolean isIlokanoOutputMode() {
 
@@ -1059,8 +1105,8 @@ public class TranslatorFragment extends Fragment {
                         if (input.isEmpty()) {
 
                             binding.translationLoadingLayout.setVisibility(View.GONE);
-                            binding.originalText.setText("");
                             binding.translatedText.setText("");
+                            binding.translatedText.setVisibility(View.VISIBLE);
                             binding.noTranslationFoundLayout.setVisibility(View.GONE);
                             hideSuggestionCards();
                         }
@@ -1189,7 +1235,6 @@ public class TranslatorFragment extends Fragment {
         }
         binding.editTextInput.clearFocus();
 
-        binding.originalText.setText(input);
         translateTextWordByWord(input);
 
         if (scrollToResults) {
@@ -1206,7 +1251,7 @@ public class TranslatorFragment extends Fragment {
                 return;
             }
             int offsetPx = Math.round(12f * getResources().getDisplayMetrics().density);
-            int targetY = Math.max(0, binding.cardOriginalText.getTop() - offsetPx);
+            int targetY = Math.max(0, binding.cardTranslatedText.getTop() - offsetPx);
             binding.translatorScrollView.smoothScrollTo(0, targetY);
         });
     }
@@ -3207,6 +3252,7 @@ public class TranslatorFragment extends Fragment {
             binding.titleText.setText(
                     getStyledModeText(translationMode)
             );
+            updateLanguageDirectionChips();
             setTTSLanguage();
         };
 

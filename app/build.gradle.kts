@@ -95,9 +95,13 @@ dependencies {
     annotationProcessor("androidx.room:room-compiler:$roomVersion")
 
     // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-functions")
+    implementation("com.google.firebase:firebase-ai")
+
+    // Concurrency helper for Firebase AI Java ListenableFuture API
+    implementation("com.google.guava:guava:33.2.1-android")
 
     // Firebase App Check
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
@@ -117,7 +121,8 @@ dependencies {
     // JSON
     implementation("org.json:json:20230227")
 
-    // Android Instrumented Testing
+    // Unit & Android Instrumented Testing
+    testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test:core:1.6.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
